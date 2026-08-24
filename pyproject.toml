@@ -1,0 +1,17 @@
+[project]
+name = "cartopy-file"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "haojiren galactic", email = "603600299@qq.com" }
+]
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+cartopy-file = "cartopy_file:main"
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
