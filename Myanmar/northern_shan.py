@@ -14,16 +14,20 @@
 """Topographic map of Shan State's special/armed-group regions.
 
 范围: 95.3~101.5°E, 19.0~24.75°N. 北到果敢/勐古的中缅边界, 南到 19.0°N
-(克耶邦北部, 并把佤邦南部"南佤"完整装进画框), 东到湄公河(老挝边界),
+(克耶邦北部, 并把佤邦南部"佤邦(南)"完整装进画框), 东到湄公河(老挝边界),
 西到曼德勒省/勃固省一带.
 
-为什么南界取 19.0°N: 佤邦由北佤与南佤两部分组成, 南佤最南到 19.67°N;
+为什么南界取 19.0°N: 佤邦由北佤与佤邦(南)两部分组成, 佤邦(南)最南到 19.67°N;
 原来的 21.0°N 南界会把佤邦拦腰截断. 用户要求"南部纬度再下去些",
-取 19.0°N 既能完整显示南佤, 也能带出克耶邦北部和南掸邦军活动区的一部分.
+取 19.0°N 既能完整显示佤邦(南), 也能带出克耶邦北部和南掸邦军活动区的一部分.
 
 投影: 兰勃特等角圆锥投影(Lambert Conformal Conic), 中央经线 98.4°E,
 标准纬线 20.0°N 与 24.0°N. 本区域东西约 6.2°、南北约 5.75°,
 投影后横向约 653 km、纵向约 636 km, 接近正方形, 故画布也接近方形.
+
+果敢:
+    果敢地区西临萨尔温江，北、东两面与中国接壤形成国境线，
+    南面大致以南定河（南汀河）与佤邦为界
 
 原果敢自治区与第一特区的关系:
     2010–2023 年的果敢自治区由老街、拱掌两个镇区组成; 2024 年第一特区
@@ -57,7 +61,6 @@ BORDER_GEOJSON = DATA_DIR / "regions" / "osm_country_borders.geojson"
 # 缓存目录必须在导入 matplotlib/cartopy 之前指定(与 myanmar.py 同理).
 os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
-import cartopy  # 用来把内置 Natural Earth 数据缓存改到工作区内
 import cartopy.crs as ccrs  # 地图投影
 import cartopy.feature as cfeature  # 海岸线/河流等自然要素
 import matplotlib.cm as cm  # 独立色标用的 ScalarMappable
@@ -72,10 +75,12 @@ from shapely.ops import unary_union  # 合并同类边界
 
 import map_lib  # 与本目录共用的 ETOPO/晕渲/边界工具
 
-# cartopy 默认把下载的 shapefile 放到 ~/.local/share/cartopy, 本机该目录不可写;
-# 改到工作区 data/ 下, 既绕开只读限制, 也方便清理/复现.
-cartopy.config["data_dir"] = str(DATA_DIR / "cartopy")
-(DATA_DIR / "cartopy").mkdir(parents=True, exist_ok=True)
+# cartopy 的 Natural Earth 底图缓存统一定位到仓库 data/cartopy(见
+# cartopy_file.data): 本机 HOME 只读, 默认的 ~/.local/share/cartopy 不可写;
+# 统一后各脚本共用同一份底图, 已下载过的要素不会重复下载.
+from cartopy_file.data import configure_cartopy
+
+configure_cartopy()
 
 # 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
 # 英文/数字用 JetBrains Mono Slashed Medium, 逐字符回退; 本脚本不再单独配字体.
@@ -214,7 +219,7 @@ AREA_LABELS = [
     (96.75, 23.78, "掸邦", 13, "#666666"),
     (95.72, 22.45, "曼德勒省", 11, "#666666"),
     (97.18, 19.32, "克耶邦", 11, "#666666"),
-    (99.02, 20.30, "南佤", 13, "#045a8d"),
+    (99.02, 20.30, "佤邦(南)", 13, "#045a8d"),
 ]
 
 # 图标题与输出路径.

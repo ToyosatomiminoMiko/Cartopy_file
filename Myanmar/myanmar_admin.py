@@ -58,6 +58,13 @@ from shapely.geometry import shape  # GeoJSON -> Shapely
 
 import map_lib  # 复用 ETOPO 读取、晕渲、海陆底色工具
 
+# cartopy 的 Natural Earth 底图缓存统一定位到仓库 data/cartopy(见
+# cartopy_file.data): 本机 HOME 只读, 默认的 ~/.local/share/cartopy 不可写;
+# 统一后各脚本共用同一份底图, 已下载过的要素不会重复下载.
+from cartopy_file.data import configure_cartopy
+
+configure_cartopy()
+
 # 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
 # 英文/数字用 JetBrains Mono Slashed Medium; 中英混排由逐字符回退自动选字体,
 # 所以下面的文字调用不再逐个指定 fontfamily.

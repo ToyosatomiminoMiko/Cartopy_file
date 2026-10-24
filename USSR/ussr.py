@@ -10,6 +10,12 @@
 import os  # 读取环境变量,例如 ETOPO_PATH
 from pathlib import Path  # 统一使用 pathlib 处理文件路径
 
+# matplotlib 的缓存目录必须在导入 matplotlib 之前指定; 本机 ~/.config 只读.
+# (见 cartopy_file.data)
+from cartopy_file.data import configure_cartopy, prepare_matplotlib_env
+
+prepare_matplotlib_env()
+
 import cartopy.crs as ccrs  # 地图投影
 import cartopy.feature as cfeature  # 海岸线,国界等自然要素
 import geopandas as gpd  # 读取并处理 shapefile 边界
@@ -18,6 +24,10 @@ import matplotlib.ticker as mticker  # 经纬网刻度定位
 import numpy as np  # 数组运算
 import xarray as xr  # 读取 NetCDF
 from shapely.ops import unary_union  # 合并多个面为单一几何边界
+
+# cartopy 的 Natural Earth 底图缓存统一到仓库 data/cartopy(见 cartopy_file.data);
+# 本机 HOME 只读, 不能再用默认的 ~/.local/share/cartopy, 否则每次换脚本都要重下.
+configure_cartopy()
 
 # 全局字体: 项目包 cartopy_file 统一设置中英文字体(汉字 Noto Sans Mono CJK SC,
 # 英文/数字 JetBrains Mono Slashed Medium), 本脚本不再单独维护 rcParams.

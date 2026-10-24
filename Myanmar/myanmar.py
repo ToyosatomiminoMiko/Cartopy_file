@@ -46,6 +46,13 @@ from shapely.ops import unary_union  # 合并多块几何, 得到缅甸整体轮
 
 import map_lib  # 与本目录共用的 ETOPO/晕渲/边界工具
 
+# cartopy 的 Natural Earth 底图缓存统一定位到仓库 data/cartopy(见
+# cartopy_file.data): 本机 HOME 只读, 默认的 ~/.local/share/cartopy 不可写;
+# 统一后各脚本共用同一份底图, 已下载过的要素不会重复下载.
+from cartopy_file.data import configure_cartopy
+
+configure_cartopy()
+
 # 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
 # 英文/数字用 JetBrains Mono Slashed Medium, 逐字符回退; 本脚本不再单独配字体.
 from cartopy_file.fonts import apply_matplotlib_fonts
