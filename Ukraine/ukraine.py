@@ -19,10 +19,17 @@
        标准纬线 45°N/52°N. 乌克兰东西约 18°、南北约 8°, 中纬度国家用圆锥
        投影比等经纬度投影更不容易把西部/东部横向拉变形; 标准纬线夹住国土
        南北缘, 全国比例误差最小.
-    2. 底图: ETOPO 2022 地形 + 山体晕渲, 与项目里缅甸、苏联图一致. 地形
-       信息用来提供地理参照, 不参与表达政治边界, 所以边界线都用高对比度
-       颜色 + 白色描边压在晕渲上面.
-    3. 边界口径(按用户确认):
+    2. 底图: ETOPO 2022 高程, 海陆分开的两段色带 + 只压暗的晕渲. 为什么不能
+       直接用现成的 "terrain" 色带: 一是 ±2500 m 线性归一化后, 0~300 m 的平原
+       只占色带 6%, 全国低地几乎同一个颜色, 地形看不出来; 二是亚速海最深仅
+       约 14 m, 在 "terrain" 上归一化值 0.497, 与 0 m 陆地的 0.500 几乎同色,
+       海陆分不出来. 所以色带在 0 m 处从浅蓝(水)直接跳到浅绿(陆), 再把陆地
+       颜色的锚点集中到 0~500 m 的低海拔段; 晕渲改成只压暗的乘法因子
+       (见 relief.make_relief 的 shade_strength).
+    3. 文字避让: 第聂伯河干流(尤其梯级水库水面)不能被标注压住, 否则水面宽度
+       变化就被文字遮掉了. 河名放在克列缅丘格水库东北岸的陆地上, 顺着河道
+       方向旋转; 附近的城市/州标注都留出水面, 具体偏移见 CITIES 与 add_labels.
+    4. 边界口径(按用户确认):
        - 1991 年边界 = 苏联解体时乌克兰的国际承认边界, 含克里米亚与
          塞瓦斯托波尔(法理口径, 来自 GADM 4.1);
        - 2014 年 = 克里米亚并入俄罗斯后的陆上实际控制线(彼列科普地峡
@@ -31,9 +38,9 @@
        - 2022 年 = 俄方 2022-09-30 单方面宣称的赫尔松州、扎波罗热州、
          顿涅茨克人民共和国、卢甘斯克人民共和国"全境"边界; 只画法理州界,
          不把四州整体填色, 避免被误读为俄方实际控制.
-    4. 分离"实际控制"与"单方面宣称": 2014 年控制区用浅蓝色填充 + 蓝色
+    5. 分离"实际控制"与"单方面宣称": 2014 年控制区用浅蓝色填充 + 蓝色
        实线, 2022 年宣称边界用紫色点划线; 两者不混用同一种线型.
-    5. 第聂伯河的宽度必须沿程变化: 干流在乌克兰境内是一串梯级水库, 上游
+    6. 第聂伯河的宽度必须沿程变化: 干流在乌克兰境内是一串梯级水库, 上游
        河道只有 200~500 m 宽, 水库水面却有几公里到十几公里宽. 如果像普通
        河流那样画一条等宽细线, 在图上会明显失真(实际水面宽度差一个数量级).
        因此干流用 OSM 中心线(顶点数约为 Natural Earth 的 4 倍)画细线, 五个
@@ -69,6 +76,7 @@ os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
 import cartopy.crs as ccrs  # 地图投影
 import matplotlib.cm as cm  # 色标用的 ScalarMappable
+import matplotlib.colors as mcolors  # 自定义高程/水深色带
 import matplotlib.patheffects as pe  # 文字描边
 import matplotlib.pyplot as plt  # 绘图
 import matplotlib.ticker as mticker  # 经纬网刻度
@@ -107,14 +115,64 @@ PROJECTION = ccrs.LambertConformal(
 # 地形参数: 乌克兰最高点是喀尔巴阡山的霍韦尔拉山(2061 m), 黑海最深约
 # 2200 m, 所以 ±2500 m 足够; 两端都落在色带内部, 不需要 extend 三角形.
 ELEV_VMIN, ELEV_VMAX = -2500, 2500
-ELEV_CMAP = "terrain"
 HILLSHADE_AZIMUTH = 315  # 西北来光, 制图惯例
 HILLSHADE_ALTITUDE = 45
-HILLSHADE_VERT_EXAG = 1.4  # 全国尺度上地形起伏弱, 略作夸张
+HILLSHADE_VERT_EXAG = 2.5  # 平原起伏只有几十米, 不夸张就看不出来
+# 只压暗的晕渲强度(见 relief.make_relief): 1.5 在 30″ ETOPO 上能显出水系/丘陵,
+# 又不至于把平原压成灰底; 与 HILLSHADE_VERT_EXAG 一起决定地形可见度.
+RELIEF_SHADE_STRENGTH = 1.5
 
-# 海陆底色(只在 ETOPO 子集边缘露出来时可见).
-BASE_OCEAN_COLOR = "#cfe0ee"
-BASE_LAND_COLOR = "#efe9cf"
+
+def make_relief_cmap(vmin: float, vmax: float) -> mcolors.LinearSegmentedColormap:
+    """高程/水深双色带: 深蓝(深水) -> 浅蓝(0 m 水面) | 浅绿(0 m 陆地) -> 黄 -> 棕 -> 雪白.
+
+    为什么要在 0 m 处断开:
+        "terrain" 这类单段色带把 ±2500 m 线性铺开, 海平面正好在色带中点,
+        0~300 m 的陆地只占 6% 的色带宽度; 而亚速海最深才 ~14 m, 归一化值
+        0.497 与 0 m 陆地的 0.500 几乎重合 —— 图上浅海和陆地就是一个颜色.
+        这里让水色在 0 m 处直接跳到陆色, 浅海也一眼是"水"; 陆地色带再把
+        锚点密集放在 0~500 m, 平原上的高程差异才拉得开.
+
+    返回的色带配合 Normalize(vmin, vmax) 使用(色标横轴保持线性, 只是中点
+    处色带不连续); N=2048 是为了让 0 m 处的水/陆跳变只占一个色阶宽度,
+    海岸线不会被渐变糊掉. 颜色按 (高程 m, 十六进制) 给出, 便于按数据调整.
+    """
+    sea = [
+        (-2500, "#07203c"),
+        (-2000, "#0f3c66"),
+        (-1250, "#1b628f"),
+        (-700, "#2f82b5"),
+        (-300, "#5aa2cd"),
+        (-100, "#82c0e2"),
+        (-20, "#a6d3ec"),
+        (-1, "#b5dcf2"),
+    ]
+    land = [
+        (1, "#d2e5b2"),
+        (75, "#dde3a4"),
+        (175, "#e8dd92"),
+        (300, "#dbc786"),
+        (500, "#c8aa72"),
+        (800, "#ad8a5f"),
+        (1100, "#937147"),
+        (1500, "#7d613e"),
+        (2000, "#84725c"),
+        (2300, "#c6bfb4"),
+        (2500, "#f6f5f1"),
+    ]
+
+    def u(elev: float) -> float:
+        return (elev - vmin) / (vmax - vmin)
+
+    anchors = [(u(e), color) for e, color in sea] + [(u(e), color) for e, color in land]
+    return mcolors.LinearSegmentedColormap.from_list("ukraine_relief", anchors, N=2048)
+
+
+ELEV_CMAP = make_relief_cmap(ELEV_VMIN, ELEV_VMAX)
+
+# 海陆底色(只在 ETOPO 子集边缘露出来时可见, 与 ELEV_CMAP 两端的颜色一致).
+BASE_OCEAN_COLOR = "#b5dcf2"
+BASE_LAND_COLOR = "#d2e5b2"
 
 # 图面配色: 每种边界一个固定颜色, 图例与标注共用同一套常量, 避免读图歧义.
 COLOR_1991 = "#111111"       # 1991 国际承认边界: 近黑
@@ -144,8 +202,10 @@ SEA_LABELS = [
     (36.7, 46.35, "亚速海"),
 ]
 # 城市标注: (经度, 纬度, 名称, 是否首都, 经度偏移, 纬度偏移, 对齐方式).
-# 偏移都在 0.1~0.2°(约 10~20 km)量级, 只用于让文字离开边界线与其它标注,
-# 不会把标签拖到别的国家去.
+# 偏移都在 0.1~0.3°(约 10~25 km)量级, 只用于让文字离开边界线与其它标注.
+# 赫尔松城正好卡在第聂伯河(东)、第聂伯-布格河口(西南)与米科拉伊夫州界
+# (西北)之间, 横向 0.6° 宽的标签放不下: 往东压河, 往西压河口; 所以放在城点
+# 西北的陆地上并右对齐, 只跨过州界, 不压任何水面.
 CITIES = [
     (30.523, 50.450, "基辅", True, 0.20, 0.12, "left"),
     (36.230, 49.993, "哈尔科夫", False, 0.16, 0.12, "left"),
@@ -154,7 +214,7 @@ CITIES = [
     (37.802, 48.015, "顿涅茨克", False, -0.16, -0.18, "right"),
     (39.307, 48.574, "卢甘斯克", False, -0.16, 0.16, "right"),
     (35.139, 47.838, "扎波罗热", False, 0.16, 0.14, "left"),
-    (32.617, 46.640, "赫尔松", False, 0.16, 0.12, "left"),
+    (32.617, 46.640, "赫尔松", False, 0.03, 0.22, "right"),
     (37.556, 47.096, "马里乌波尔", False, -0.16, -0.06, "right"),
     (34.102, 44.952, "辛菲罗波尔", False, 0.16, 0.12, "left"),
     (33.522, 44.606, "塞瓦斯托波尔", False, -0.16, 0.10, "right"),
@@ -480,14 +540,16 @@ def add_labels(ax: plt.Axes, oblasts: gpd.GeoDataFrame) -> None:
         ha="center", va="center", linespacing=1.35, path_effects=HALO, zorder=9.5,
     )
     # --- 2022 年俄方宣称的两个州(顿/卢两州已由上面的"人民共和国"标注覆盖) ---
+    # 位置都放在远离第聂伯河/水库水面的州内陆地: 扎波罗热州在中东部草原,
+    # 赫尔松州在锡瓦什以北的左岸草原, 避免文字压住河宽变化的重点区域.
     ax.text(
-        33.60, 46.72, "赫尔松州\n（俄宣称全境）",
+        34.11, 46.52, "赫尔松州\n（俄宣称全境）",
         transform=ccrs.PlateCarree(),
         fontsize=9.4, color=COLOR_2022,
         ha="center", va="center", linespacing=1.35, path_effects=HALO, zorder=9.5,
     )
     ax.text(
-        34.95, 47.30, "扎波罗热州\n（俄宣称全境）",
+        35.65, 47.08, "扎波罗热州\n（俄宣称全境）",
         transform=ccrs.PlateCarree(),
         fontsize=9.4, color=COLOR_2022,
         ha="center", va="center", linespacing=1.35, path_effects=HALO, zorder=9.5,
@@ -523,10 +585,11 @@ def add_labels(ax: plt.Axes, oblasts: gpd.GeoDataFrame) -> None:
 
 
 def add_dnieper_label(ax: plt.Axes) -> None:
-    """在克列缅丘格水库水面上沿河道方向标"第聂伯河".
+    """在克列缅丘格水库东北岸的陆地上, 沿河道方向标"第聂伯河".
 
-    为什么放在水库上: 乌克兰段干流几乎全是梯级水库, 只有水库水面才有足够
-    干净的背景放字, 不会压住州界、城市点和 2022 宣称边界.
+    为什么不在水面上: 这张图要表达"河宽沿程变化", 河名压在梯级水库水面上会
+    直接用白色描边遮掉一段水面, 正好挡住要看的宽度变化. 所以把字放在水库
+    东北岸的陆地上, 与水面留出几像素间隙, 文字旋转方向仍与河道一致.
     旋转角为什么用投影坐标算: 文字 rotation 是屏幕角, 兰勃特投影下经线是斜的,
     直接拿经纬度差算 atan2 会偏; 所以在投影平面里取两点求方向.
     """
@@ -536,7 +599,7 @@ def add_dnieper_label(ax: plt.Axes) -> None:
     p2 = PROJECTION.transform_point(lon2, lat2, ccrs.PlateCarree())
     angle = np.degrees(np.arctan2(p2[1] - p1[1], p2[0] - p1[0]))
     ax.text(
-        (lon1 + lon2) / 2, (lat1 + lat2) / 2, "第聂伯河",
+        33.30, 49.60, "第聂伯河",
         transform=ccrs.PlateCarree(),
         fontsize=10.5, color=COLOR_RIVER_MAIN, style="italic", rotation=angle,
         rotation_mode="anchor", ha="center", va="center",
@@ -714,7 +777,7 @@ def main() -> None:
         z, lat, lon,
         vmin=ELEV_VMIN, vmax=ELEV_VMAX, cmap=ELEV_CMAP,
         azimuth=HILLSHADE_AZIMUTH, altitude=HILLSHADE_ALTITUDE,
-        vert_exag=HILLSHADE_VERT_EXAG,
+        vert_exag=HILLSHADE_VERT_EXAG, shade_strength=RELIEF_SHADE_STRENGTH,
     )
     ax.imshow(
         relief, origin="lower",

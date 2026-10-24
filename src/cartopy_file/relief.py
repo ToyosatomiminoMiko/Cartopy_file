@@ -110,11 +110,13 @@ def make_relief(
     *,
     vmin: float,
     vmax: float,
-    cmap: str = "terrain",
+    cmap: str | mcolors.Colormap = "terrain",
     azimuth: float = 315,
     altitude: float = 45,
     vert_exag: float = 1.5,
     fraction: float = 1.2,
+    shade_strength: float | None = None,
+    shade_floor: float = 0.55,
 ):
     """把高程配色与山体晕渲合成 RGB 图.
 
@@ -122,6 +124,20 @@ def make_relief(
     看不出山脊和河谷走向; 用坡度算出的明暗乘到配色上, 地形细节立刻显现.
     dx/dy 必须和 z 使用同一单位(米): LightSource 用高程差除以网格间距算坡度,
     单位不一致时坡度(以及阴影浓淡)会错.
+
+    shade_strength:
+        缺省 None 时用 LightSource 的 blend_mode="soft"(保留高程配色 + 叠阴影),
+        适合起伏大的区域. 但软光混合在浅色底图上对比度很低: 平原国家(如乌克兰
+        大部分国土 0~300 m, 30″ ETOPO 上起伏只有几十米)几乎看不出地形.
+        给定数值时改用"只压暗"的乘法晕渲:
+
+            factor = 1 + shade_strength * (hillshade - sin(altitude))
+
+        平地(坡度 0)的 hillshade = sin(altitude), 因子为 1; 背光坡压暗, 向阳坡
+        不增亮(上限 1). 这样浅色底图不会被叠成白色, 而河谷/丘陵的阴影能显出来.
+        shade_floor 是压暗的下限(最深阴影保留多少亮度), 防止陡坡变成黑块.
+        水面(z < 0)不做晕渲: 海底地形不是这类图要表达的信息, 加了阴影反而把海
+        压暗到与陆地同色.
     """
     cmap_obj = plt.get_cmap(cmap)
     norm = mcolors.Normalize(vmin, vmax)
@@ -132,17 +148,26 @@ def make_relief(
     dx = 111320.0 * np.cos(np.deg2rad(np.mean(lat))) * dlon  # 经度随纬度收缩
 
     light = mcolors.LightSource(azdeg=azimuth, altdeg=altitude)
-    # blend_mode="soft": 保留高程配色, 叠加阴影; 换成 "overlay" 会把低地压得过亮.
-    rgba = light.shade(
-        z,
-        cmap=cmap_obj,
-        norm=norm,
-        blend_mode="soft",
-        vert_exag=vert_exag,
-        dx=dx,
-        dy=dy,
-        fraction=fraction,
-    )
+    if shade_strength is None:
+        # blend_mode="soft": 保留高程配色, 叠加阴影; 换成 "overlay" 会把低地压得过亮.
+        rgba = light.shade(
+            z,
+            cmap=cmap_obj,
+            norm=norm,
+            blend_mode="soft",
+            vert_exag=vert_exag,
+            dx=dx,
+            dy=dy,
+            fraction=fraction,
+        )
+    else:
+        shade = light.hillshade(z, vert_exag=vert_exag, dx=dx, dy=dy, fraction=fraction)
+        flat = np.sin(np.deg2rad(altitude))  # 平地(坡度 0)的 hillshade 值
+        factor = np.clip(1.0 + shade_strength * (shade - flat), shade_floor, 1.0)
+        factor = np.where(z >= 0, factor, 1.0)  # 水面保持纯色
+        base = cmap_obj(norm(z))
+        rgb = np.clip(base[..., :3] * factor[..., None], 0.0, 1.0)
+        rgba = np.dstack([rgb, np.ones_like(rgb[..., :1])])
     return rgba, norm, cmap_obj
 
 
