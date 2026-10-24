@@ -2,28 +2,43 @@
 # -*- coding: utf-8 -*-
 # ============================================================
 # northern_shan.py
-# 以掸邦北部为中心, 绘制缅甸联邦第一特区(MNDAA 实控区)、佤邦、
-# 掸邦东部第四特区及其周边直到曼德勒的地形图.
-# 地形: NOAA ETOPO 2022 15 弧秒子集; 行政/控制区边界: OpenStreetMap.
+# 以掸邦为中心, 绘制缅甸联邦第一特区(MNDAA 实控区)、德昂邦(TNLA)、
+# 佤邦(UWSA)、掸邦东部第四特区(NDAA)及周边直到曼德勒/克耶邦的地形图,
+# 并在第一特区内标出其前身"原果敢自治区"的范围.
+# 地形: NOAA ETOPO 2022 15 弧秒子集; 区域/国界: OpenStreetMap.
 # 运行前先执行:
 #   python download_etopo.py --region northern_shan --stride 1
 #   python download_regions.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 # ============================================================
-"""Topographic map of northern Shan State's special/armed-group regions.
+"""Topographic map of Shan State's special/armed-group regions.
 
-范围: 95.3~101.5°E, 21.0~24.75°N. 北到果敢/勐古的中缅边界, 南到曼德勒,
-东到湄公河(老挝边界), 西到曼德勒省/掸邦西界.
+范围: 95.3~101.5°E, 19.0~24.75°N. 北到果敢/勐古的中缅边界, 南到 19.0°N
+(克耶邦北部, 并把佤邦南部"南佤"完整装进画框), 东到湄公河(老挝边界),
+西到曼德勒省/勃固省一带.
 
-为什么选这个范围: 用户要求"以掸邦北部为中心", 并同时包含第一特区、
-佤邦、第四特区, 最南到曼德勒. 四个区域里第四特区(南板县)最南到 21.0°N,
-比曼德勒还低约 1°, 所以画框南界取 21.0°N 才能完整装下第四特区;
-曼德勒位于画框西南部, 作为南端的定位城市.
+为什么南界取 19.0°N: 佤邦由北佤与南佤两部分组成, 南佤最南到 19.67°N;
+原来的 21.0°N 南界会把佤邦拦腰截断. 用户要求"南部纬度再下去些",
+取 19.0°N 既能完整显示南佤, 也能带出克耶邦北部和南掸邦军活动区的一部分.
 
 投影: 兰勃特等角圆锥投影(Lambert Conformal Conic), 中央经线 98.4°E,
-标准纬线 21.5°N 与 24.5°N. 本区域东西约 6.2°、南北约 3.75°, 圆锥投影
-在两条标准纬线之间比例误差极小, 且经线收敛方向与掸邦南北走向一致,
-比等经纬度投影(高纬横向拉伸)更接近真实形状.
+标准纬线 20.0°N 与 24.0°N. 本区域东西约 6.2°、南北约 5.75°,
+投影后横向约 653 km、纵向约 636 km, 接近正方形, 故画布也接近方形.
+
+原果敢自治区与第一特区的关系:
+    2010–2023 年的果敢自治区由老街、拱掌两个镇区组成; 2024 年第一特区
+    扩编为 1 市 4 县后, 这两个镇区对应老街市与果敢县. 把二者合并即为原
+    自治区范围(约 2000 km²), 它是第一特区辖区的一个真子集. 图上只用
+    同一紫色系加深填充表示"含于第一特区", 不描内边界: 果敢境内有南定河
+    (萨尔温江支流)纵贯, 2.4 pt 的内边界会把河压住; 也不再加第二层底纹,
+    因为第一特区上已有 MNDAA 的"///"斜线, 两种纹理叠加会看不清.
+
+国界的处理(本文件的关键点):
+    Natural Earth 10m 国界在画框内只有几百个顶点(同范围 OSM 国界约两
+    万个), 与 OSM 区域边界沿国界那一段平均偏差约 1.5 km、最大约 5 km,
+    直接叠加会画成两条线. 因此国界改用 OSM admin_level=2 关系(与区域边界同源, 共享
+    节点), 并把落在国界上的那一段从区域边界描边里裁掉, 让重合段只按
+    国界样式出现一次.
 """
 
 from __future__ import annotations
@@ -37,13 +52,14 @@ ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 BOUNDARY_DIR = DATA_DIR / "ne_10m_admin_0_countries"
 REGION_GEOJSON = DATA_DIR / "regions" / "shan_north_boundaries.geojson"
+BORDER_GEOJSON = DATA_DIR / "regions" / "osm_country_borders.geojson"
 
 # 缓存目录必须在导入 matplotlib/cartopy 之前指定(与 myanmar.py 同理).
 os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
 import cartopy  # 用来把内置 Natural Earth 数据缓存改到工作区内
 import cartopy.crs as ccrs  # 地图投影
-import cartopy.feature as cfeature  # 海岸线/国界/河流等自然要素
+import cartopy.feature as cfeature  # 海岸线/河流等自然要素
 import matplotlib.cm as cm  # 独立色标用的 ScalarMappable
 import matplotlib.patheffects as pe  # 文字描边
 import matplotlib.pyplot as plt  # 绘图
@@ -74,13 +90,13 @@ plt.rcParams["hatch.linewidth"] = 0.45
 # 配置
 # ============================
 # 画框: [min_lon, max_lon, min_lat, max_lat]; 取值理由见文件顶部说明.
-EXTENT = [95.3, 101.5, 21.0, 24.75]
+EXTENT = [95.3, 101.5, 19.0, 24.75]
 
-# 投影参数: 中央经线取掸邦北部中部, 标准纬线夹住画框南北界.
+# 投影参数: 中央经线取掸邦中部, 标准纬线夹住画框南北界.
 PROJECTION = ccrs.LambertConformal(
     central_longitude=98.4,
-    central_latitude=23.0,
-    standard_parallels=(21.5, 24.5),
+    central_latitude=22.0,
+    standard_parallels=(20.0, 24.0),
 )
 
 # 数据未覆盖区域的底色(本图 ETOPO 已覆盖全部画框, 仅作兜底).
@@ -97,6 +113,8 @@ HILLSHADE_ALTITUDE = 45
 HILLSHADE_VERT_EXAG = 1.6  # 15 弧秒数据在 1:100 万级地图上起伏仍偏弱, 略作夸张
 
 # 区域配色: 填充色 + 边界色. 透明度让下方地形仍可读.
+# 德昂邦用绿色: 第一特区(紫)、佤邦(蓝)、四特(橙)已占三色, 绿色是
+# 与三者色相距离最大、且不与环境色(山体晕渲)冲突的选择.
 REGION_STYLES = {
     "sr1": {
         "fill": "#8c6bb1",
@@ -104,6 +122,13 @@ REGION_STYLES = {
         "alpha": 0.24,
         "linewidth": 2.2,
         "label": "缅甸联邦第一特区",
+    },
+    "taang": {
+        "fill": "#2ca25f",
+        "edge": "#005a32",
+        "alpha": 0.26,
+        "linewidth": 1.9,
+        "label": "德昂邦",
     },
     "wa": {
         "fill": "#2b8cbe",
@@ -126,6 +151,19 @@ INTERNAL_EDGE_COLOR = "#ffffff"
 MNDAA_HATCH = "///"
 MNDAA_HATCH_COLOR = "#4a1486"
 
+# 国界: 用 OSM admin_level=2 数据(精度与区域边界一致), 深红粗实线.
+BORDER_COLOR = "#8b0000"
+BORDER_WIDTH = 2.0
+# 区域边界描边在国界两侧各裁掉这么宽(度)的走廊, 让重合段只由国界线表示.
+# 0.001° 约 110 m, 远小于 300 dpi 下 2 pt 线宽对应的大约 1.4 km, 肉眼不可见.
+BORDER_ZONE_DEG = 0.001
+
+# 原果敢自治区(第一特区前身): 与第一特区同色系、明显加深的填充, 用嵌套色块
+# 表示"含于第一特区辖区". 只填色、不描内边界, 以免粗线压住区内的河流;
+# 不加第二种底纹的原因见文件顶部说明.
+KOKANG_SAZ_FILL = "#54278f"
+KOKANG_SAZ_ALPHA = 0.32
+
 # 城市标注: (经度, 纬度, 名称, 类型, 文字偏移经度, 文字偏移纬度).
 # 类型: capital=特区首府(星形), major=区域中心城市(大方点), town=普通城镇(小圆点).
 CITIES = [
@@ -133,6 +171,9 @@ CITIES = [
     (99.167, 22.179, "邦康", "capital", 0.05, -0.10),
     (100.022, 21.676, "勐拉", "capital", 0.06, -0.06),
     (96.095, 21.960, "曼德勒", "major", 0.06, 0.0),
+    (97.036, 20.784, "东枝", "major", 0.06, 0.0),
+    (99.882, 20.447, "大其力", "major", 0.06, 0.0),
+    (97.209, 19.674, "垒固", "major", 0.06, 0.0),
     (97.745, 22.942, "腊戍", "major", 0.05, -0.10),
     (97.901, 23.998, "木姐", "town", 0.04, 0.05),
     (97.683, 23.835, "南坎", "town", -0.04, -0.12),
@@ -148,26 +189,38 @@ CITIES = [
     (99.805, 21.851, "色勒", "town", 0.0, 0.10),
     (99.600, 21.290, "景栋", "town", 0.04, -0.10),
     (98.395, 22.494, "当阳", "town", 0.04, -0.10),
+    (97.562, 20.925, "莱林", "town", 0.04, -0.10),
 ]
 
 # 大区域/邻国标注: (经度, 纬度, 文字, 字号, 颜色).
 REGION_LABELS = [
     (98.30, 23.72, "缅甸联邦第一特区", 13.5, "#4a1486"),
     (98.25, 23.08, "MNDAA 实控区\n(大致范围)", 9.5, "#4a1486"),
+    (97.00, 23.34, "德昂邦", 14, "#005a32"),
+    (97.00, 23.12, "(TNLA 控制)", 9.5, "#005a32"),
+    (98.60, 24.00, "原果敢自治区", 9, "#3f007d"),
     (98.99, 22.60, "佤邦", 16, "#045a8d"),
     (99.79, 21.73, "掸邦东部\n第四特区", 10.0, "#a63603"),
 ]
+# 邻国标注必须落在该国境内. 本画框里老挝的可见部分, 是中老国界以南、
+# 湄公河(缅老国界)以东的那一块(约 19.4~21.2°N, 100.6~101.5°E).
+# 旧值 101.33/21.55 放错: 该经度上中老国界只到 21.19°N(OSM), 国界以南才是老挝,
+# 于是"老挝"两字落进了云南勐腊境内. 现取 101.25/20.45: 距最近国界约 80 km,
+# 距画框东界 0.25°(约 26 km), 2 字居中也完整落在框内.
 AREA_LABELS = [
     (99.05, 24.62, "中国 云南省", 13, "#444444"),
-    (101.33, 21.55, "老挝", 12, "#444444"),
+    (101.25, 20.45, "老挝", 12, "#444444"),
+    (100.60, 19.35, "泰国", 12, "#444444"),
     (96.75, 23.78, "掸邦", 13, "#666666"),
     (95.72, 22.45, "曼德勒省", 11, "#666666"),
+    (97.18, 19.32, "克耶邦", 11, "#666666"),
+    (99.02, 20.30, "南佤", 13, "#045a8d"),
 ]
 
 # 图标题与输出路径.
 TITLE = (
-    "缅甸掸邦北部特区与地方武装控制区地形图（2026年10月）\n"
-    "NOAA ETOPO 2022 | 边界: OpenStreetMap / Natural Earth | "
+    "缅甸掸邦特区与地方武装控制区地形图（2026年10月）\n"
+    "NOAA ETOPO 2022 | 边界: OpenStreetMap | 底图: Natural Earth 10m | "
     "兰勃特等角圆锥投影(中央经线 98.4°E)"
 )
 OUT_PNG = ROOT / "northern_shan_topography_etopo2022_lambert_conformal.png"
@@ -195,9 +248,16 @@ def load_regions(path: Path) -> dict[str, list]:
     return grouped
 
 
-# ============================
-# 绘图
-# ============================
+def load_borders(path: Path):
+    """读取 download_regions.py 缓存的国界折线, 合并成一个 MultiLineString."""
+    if not path.exists():
+        raise FileNotFoundError(
+            f"未找到国界数据: {path}\n请先运行: python download_regions.py"
+        )
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return unary_union([shape(feature["geometry"]) for feature in data["features"]])
+
+
 def add_relief(ax: plt.Axes, etopo_path: Path):
     """读取高程并叠加晕渲地形, 返回色标用的 (norm, cmap)."""
     lon, lat, z = map_lib.load_elevation(etopo_path)
@@ -225,27 +285,19 @@ def add_relief(ax: plt.Axes, etopo_path: Path):
     return norm, cmap
 
 
-def add_context(ax: plt.Axes, world) -> None:
-    """绘制国界、省/邦界、河流与湖泊, 作为区域色块下方的地理参照."""
-    # 国界用深红色实线突出; 注意用 edgecolor 而非 color(facecolor 被预设为 never).
-    if world is not None:
-        myanmar = world[world["NAME"].isin(("Myanmar", "Burma"))] if "NAME" in world else None
-        if myanmar is not None and not myanmar.empty:
-            ax.add_geometries(
-                [unary_union(myanmar.geometry)],
-                crs=ccrs.PlateCarree(),
-                facecolor="none",
-                edgecolor="#8b0000",
-                linewidth=2.0,
-                zorder=6,
-            )
+def add_context(ax: plt.Axes, border_line) -> None:
+    """绘制国界、河流与湖泊, 作为区域色块下方的地理参照.
 
-    ax.add_feature(
-        cfeature.BORDERS.with_scale("10m"),
-        edgecolor="#555555",
-        linewidth=0.6,
-        linestyle="--",
-        zorder=5,
+    国界用 OSM admin_level=2 折线, 与区域边界同源: 区域边界沿国界的那一段
+    与这里的国界线完全重合(坐标级), 所以不会出现 Natural Earth 那种偏移.
+    """
+    ax.add_geometries(
+        [border_line],
+        crs=ccrs.PlateCarree(),
+        facecolor="none",
+        edgecolor=BORDER_COLOR,
+        linewidth=BORDER_WIDTH,
+        zorder=6.2,
     )
     # 河流/湖泊放在区域填充之上, 避免半透明色块把水系盖住.
     ax.add_feature(
@@ -263,12 +315,15 @@ def add_context(ax: plt.Axes, world) -> None:
     )
 
 
-def add_admin_context(ax: plt.Axes, regions: dict[str, list]) -> None:
-    """绘制掸邦与曼德勒省边界, 让读者知道色块在掸邦内部的位置."""
-    context = regions.get("context", [])
-    for props, geom in context:
+def add_admin_context(ax: plt.Axes, regions: dict[str, list], border_zone) -> None:
+    """绘制掸邦/曼德勒省/克耶邦边界, 让读者知道色块在行政区的哪个位置.
+
+    这些省/邦界沿国界的那一段也要裁掉, 否则灰色虚线会叠在深红国界线上.
+    """
+    for _, geom in regions.get("context", []):
+        edge = geom.boundary.difference(border_zone)
         ax.add_geometries(
-            [geom],
+            [edge],
             crs=ccrs.PlateCarree(),
             facecolor="none",
             edgecolor="#7f7f7f",
@@ -278,10 +333,16 @@ def add_admin_context(ax: plt.Axes, regions: dict[str, list]) -> None:
         )
 
 
-def add_special_regions(ax: plt.Axes, regions: dict[str, list]) -> None:
-    """按图层绘制四个区域的填充、外边界与内部县界."""
-    # 先画三个区域的填充与边界(第一特区最后画, 压在佤邦/四特之上).
-    draw_order = ["wa", "sr4", "sr1"]
+def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> None:
+    """按图层绘制各区域的填充、外边界与内部县界.
+
+    另画出第一特区内的原果敢自治区(嵌套深紫填充), 表示包含关系.
+
+    外边界先减去 border_zone(国界走廊)再画: 与国界重合的段由 add_context
+    里的国界线负责, 这样区域边界不会在国界上再压一条区域颜色的线.
+    """
+    # 四个区域里第一特区最后画, 压在佤邦/四特/德昂邦之上.
+    draw_order = ["wa", "sr4", "taang", "sr1"]
     for layer in draw_order:
         style = REGION_STYLES[layer]
         geom = unary_union([g for _, g in regions[layer]])
@@ -289,18 +350,32 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list]) -> None:
             [geom],
             crs=ccrs.PlateCarree(),
             facecolor=style["fill"],
-            edgecolor=style["edge"],
+            edgecolor="none",
             alpha=style["alpha"],
             linewidth=0,
             zorder=2.5,
         )
         ax.add_geometries(
-            [geom],
+            [geom.boundary.difference(border_zone)],
             crs=ccrs.PlateCarree(),
             facecolor="none",
             edgecolor=style["edge"],
             linewidth=style["linewidth"],
             zorder=6.5,
+        )
+
+    # 原果敢自治区: 第一特区的前身, 范围含于第一特区. 只铺一层深紫填充
+    # (压在第一特区浅紫填充之上、MNDAA 斜线之下); 不描内边界, 避免粗线
+    # 把果敢境内的河流盖住.
+    for _, geom in regions.get("kokang_saz", []):
+        ax.add_geometries(
+            [geom],
+            crs=ccrs.PlateCarree(),
+            facecolor=KOKANG_SAZ_FILL,
+            edgecolor="none",
+            alpha=KOKANG_SAZ_ALPHA,
+            linewidth=0,
+            zorder=2.7,
         )
 
     # MNDAA 实控区: 与第一特区辖区大体重合, 用斜线叠加表示"实际控制".
@@ -319,10 +394,11 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list]) -> None:
     )
 
     # 内部县/特区界: 第一特区 1 市 4 县、佤邦 5 县 1 特区、四特 3 县.
+    # 同样裁掉国界走廊, 避免白色虚线与深红国界线重叠.
     for layer in ("sr1_county", "wa_district", "sr4_county"):
         for _, geom in regions.get(layer, []):
             ax.add_geometries(
-                [geom],
+                [geom.boundary.difference(border_zone)],
                 crs=ccrs.PlateCarree(),
                 facecolor="none",
                 edgecolor=INTERNAL_EDGE_COLOR,
@@ -433,11 +509,25 @@ def add_legend(ax: plt.Axes) -> None:
             label="缅甸联邦第一特区(辖区)",
         ),
         Patch(
+            facecolor=KOKANG_SAZ_FILL,
+            edgecolor="none",
+            alpha=0.8,
+            linewidth=0,
+            label="原果敢自治区(2010–2023)",
+        ),
+        Patch(
             facecolor="none",
             edgecolor=MNDAA_HATCH_COLOR,
             hatch=MNDAA_HATCH,
             linewidth=0,
             label="MNDAA 实控区(大致)",
+        ),
+        Patch(
+            facecolor=REGION_STYLES["taang"]["fill"],
+            edgecolor=REGION_STYLES["taang"]["edge"],
+            alpha=0.6,
+            linewidth=1.5,
+            label="德昂邦(TNLA 控制)",
         ),
         Patch(
             facecolor=REGION_STYLES["wa"]["fill"],
@@ -453,7 +543,7 @@ def add_legend(ax: plt.Axes) -> None:
             linewidth=1.5,
             label="掸邦东部第四特区",
         ),
-        Line2D([0], [0], color="#8b0000", linewidth=2.0, label="国界"),
+        Line2D([0], [0], color=BORDER_COLOR, linewidth=BORDER_WIDTH, label="国界"),
         Line2D([0], [0], color="#7f7f7f", linewidth=1.0, linestyle="--", label="省/邦界"),
         Line2D([0], [0], color="#1f78b4", linewidth=0.9, label="河流"),
         Line2D(
@@ -497,14 +587,18 @@ def main() -> None:
             "请先运行: python download_etopo.py --region northern_shan --stride 1"
         )
     regions = load_regions(REGION_GEOJSON)
+    border_line = load_borders(BORDER_GEOJSON)
+    # 国界走廊: 用来把区域/省界描边里与国界重合的段裁掉.
+    border_zone = border_line.buffer(BORDER_ZONE_DEG, cap_style="flat", join_style="mitre")
 
-    # 画布 16x10.6, 地图轴区域比例与投影后画框比例(约 1.55)一致,
-    # 避免 GeoAxes 为保持等比例而留下过大空白.
-    fig = plt.figure(figsize=(16, 10.6), facecolor="white")
-    ax = fig.add_axes([0.05, 0.075, 0.80, 0.785], projection=PROJECTION)
+    # 画布 16x15: 投影后画框约 653x636 km(宽高比 1.026), 轴区域与之匹配,
+    # 避免 GeoAxes 为保持等比例而留下过大空白. 高度比旧图大, 因为南界下探了 2°.
+    fig = plt.figure(figsize=(16, 15), facecolor="white")
+    ax = fig.add_axes([0.045, 0.062, 0.80, 0.831], projection=PROJECTION)
     ax.set_anchor("C")
     ax.set_extent(EXTENT, crs=ccrs.PlateCarree())
 
+    # Natural Earth 数据只用来铺海陆底色; 国界改由 OSM 数据绘制.
     world = map_lib.load_countries(BOUNDARY_DIR)
     map_lib.add_base_map(
         ax,
@@ -513,12 +607,12 @@ def main() -> None:
         land_color=BASE_LAND_COLOR,
     )
     norm, cmap = add_relief(ax, etopo_path)
-    add_admin_context(ax, regions)
-    add_context(ax, world)
-    add_special_regions(ax, regions)
+    add_admin_context(ax, regions, border_zone)
+    add_context(ax, border_line)
+    add_special_regions(ax, regions, border_zone)
 
     # 色标独立占一个轴, 不抢占地图宽度.
-    cax = fig.add_axes([0.868, 0.26, 0.015, 0.46])
+    cax = fig.add_axes([0.862, 0.31, 0.015, 0.41])
     mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
     mappable.set_array([])
     cbar = fig.colorbar(mappable, cax=cax, label="高程 (m)", extend="max")
@@ -543,16 +637,16 @@ def main() -> None:
     gl.right_labels = False
     gl.rotate_labels = False
     gl.xlocator = mticker.FixedLocator(np.arange(96, 102, 1))
-    gl.ylocator = mticker.FixedLocator(np.arange(21, 25, 1))
+    gl.ylocator = mticker.FixedLocator(np.arange(19, 25, 1))
     gl.xlabel_style = {"size": 9.5, "color": "#444444"}
     gl.ylabel_style = {"size": 9.5, "color": "#444444"}
 
     fig.suptitle(TITLE, fontsize=17, y=0.985, va="top")
     fig.text(
         0.5,
-        0.021,
-        "地形数据: NOAA NCEI ETOPO 2022(15 弧秒) | 边界: Natural Earth 10m / "
-        "OpenStreetMap(ODbL, 2026-10) | MNDAA=缅甸民族民主同盟军",
+        0.026,
+        "地形数据: NOAA NCEI ETOPO 2022(15 弧秒) | 边界: OpenStreetMap(ODbL, 2026-10) | "
+        "海陆底图: Natural Earth 10m | MNDAA=缅甸民族民主同盟军, TNLA=德昂民族解放军",
         ha="center",
         va="bottom",
         fontsize=8.5,
@@ -560,9 +654,10 @@ def main() -> None:
     )
     fig.text(
         0.5,
-        0.006,
-        "注: MNDAA 实控区与第一特区辖区大体重合, 图中以斜线示意; "
-        "特区与实控区范围据公开资料近似绘制, 仅供参考",
+        0.011,
+        "注: 国界与区域边界同源 OSM, 重合段按国界样式绘制; "
+        "原果敢自治区为第一特区前身, 以同色系加深表示其含于第一特区; "
+        "MNDAA 实控区与第一特区辖区大体重合, 以斜线示意; 范围据 OSM 公开边界绘制, 仅供参考",
         ha="center",
         va="bottom",
         fontsize=8.5,

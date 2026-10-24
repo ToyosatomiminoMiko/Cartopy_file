@@ -2,14 +2,19 @@
 
 ## 安装
 
-共享代码放在 `src/cartopy_file/` 包里。首次使用（或换新环境）时，把本仓库以可编辑
-模式装进当前环境，各脚本即可正常 `import cartopy_file`：
+依赖声明在 `pyproject.toml`，共享代码在 `src/cartopy_file/` 包里。用 uv 同步环境即可：
+
+```bash
+uv sync
+```
+
+如果已有可用的 `.venv`、只想把项目本身以可编辑模式装进去（不重建环境）：
 
 ```bash
 uv pip install -e .
 ```
 
-绘图依赖目前直接装在 `.venv` 里，`pyproject.toml` 的依赖列表尚未声明。
+调试用的 ipykernel / debugpy 放在 `dev` 依赖组里，`uv sync` 默认会一并安装。
 
 ## 字体
 

@@ -1,16 +1,28 @@
 [project]
 name = "cartopy-file"
 version = "0.1.0"
-description = "Add your description here"
+description = "Cartopy 地形图与行政区划图脚本"
 readme = "README.md"
 authors = [
     { name = "haojiren galactic", email = "603600299@qq.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "cartopy[plotting]>=0.25.0",
+    "geopandas>=1.1.4",
+    "matplotlib>=3.11.1",
+    "netcdf4>=1.7.4",
+    "numpy>=2.5.2",
+    "shapely>=2.1.2",
+    "xarray>=2026.7.0",
+]
 
-[project.scripts]
-cartopy-file = "cartopy_file:main"
+# 交互调试/笔记本用的工具, 不是绘图脚本的运行时依赖.
+[dependency-groups]
+dev = [
+    "debugpy>=1.8.21",
+    "ipykernel>=7.3.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.12.3,<0.13.0"]
