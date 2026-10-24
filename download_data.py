@@ -45,9 +45,9 @@ from cartopy_file.data import (
 # 名称必须与 cartopy.feature 里的一致, 否则会下到用不上的数据.
 NE_FEATURES = [
     # 缅甸系列(myanmar.py / northern_shan.py)显式使用 10m.
-    ("10m", "physical", "coastline", "myanmar.py 海岸线"),
-    ("10m", "cultural", "admin_0_boundary_lines_land", "myanmar.py 国界"),
-    ("10m", "physical", "rivers_lake_centerlines", "northern_shan.py 河流"),
+    ("10m", "physical", "coastline", "myanmar.py / ukraine.py 海岸线"),
+    ("10m", "cultural", "admin_0_boundary_lines_land", "myanmar.py / ukraine.py 国界"),
+    ("10m", "physical", "rivers_lake_centerlines", "northern_shan.py / ukraine.py 河流"),
     ("10m", "physical", "lakes", "northern_shan.py 湖泊"),
     # 全球/苏联图按范围自动选 110m(cartopy 的 AdaptiveScaler 默认比例尺).
     ("110m", "physical", "land", "AmericaArmy/main.py 陆地底色"),
@@ -80,6 +80,24 @@ LOCAL_DATA = [
      "python USSR/download_etopo.py"),
     ("苏联", "Natural Earth 10m 国界", "USSR/data/ne_10m_admin_0_countries/*.shp",
      "python USSR/download_etopo.py"),
+    ("乌克兰", "ETOPO 2022 乌克兰区域高程", "Ukraine/data/ETOPO_2022_v1_15s_ukraine_stride*.nc",
+     "python Ukraine/download_data.py"),
+    ("乌克兰", "Natural Earth 10m 国界", "Ukraine/data/ne_10m_admin_0_countries/*.shp",
+     "python Ukraine/download_data.py"),
+    ("乌克兰", "GADM 4.1 乌克兰一级行政区", "Ukraine/data/gadm41_UKR/gadm41_UKR_1.json",
+     "python Ukraine/download_data.py"),
+    ("乌克兰", "OCHA 2021 GCA/NGCA 分区", "Ukraine/data/ocha_gca_ngca/*.shp",
+     "python Ukraine/download_data.py"),
+    ("乌克兰", "1991 年边界/州界", "Ukraine/data/ukraine_1991.geojson",
+     "python Ukraine/download_data.py"),
+    ("乌克兰", "2014 年克里米亚控制线", "Ukraine/data/crimea_2014_line.geojson",
+     "python Ukraine/download_data.py"),
+    ("乌克兰", "2014 年顿巴斯控制区", "Ukraine/data/occupied_2014.geojson",
+     "python Ukraine/download_data.py"),
+    ("乌克兰", "2014 年顿巴斯接触线", "Ukraine/data/contact_line_2014.geojson",
+     "python Ukraine/download_data.py"),
+    ("乌克兰", "2022 年俄方宣称四州边界", "Ukraine/data/claimed_2022.geojson",
+     "python Ukraine/download_data.py"),
     ("美军基地", "基地点位 GeoJSON", "AmericaArmy/data.geojson", "(仓库自带, 无需下载)"),
 ]
 
