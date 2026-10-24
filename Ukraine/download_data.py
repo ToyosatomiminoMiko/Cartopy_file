@@ -7,9 +7,11 @@
 #   2) Natural Earth 10m 国家边界(邻国底色/国界/标注用);
 #   3) GADM 4.1 乌克兰一级行政区(州/克里米亚/塞瓦斯托波尔, 法理口径);
 #   4) OCHA HDX 2021 HNO GCA/NGCA 分区(顿巴斯接触线与分离武装控制区);
+#   5) OpenStreetMap 第聂伯河干流与梯级水库(Overpass API, 精细水系);
 # 再把它们加工成绘图脚本直接读取的 GeoJSON:
 #   1991 年国际承认边界、各州边界、2014 年克里米亚陆上控制线、
-#   2014 年顿巴斯控制区/接触线、2022 年俄方宣称的四州全境.
+#   2014 年顿巴斯控制区/接触线、2022 年俄方宣称的四州全境、
+#   第聂伯河干流中心线与梯级水库水面.
 # 所有下载都是"文件已存在就跳过", 重复执行不会重新联网.
 # 运行: python Ukraine/download_data.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
@@ -35,6 +37,14 @@
     4. 2022 年边界: 俄方 2022-09 单方面宣称赫尔松州、扎波罗热州、顿涅茨克
        人民共和国、卢甘斯克人民共和国"全境", 实际并未全部控制; 因此这里
        只取四州完整的行政区边界(GADM 州界), 明确标注为"宣称"而非控制线.
+    5. 第聂伯河: Natural Earth 10m 的河道中心线只有 ~600 个顶点, 干流在
+       乌克兰境内几乎全是梯级水库, 叠在 1:330 万的图上是一条几乎看不见的
+       细线, 位置也与实际河道相差中位数约 0.8 km(个别水库段可差 10 km 以上).
+       改用 OSM 的 waterway=river relation: 干流在乌克兰段有上万个顶点,
+       位置精度到几十米; 五个梯级水库另有独立的 natural=water 多边形, 按
+       实际水面填充, 这才看得出"第聂伯河在乌克兰是一串水库".
+       卡霍夫卡水库 2023-06 溃坝后被放空, OSM 已删除其水面多边形; 本图讲的
+       是 2022 年, 所以这一座用 Natural Earth 10m 的溃坝前水库面补上.
 
 输出(都在 ``Ukraine/data/`` 下, 已在 .gitignore 里):
     ETOPO_2022_v1_15s_ukraine_stride2.nc      ETOPO 高程
@@ -47,6 +57,10 @@
     occupied_2014.geojson                     2014 年顿巴斯分离武装控制区(顿/卢两州)
     contact_line_2014.geojson                 2014 年顿巴斯接触线(近似)
     claimed_2022.geojson                      2022 年俄方宣称的四州全境(面)
+    dnieper_river_osm.geojson                 第聂伯河干流中心线(OSM)
+    dnieper_water_osm.geojson                 第聂伯河梯级水库水面(OSM + NE 卡霍夫卡)
+
+数据许可: OpenStreetMap 贡献者, ODbL 1.0.
 """
 
 from __future__ import annotations
@@ -56,14 +70,15 @@ import json
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
 
 import geopandas as gpd
 from pyproj import Geod
-from shapely.geometry import MultiPolygon, Polygon, mapping
-from shapely.ops import linemerge, unary_union
+from shapely.geometry import LineString, MultiPolygon, Polygon, box, mapping
+from shapely.ops import linemerge, polygonize, unary_union
 from shapely.validation import make_valid
 
 # ============================
@@ -106,6 +121,35 @@ CRIMEA_LINE_PATH = DATA_DIR / "crimea_2014_line.geojson"
 OCCUPIED_2014_PATH = DATA_DIR / "occupied_2014.geojson"
 CONTACT_2014_PATH = DATA_DIR / "contact_line_2014.geojson"
 CLAIMED_2022_PATH = DATA_DIR / "claimed_2022.geojson"
+
+# ---- 第聂伯河: OSM 精细水系(Overpass 原始 JSON 缓存 + 派生 GeoJSON) ----
+# 公共 Overpass 实例高峰期限流, 请求会排队/返回 502, 所以用"失败退避重试".
+OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_USER_AGENT = "CartopyFile-UkraineMap/1.0 (cartopy map project)"
+# 第聂伯河干流 relation(waterway=river): 189 段 main_stream 成员 way 首尾相接.
+DNIEPER_RIVER_RELATION = 2086905
+# 第聂伯梯级水库(从上游到下游): OSM 里都是 natural=water 的 multipolygon
+# relation. 只取 outer 成员: 水库里的岛屿(inner)在 1:330 万图上不足 1 px.
+DNIEPER_RESERVOIRS: dict[int, str] = {
+    1605938: "Київське водосховище",       # 基辅水库
+    3173129: "Канівське водосховище",       # 卡尼夫水库
+    2289192: "Кременчуцьке водосховище",    # 克列缅丘格水库
+    287177: "Кам'янське водосховище",       # 卡缅斯克水库
+    21217234: "Дніпровське водосховище",    # 第聂伯水库
+}
+# 卡霍夫卡水库: 2023-06 大坝被毁后放空, OSM 已删除其水面; 本图是 2022 年口径,
+# 用 Natural Earth 10m 湖泊层里溃坝前的水库面补上.
+KAKHOVKA_NE_NAME = "Kakhovka"
+RIVER_SIMPLIFY_DEG = 0.0003   # ≈33 m, 小于图上 1 px(≈270 m), 肉眼无损
+WATER_SIMPLIFY_DEG = 0.0003
+WATER_MIN_AREA_DEG2 = 0.001   # 约 8 km², 滤掉 polygonize 留下的碎片
+# 画框 [21.0, 41.5]E / [43.2, 53.4]N 投影后四角外张, 这里比画框多留 ~1°.
+DNIEPER_CLIP = (29.0, 44.5, 38.0, 54.0)  # (min_lon, min_lat, max_lon, max_lat)
+
+DNIEPER_RIVER_CACHE = DATA_DIR / "osm_dnieper_river.json"
+DNIEPER_WATER_CACHE = DATA_DIR / "osm_dnieper_reservoirs.json"
+DNIEPER_RIVER_PATH = DATA_DIR / "dnieper_river_osm.geojson"
+DNIEPER_WATER_PATH = DATA_DIR / "dnieper_water_osm.geojson"
 
 GEOD = Geod(ellps="WGS84")
 
@@ -271,9 +315,13 @@ def geod_area_km2(geom) -> float:
 
 
 def geod_length_km(geom) -> float:
-    """测地长度(km), 用于核对接触线长度是否在合理量级."""
+    """测地长度(km), 用于核对接触线长度是否在合理量级.
+
+    pyproj 的 ``Geod.geometry_length`` 返回米, 要 /1000; 这里原先误写成
+    /1e6(米->千公里), 接触线长度元数据小了 1000 倍, 2026-10 修正.
+    """
     lines = [geom] if geom.geom_type == "LineString" else list(geom.geoms)
-    return sum(abs(GEOD.geometry_length(line)) for line in lines) / 1e6
+    return sum(abs(GEOD.geometry_length(line)) for line in lines) / 1000
 
 
 def n_vertices(geom) -> int:
@@ -390,6 +438,63 @@ def fetch_ocha(force: bool) -> None:
     print("下载 OCHA/HDX 2021 HNO 顿巴斯 GCA/NGCA 分区")
     download(OCHA_URL, OCHA_ZIP, "OCHA GCA/NGCA", force=force)
     extract_zip(OCHA_ZIP, OCHA_DIR)
+
+
+def overpass_query(query: str, dest: Path, description: str, *, force: bool = False) -> None:
+    """执行一条 Overpass QL 查询, 把原始 JSON 缓存到 dest(已存在则跳过).
+
+    为什么不在绘图时联网: 渲染应该只读本地文件; 这里下载一次, 之后
+    build_dnieper_* 每次都从这份 JSON 重建派生 GeoJSON.
+    为什么要退避重试: 公共实例按请求排队, 高峰时会直接 502 或长时间排队;
+    同一条查询换时间重试比让整个脚本失败更省事(实测一次成功约 30~60 s).
+    """
+    if dest.exists() and dest.stat().st_size > 0 and not force:
+        print(f"已存在, 跳过 {description}: {dest.name}")
+        return
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    body = urllib.parse.urlencode({"data": query}).encode()
+    last_error: Exception | None = None
+    for attempt in range(1, 6):
+        request = urllib.request.Request(
+            OVERPASS_URL, data=body, headers={"User-Agent": OVERPASS_USER_AGENT}
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=600) as response:
+                payload = response.read()
+            data = json.loads(payload)
+            if "elements" not in data:
+                raise RuntimeError(f"Overpass 返回异常: {payload[:200]!r}")
+            part = dest.with_name(dest.name + ".part")
+            part.write_bytes(payload)
+            part.replace(dest)
+            print(f"完成: {dest.name} ({dest.stat().st_size/1048576:.1f} MiB, {len(data['elements'])} 元素)")
+            return
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError, RuntimeError) as exc:
+            last_error = exc
+            print(f"  Overpass 失败 ({attempt}/5): {exc}")
+            time.sleep(10 * attempt)
+    raise RuntimeError(f"Overpass 下载失败: {description}: {last_error}")
+
+
+def fetch_dnieper_osm(force: bool) -> None:
+    """下载第聂伯河干流 relation 与五个梯级水库的外环 way."""
+    print("下载 OpenStreetMap 第聂伯河干流与梯级水库 (Overpass)")
+    overpass_query(
+        f"[out:json][timeout:300];rel({DNIEPER_RIVER_RELATION});out geom;",
+        DNIEPER_RIVER_CACHE,
+        "第聂伯河干流",
+        force=force,
+    )
+    # 只取 outer 成员: inner 是水库里的岛, 数量(基辅水库 520 个 inner way)
+    # 和体积都远大于 outer, 在 1:330 万图上却看不见, 没必要下载.
+    rel_ids = ",".join(str(rel_id) for rel_id in DNIEPER_RESERVOIRS)
+    overpass_query(
+        f'[out:json][timeout:300];rel(id:{rel_ids})->.rels;way(r.rels:"outer");out geom;',
+        DNIEPER_WATER_CACHE,
+        "第聂伯河梯级水库",
+        force=force,
+    )
 
 
 # ============================
@@ -595,7 +700,134 @@ def build_claimed_2022(gdf: gpd.GeoDataFrame) -> None:
 
 
 # ============================
-# 3. 检查与主流程
+# 3. 第聂伯河: 从 OSM 原始 JSON 派生绘图用 GeoJSON
+# ============================
+def _osm_way_geometry(element: dict) -> LineString | None:
+    """把 Overpass ``out geom`` 的 way 元素转成 LineString; 顶点不足 2 个时返回 None."""
+    coords = [(p["lon"], p["lat"]) for p in element.get("geometry", [])]
+    return LineString(coords) if len(coords) >= 2 else None
+
+
+def build_dnieper_river() -> None:
+    """第聂伯河干流: 合并 relation 的 main_stream 成员 way, 裁剪后输出中心线.
+
+    为什么只取 main_stream: relation 里还有 73 段 side_stream(三角洲汊道与
+    废弃老河道), 在 1:330 万图上会把干流弄脏; 干流本身是一条首尾相接的
+    连续线, linemerge 后只得到一个 LineString, 不需要自己排序.
+    """
+    payload = json.loads(DNIEPER_RIVER_CACHE.read_text(encoding="utf-8"))
+    relation = payload["elements"][0]
+    ways = [
+        geom
+        for member in relation["members"]
+        if member.get("type") == "way" and member.get("role") == "main_stream"
+        and (geom := _osm_way_geometry(member)) is not None
+    ]
+    if not ways:
+        raise RuntimeError("OSM 第聂伯河 relation 中没有 main_stream 成员")
+
+    merged = linemerge(ways)
+    clipped = merged.intersection(box(*DNIEPER_CLIP))
+    lines = (
+        [clipped]
+        if clipped.geom_type == "LineString"
+        else [g for g in getattr(clipped, "geoms", []) if g.geom_type == "LineString"]
+    )
+    lines = [g.simplify(RIVER_SIMPLIFY_DEG, preserve_topology=False) for g in lines]
+    line = lines[0] if len(lines) == 1 else unary_union(lines)
+    write_fc(
+        DNIEPER_RIVER_PATH,
+        [
+            feat(
+                line,
+                {
+                    "name": "Dnieper main stream (OSM)",
+                    "name_zh": "第聂伯河干流中心线",
+                    "source": f"OpenStreetMap relation {DNIEPER_RIVER_RELATION} "
+                    "(waterway=river, main_stream members); ODbL 1.0",
+                    "note": "仅取 main_stream; 三角洲 side_stream 与水库内的中心线不单独画.",
+                    "length_km_geodesic": round(geod_length_km(line), 1),
+                    "vertices": n_vertices(line),
+                    "simplify_deg": RIVER_SIMPLIFY_DEG,
+                },
+            )
+        ],
+    )
+
+
+def load_kakhovka_from_ne():
+    """从共享的 Natural Earth 10m 湖泊缓存取卡霍夫卡水库(溃坝前水面).
+
+    为什么不用 OSM: 2023-06 新卡霍夫卡大坝被毁后水库放空, OSM 已删掉这片
+    水面; 本图表达 2022 年, 所以用 Natural Earth(2022 年前编制)的轮廓.
+    缓存缺失时返回 None(调用方跳过, 不联网).
+    """
+    try:
+        from cartopy_file.data import configure_cartopy, natural_earth_paths
+    except ImportError:
+        print("警告: 无法导入 cartopy_file, 卡霍夫卡水库将不画(其他四座仍画)")
+        return None
+    configure_cartopy()
+    path, _ = natural_earth_paths("10m", "physical", "lakes")
+    if path is None:
+        print("警告: 缺少 Natural Earth 10m 湖泊缓存, 卡霍夫卡水库将不画")
+        return None
+    lakes = gpd.read_file(path)
+    row = lakes[lakes["name_en"] == KAKHOVKA_NE_NAME]
+    if row.empty:
+        print(f"警告: NE 10m 湖泊里没有 {KAKHOVKA_NE_NAME}, 卡霍夫卡水库将不画")
+        return None
+    return valid(row.geometry.iloc[0])
+
+
+def build_dnieper_water() -> None:
+    """第聂伯河梯级水库水面: 五个 OSM multipolygon 的 outer 环 + NE 卡霍夫卡.
+
+    处理步骤:
+      1. 把全部 outer way 拼成线段, polygonize 成闭合多边形;
+      2. 丢掉面积 < WATER_MIN_AREA_DEG2 的碎片(polygonize 偶尔会留下小面);
+      3. 简化到 0.0003°(≈33 m), 顶点从 13.9 万降到约 1.2 万, 肉眼无损;
+      4. 并入 NE 的卡霍夫卡水库面, 裁剪到画框外 1°.
+    忽略 inner(岛屿): 基辅水库一个 relation 就有 520 个 inner way, 而图上
+    这些岛都小于 1 px; 不下载它们能把 Overpass 响应从 ~13 MB 降到 ~9 MB.
+    """
+    payload = json.loads(DNIEPER_WATER_CACHE.read_text(encoding="utf-8"))
+    ways = [geom for element in payload["elements"] if (geom := _osm_way_geometry(element))]
+    if not ways:
+        raise RuntimeError("OSM 水库缓存里没有 way 几何")
+
+    polygons = [p for p in polygonize(unary_union(ways)) if p.area >= WATER_MIN_AREA_DEG2]
+    print(f"  水库多边形: {len(polygons)} 个(已有 5 个梯级水库应全部闭合)")
+    polygons = [p.simplify(WATER_SIMPLIFY_DEG, preserve_topology=True) for p in polygons]
+    sources = [f"OSM relation {rel_id} ({name})" for rel_id, name in DNIEPER_RESERVOIRS.items()]
+
+    kakhovka = load_kakhovka_from_ne()
+    if kakhovka is not None:
+        polygons.append(valid(kakhovka).simplify(WATER_SIMPLIFY_DEG, preserve_topology=True))
+        sources.append("Natural Earth 10m lakes (Kakhovka Reservoir, pre-2023)")
+
+    water = unary_union(polygons).intersection(box(*DNIEPER_CLIP))
+    write_fc(
+        DNIEPER_WATER_PATH,
+        [
+            feat(
+                water,
+                {
+                    "name": "Dnieper cascade reservoirs (OSM)",
+                    "name_zh": "第聂伯河梯级水库水面",
+                    "source": "; ".join(sources) + "; ODbL 1.0",
+                    "note": "只取 outer 环; 水库岛屿(inner)在图上小于 1 px, 未画.",
+                    "area_km2_geodesic": round(geod_area_km2(water), 1),
+                    "vertices": n_vertices(water),
+                    "simplify_deg": WATER_SIMPLIFY_DEG,
+                },
+            )
+        ],
+    )
+
+
+# ============================
+# 4. 检查与主流程
 # ============================
 def check_outputs(verbose: bool = True) -> int:
     """只检查、不联网: 返回缺失项数量(0 表示可以离线出图)."""
@@ -610,6 +842,8 @@ def check_outputs(verbose: bool = True) -> int:
         OCCUPIED_2014_PATH,
         CONTACT_2014_PATH,
         CLAIMED_2022_PATH,
+        DNIEPER_RIVER_PATH,
+        DNIEPER_WATER_PATH,
     ]
     missing = 0
     for path in required:
@@ -641,6 +875,7 @@ def main() -> None:
     fetch_admin0(force=args.force)
     fetch_gadm(force=args.force)
     fetch_ocha(force=args.force)
+    fetch_dnieper_osm(force=args.force)
 
     print("\n加工行政区与 1991 年边界")
     gdf, border_1991 = build_oblasts(load_gadm())
@@ -650,6 +885,10 @@ def main() -> None:
     build_donbas_2014()
     print("\n加工 2022 年俄方宣称四州边界")
     build_claimed_2022(gdf)
+    print("\n加工第聂伯河干流中心线")
+    build_dnieper_river()
+    print("\n加工第聂伯河梯级水库水面")
+    build_dnieper_water()
 
     print("\n数据自检")
     check_outputs(verbose=True)

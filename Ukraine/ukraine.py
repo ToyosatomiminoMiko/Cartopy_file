@@ -7,6 +7,8 @@
 #   2) 2014 年实际控制线(克里米亚陆上控制线 + 顿巴斯接触线)及其控制区;
 #   3) 2014 年宣布的"人民共和国"(顿涅茨克/卢甘斯克实际控制区, 哈尔科夫宣称范围);
 #   4) 2022 年俄方单方面宣称的赫尔松/扎波罗热/顿涅茨克/卢甘斯克四州全境边界.
+#   5) 第聂伯河干流与梯级水库: 用 OSM 河道中心线 + 水库实际水面填色,
+#      表达"河宽沿程变化"(上游窄河道 -> 五级水库的宽阔水面).
 # 运行前先执行: python Ukraine/download_data.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 # ============================================================
@@ -31,6 +33,13 @@
          不把四州整体填色, 避免被误读为俄方实际控制.
     4. 分离"实际控制"与"单方面宣称": 2014 年控制区用浅蓝色填充 + 蓝色
        实线, 2022 年宣称边界用紫色点划线; 两者不混用同一种线型.
+    5. 第聂伯河的宽度必须沿程变化: 干流在乌克兰境内是一串梯级水库, 上游
+       河道只有 200~500 m 宽, 水库水面却有几公里到十几公里宽. 如果像普通
+       河流那样画一条等宽细线, 在图上会明显失真(实际水面宽度差一个数量级).
+       因此干流用 OSM 中心线(顶点数约为 Natural Earth 的 4 倍)画细线, 五个
+       梯级水库再用 OSM 的实际水面多边形填充 —— 图上"窄河道 / 宽水库"的
+       宽窄变化是真实水面, 不是线宽画出来的. 卡霍夫卡水库 2023 年被放空,
+       OSM 已无水面, 这一座用 Natural Earth 溃坝前轮廓补上(见下载脚本).
 
 数据(由 Ukraine/download_data.py 准备, 脚本本身不联网):
     data/ETOPO_2022_v1_15s_ukraine_stride2.nc   NOAA ETOPO 2022 地形
@@ -41,6 +50,8 @@
     data/occupied_2014.geojson                  2014 年顿巴斯控制区
     data/contact_line_2014.geojson              2014 年顿巴斯接触线(近似)
     data/claimed_2022.geojson                   2022 年俄方宣称四州全境
+    data/dnieper_river_osm.geojson              第聂伯河干流中心线(OSM)
+    data/dnieper_water_osm.geojson              第聂伯河梯级水库水面(OSM + NE 卡霍夫卡)
     (河流/海岸线/邻国国界线复用仓库 data/cartopy 的 Natural Earth 10m 缓存)
 """
 
@@ -112,7 +123,10 @@ COLOR_2014_FILL = "#42a5f5"  # 2014 实际控制区填充
 COLOR_KHARKIV = "#ef6c00"    # 2014 宣布的哈尔科夫人民共和国(未控制): 橙
 COLOR_2022 = "#7b1fa2"       # 2022 俄方宣称边界: 紫
 COLOR_OBLAST = "#5f6b73"     # 州界(背景参考线)
-COLOR_RIVER = "#3f7fb5"      # 河流
+COLOR_RIVER = "#3f7fb5"      # 一般河流(Natural Earth 10m)
+COLOR_RIVER_MAIN = "#2d6ea6"  # 第聂伯河干流: 比一般河流深一档
+COLOR_WATER = "#b3d2ea"      # 梯级水库水面填充
+COLOR_WATER_EDGE = "#4a7fb0"  # 水面轮廓
 COLOR_NEIGHBOR = "#8a8a8a"   # 邻国国界
 
 # 国家标注: (经度, 纬度, 文字). 放在画面中离边界线/城市较远的位置.
@@ -162,6 +176,8 @@ CRIMEA_LINE_PATH = DATA_DIR / "crimea_2014_line.geojson"
 OCCUPIED_2014_PATH = DATA_DIR / "occupied_2014.geojson"
 CONTACT_2014_PATH = DATA_DIR / "contact_line_2014.geojson"
 CLAIMED_2022_PATH = DATA_DIR / "claimed_2022.geojson"
+DNIEPER_RIVER_PATH = DATA_DIR / "dnieper_river_osm.geojson"
+DNIEPER_WATER_PATH = DATA_DIR / "dnieper_water_osm.geojson"
 COUNTRY_DIR = DATA_DIR / "ne_10m_admin_0_countries"
 
 # 文字描边: 白边保证汉字压在深色地形/彩色填充上仍可读.
@@ -187,6 +203,17 @@ def load_vectors() -> tuple[gpd.GeoDataFrame, ...]:
     contact = gpd.read_file(_require(CONTACT_2014_PATH)).to_crs("EPSG:4326")
     claimed = gpd.read_file(_require(CLAIMED_2022_PATH)).to_crs("EPSG:4326")
     return oblasts, border_1991, crimea_line, occupied, contact, claimed
+
+
+def load_dnieper() -> tuple:
+    """读取第聂伯河干流中心线与梯级水库水面(由 download_data.py 从 OSM 派生).
+
+    干流与水库分开存: 干流是线, 水库是面, 绘图时用不同样式, 且水面要盖住
+    穿过水库的那段中心线(水面内不该再看到河道线).
+    """
+    river = gpd.read_file(_require(DNIEPER_RIVER_PATH)).to_crs("EPSG:4326")
+    water = gpd.read_file(_require(DNIEPER_WATER_PATH)).to_crs("EPSG:4326")
+    return river.geometry.iloc[0], water.geometry.iloc[0]
 
 
 def shared_layer(resolution: str, category: str, name: str):
@@ -259,14 +286,21 @@ def draw_basemap(
     ukraine_geom,
     oblasts: gpd.GeoDataFrame,
     rivers,
+    dnieper_river,
+    dnieper_water,
     coastline,
     neighbor_borders,
 ) -> None:
-    """地形 + 河流 + 邻国国界 + 乌克兰州界背景线.
+    """地形 + 水系 + 邻国国界 + 乌克兰州界背景线.
 
     乌克兰自己的海岸线不单独画: 1991 年国界(黑线)已经把它包进去; 再叠一条
     不同来源的海岸线只会露出两条线的几十米~几公里偏差. 邻国的海岸线/国界
     则照常画, 提供地理参照.
+
+    第聂伯河单独处理: 先画中心线, 再用梯级水库的实际水面盖住穿过水库的那段
+    中心线. 这样图上"上游窄河道、下游宽水库"的宽度变化是真实水面宽度, 而不是
+    靠加粗同一根线来假装 —— 等宽线在这里会失真一个数量级(河道 0.2~0.5 km,
+    水库 3~15 km).
     """
     add_base_map(ax, world, ocean_color=BASE_OCEAN_COLOR, land_color=BASE_LAND_COLOR)
 
@@ -307,8 +341,8 @@ def draw_basemap(
         alpha=0.55,
         zorder=3.1,
     )
-    # 河流放在州界之下、主题边界之上; 10m 河流在国界附近可能超出画框,
-    # cartopy 会按画框裁剪.
+    # 一般河流放在州界之下、主题边界之上; 10m 河流在国界附近可能超出画框,
+    # cartopy 会按画框裁剪. Dnieper 已从这一层剔除(改用 OSM 干流).
     if rivers is not None:
         ax.add_geometries(
             list(rivers.geometry),
@@ -316,8 +350,28 @@ def draw_basemap(
             facecolor="none",
             edgecolor=COLOR_RIVER,
             linewidth=0.5,
-            alpha=0.8,
-            zorder=2.5,
+            alpha=0.7,
+            zorder=2.2,
+        )
+    # 第聂伯河干流中心线: 窄河道段就是这个线宽; 进入水库后会被下一层水面盖住.
+    if dnieper_river is not None:
+        ax.add_geometries(
+            [dnieper_river],
+            crs=ccrs.PlateCarree(),
+            facecolor="none",
+            edgecolor=COLOR_RIVER_MAIN,
+            linewidth=0.9,
+            zorder=2.3,
+        )
+    # 梯级水库水面: 实心填充, 直接表达真实水面宽度(3~15 km).
+    if dnieper_water is not None:
+        ax.add_geometries(
+            [dnieper_water],
+            crs=ccrs.PlateCarree(),
+            facecolor=COLOR_WATER,
+            edgecolor=COLOR_WATER_EDGE,
+            linewidth=0.45,
+            zorder=2.35,
         )
 
 
@@ -468,6 +522,28 @@ def add_labels(ax: plt.Axes, oblasts: gpd.GeoDataFrame) -> None:
         )
 
 
+def add_dnieper_label(ax: plt.Axes) -> None:
+    """在克列缅丘格水库水面上沿河道方向标"第聂伯河".
+
+    为什么放在水库上: 乌克兰段干流几乎全是梯级水库, 只有水库水面才有足够
+    干净的背景放字, 不会压住州界、城市点和 2022 宣称边界.
+    旋转角为什么用投影坐标算: 文字 rotation 是屏幕角, 兰勃特投影下经线是斜的,
+    直接拿经纬度差算 atan2 会偏; 所以在投影平面里取两点求方向.
+    """
+    lon1, lat1 = 31.70, 49.62
+    lon2, lat2 = 33.05, 49.10
+    p1 = PROJECTION.transform_point(lon1, lat1, ccrs.PlateCarree())
+    p2 = PROJECTION.transform_point(lon2, lat2, ccrs.PlateCarree())
+    angle = np.degrees(np.arctan2(p2[1] - p1[1], p2[0] - p1[0]))
+    ax.text(
+        (lon1 + lon2) / 2, (lat1 + lat2) / 2, "第聂伯河",
+        transform=ccrs.PlateCarree(),
+        fontsize=10.5, color=COLOR_RIVER_MAIN, style="italic", rotation=angle,
+        rotation_mode="anchor", ha="center", va="center",
+        path_effects=HALO, zorder=9.4,
+    )
+
+
 def add_gridlines(ax: plt.Axes) -> None:
     """经纬网: 只保留底边经度与左边纬度标签, 减少画面边缘拥挤.
 
@@ -560,7 +636,7 @@ def add_source_note(fig: plt.Figure) -> None:
     fig.text(
         0.5, 0.008,
         "地形: NOAA NCEI ETOPO 2022（15″） | 边界: GADM 4.1 · OCHA/HDX 2021 HNO GCA-NGCA · Natural Earth 10m | "
-        "投影: Lambert Conformal Conic",
+        "水系: OpenStreetMap（ODbL）· Natural Earth 10m | 投影: Lambert Conformal Conic",
         ha="center", va="bottom", fontsize=8.5, color="#666666",
     )
 
@@ -591,6 +667,9 @@ def main() -> None:
           f"2022 宣称四州: {len(claimed)} 个要素")
 
     world = load_countries(COUNTRY_DIR)
+    dnieper_river, dnieper_water = load_dnieper()
+    print(f"第聂伯河: 干流顶点 {len(dnieper_river.coords) if dnieper_river.geom_type == 'LineString' else '?'}, "
+          f"水库水面 {dnieper_water.geom_type}")
 
     # 共享缓存里的 Natural Earth 10m 图层(缺失就跳过, 不联网下载).
     rivers = None
@@ -598,6 +677,9 @@ def main() -> None:
     if rivers_path is not None:
         rivers = gpd.read_file(rivers_path)
         rivers = rivers[rivers["scalerank"] <= 9]
+        # 第聂伯河改由 OSM 干流 + 水库水面绘制, 从 NE 图层里剔除, 避免同一条
+        # 河出现两条位置略有差异的线(NE 与 OSM 中位数偏差约 0.8 km).
+        rivers = rivers[rivers["name_en"].fillna("") != "Dnieper"]
         bbox = (EXTENT[0] - 1, EXTENT[2] - 1, EXTENT[1] + 1, EXTENT[3] + 1)
         rivers = rivers.cx[bbox[0]:bbox[2], bbox[1]:bbox[3]]
     coastline = None
@@ -620,6 +702,8 @@ def main() -> None:
         ukraine_geom=ukraine_geom,
         oblasts=oblasts,
         rivers=rivers,
+        dnieper_river=dnieper_river,
+        dnieper_water=dnieper_water,
         coastline=coastline,
         neighbor_borders=neighbor_borders,
     )
@@ -651,6 +735,7 @@ def main() -> None:
         claimed=claimed,
     )
     add_labels(ax, oblasts)
+    add_dnieper_label(ax)
     add_gridlines(ax)
 
     # 标题用 figure 级: GeoAxes 在有经纬网标签时重算标题位置, 多行标题

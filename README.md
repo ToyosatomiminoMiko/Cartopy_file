@@ -27,7 +27,7 @@ uv pip install -e .
 | `data/cartopy/` | cartopy 内置 Natural Earth 底图，全项目共用（海岸线、国界、河流、湖泊） |
 | `Myanmar/data/` | ETOPO 缅甸高程、Natural Earth 10m 国界/河流、行政区 GeoJSON、OSM 特区边界 |
 | `USSR/data/` | ETOPO 苏联高程、Natural Earth 国界 |
-| `Ukraine/data/` | ETOPO 乌克兰高程、Natural Earth 国界、GADM 4.1 行政区、OCHA 2021 GCA/NGCA 分区及派生边界 |
+| `Ukraine/data/` | ETOPO 乌克兰高程、Natural Earth 国界、GADM 4.1 行政区、OCHA 2021 GCA/NGCA 分区及派生边界、OSM 第聂伯河干流与梯级水库（ODbL） |
 | `AmericaArmy/data.geojson` | 基地点位，仓库自带 |
 
 一次性准备（每条命令都是"文件已存在就跳过"，重复执行不会重新下载）：
@@ -39,7 +39,7 @@ python Myanmar/download_etopo.py --region northern_shan --stride 1   # 掸邦放
 python Myanmar/download_regions.py                                   # 掸邦特区/自治区域边界(OSM)
 python Myanmar/prepare_admin_data.py                                 # 缅甸省邦级行政区 GeoJSON
 python USSR/download_etopo.py                                        # 苏联高程 + 国界
-python Ukraine/download_data.py                                      # 乌克兰高程/行政区/接触线, 并派生 1991/2014/2022 边界
+python Ukraine/download_data.py                                      # 乌克兰高程/行政区/接触线 + OSM 第聂伯河, 并派生 1991/2014/2022 边界
 ```
 
 只想确认数据是否齐全（不联网、不下载）：
