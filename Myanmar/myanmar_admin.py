@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 # matplotlib 的缓存目录必须在导入 matplotlib 之前指定; 本机 ~/.config 不可写.
@@ -58,12 +59,13 @@ from shapely.geometry import shape  # GeoJSON -> Shapely
 
 import map_lib  # 复用 ETOPO 读取、晕渲、海陆底色工具
 
-# 中文字体: 与项目内其他缅甸图一致. 本机 Noto Sans CJK SC 是可变字体 TTC,
-# matplotlib 只能识别 Thin 实例; Noto Sans Mono CJK SC 的默认实例字重正常.
-CJK_FONT = "Noto Sans Mono CJK SC"
-LATIN_FONT = "DejaVu Sans"
-plt.rcParams["font.family"] = LATIN_FONT
-plt.rcParams["axes.unicode_minus"] = False
+# 全局字体: 项目根目录 fonts.py 统一设置. 汉字用 Noto Sans Mono CJK SC,
+# 英文/数字用 JetBrains Mono Slashed Medium; 中英混排由逐字符回退自动选字体,
+# 所以下面的文字调用不再逐个指定 fontfamily.
+sys.path.insert(0, str(ROOT.parent))
+from fonts import apply_matplotlib_fonts
+
+apply_matplotlib_fonts()
 # 斜线填充过密会在 300 dpi 下糊成深色块, 这里保持项目里一致的细线.
 plt.rcParams["hatch.linewidth"] = 0.5
 
@@ -407,7 +409,6 @@ def add_bilingual(
         ha=ha,
         va="center",
         fontsize=size_zh,
-        fontfamily=CJK_FONT,
         color=color,
         path_effects=halo_effects,
         zorder=zorder,
@@ -421,7 +422,6 @@ def add_bilingual(
         ha=ha,
         va="center",
         fontsize=size_en,
-        fontfamily=LATIN_FONT,
         color="#303030",
         path_effects=[pe.withStroke(linewidth=halo * 0.8, foreground="white")],
         zorder=zorder,
@@ -613,7 +613,6 @@ def add_scale_bar(ax: plt.Axes) -> None:
             ha="center",
             va="bottom",
             fontsize=7.0,
-            fontfamily=LATIN_FONT,
             color="#222222",
             zorder=18,
         )
@@ -638,7 +637,6 @@ def add_north_arrow(ax: plt.Axes) -> None:
         ha="center",
         va="bottom",
         fontsize=11,
-        fontfamily=LATIN_FONT,
         color="#222222",
         zorder=20,
     )
@@ -658,7 +656,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="top",
         fontsize=17,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
     lax.text(
@@ -668,7 +665,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="top",
         fontsize=10,
-        fontfamily=LATIN_FONT,
         color="#555555",
     )
 
@@ -680,7 +676,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="top",
         fontsize=10.2,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
     lax.text(
@@ -690,7 +685,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="top",
         fontsize=7.6,
-        fontfamily=CJK_FONT,
         color="#555555",
     )
     state_keys = ["kachin", "kayah", "kayin", "chin", "mon", "rakhine", "shan"]
@@ -714,7 +708,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="top",
         fontsize=10.2,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
     lax.text(
@@ -724,7 +717,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="top",
         fontsize=7.6,
-        fontfamily=CJK_FONT,
         color="#555555",
     )
     region_keys = ["sagaing", "magway", "mandalay", "bago", "ayeyarwady", "yangon", "tanintharyi"]
@@ -759,7 +751,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=9.2,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
     lax.text(
@@ -769,7 +760,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=7.6,
-        fontfamily=CJK_FONT,
         color="#333333",
     )
     lax.text(
@@ -779,7 +769,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=6.9,
-        fontfamily=LATIN_FONT,
         color="#555555",
     )
 
@@ -801,7 +790,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=8.4,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
     lax.plot(
@@ -821,7 +809,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=8.4,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
 
@@ -840,7 +827,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=8.4,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
     lax.plot(
@@ -856,7 +842,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=7.9,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
     lax.plot(
@@ -872,7 +857,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=7.9,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
 
@@ -896,7 +880,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=7.9,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
 
@@ -918,7 +901,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=8.3,
-        fontfamily=CJK_FONT,
         color="#333333",
     )
     lax.text(
@@ -928,7 +910,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="center",
         fontsize=7.0,
-        fontfamily=LATIN_FONT,
         color="#555555",
     )
 
@@ -939,7 +920,6 @@ def add_legend(fig: plt.Figure) -> None:
         ha="left",
         va="bottom",
         fontsize=10.2,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
 
@@ -1018,7 +998,6 @@ def main() -> None:
         ha="center",
         va="top",
         fontsize=25,
-        fontfamily=CJK_FONT,
         color="#111111",
     )
     fig.text(
@@ -1028,7 +1007,6 @@ def main() -> None:
         ha="center",
         va="top",
         fontsize=12.8,
-        fontfamily=LATIN_FONT,
         color="#333333",
     )
     fig.text(
@@ -1038,7 +1016,6 @@ def main() -> None:
         ha="center",
         va="top",
         fontsize=9.4,
-        fontfamily=CJK_FONT,
         color="#555555",
     )
     fig.text(
@@ -1048,7 +1025,6 @@ def main() -> None:
         ha="center",
         va="bottom",
         fontsize=7.6,
-        fontfamily=CJK_FONT,
         color="#666666",
     )
 

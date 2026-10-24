@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -61,9 +62,12 @@ import map_lib  # 与本目录共用的 ETOPO/晕渲/边界工具
 cartopy.config["data_dir"] = str(DATA_DIR / "cartopy")
 (DATA_DIR / "cartopy").mkdir(parents=True, exist_ok=True)
 
-# 中文字体: 与 myanmar.py 一致, 使用字重正常的等宽 CJK 字体.
-plt.rcParams["font.sans-serif"] = ["Noto Sans Mono CJK SC", "DejaVu Sans"]
-plt.rcParams["axes.unicode_minus"] = False
+# 全局字体: 项目根目录 fonts.py 统一设置. 汉字用 Noto Sans Mono CJK SC,
+# 英文/数字用 JetBrains Mono Slashed Medium, 逐字符回退; 本脚本不再单独配字体.
+sys.path.insert(0, str(ROOT.parent))
+from fonts import apply_matplotlib_fonts
+
+apply_matplotlib_fonts()
 # 斜线填充的线宽: 默认 1.0 在 300 dpi 下偏粗, 会把特区填充压成深色块.
 plt.rcParams["hatch.linewidth"] = 0.45
 
@@ -349,7 +353,8 @@ def add_text_labels(ax: plt.Axes) -> None:
             zorder=8,
         )
 
-    # 区域名: 第一特区/佤邦/四特名加粗效果通过字号与颜色实现(该 CJK 字体无 Bold 实例).
+    # 区域名: 第一特区/佤邦/四特名加粗效果通过字号与颜色实现
+    # (本机 CJK 可变字体在 matplotlib 里只有默认实例, 不能用 fontweight="bold").
     for lon, lat, text, size, color in REGION_LABELS:
         ax.text(
             lon,

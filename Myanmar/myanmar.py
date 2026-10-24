@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from pathlib import Path
 
 # plt.rcParams 只能在导入 matplotlib 之后设置, 但缓存目录必须在导入前指定.
@@ -46,12 +47,12 @@ from shapely.ops import unary_union  # 合并多块几何, 得到缅甸整体轮
 
 import map_lib  # 与本目录共用的 ETOPO/晕渲/边界工具
 
-# 中文字体: 优先等宽 CJK 字体, 没有时回退到 DejaVu Sans(中文会显示为方框).
-# 不使用 Noto Sans CJK SC: 本机装的是可变字体 TTC, matplotlib 只能识别其 Thin 实例,
-# 请求常规字重会告警并回退成极细笔画; Noto Sans Mono CJK SC 默认实例字重正常.
-plt.rcParams["font.sans-serif"] = ["Noto Sans Mono CJK SC", "DejaVu Sans"]
-# 使用 Unicode 负号, 避免坐标轴上的负号显示异常.
-plt.rcParams["axes.unicode_minus"] = False
+# 全局字体: 项目根目录 fonts.py 统一设置. 汉字用 Noto Sans Mono CJK SC,
+# 英文/数字用 JetBrains Mono Slashed Medium, 逐字符回退; 本脚本不再单独配字体.
+sys.path.insert(0, str(ROOT.parent))
+from fonts import apply_matplotlib_fonts
+
+apply_matplotlib_fonts()
 
 
 # ============================
@@ -191,8 +192,8 @@ def add_labels(ax: plt.Axes) -> None:
             zorder=5,
         )
     # 国名单独标注, 放在国土中北部, 用深红色与红色国界呼应.
-    # 不用 fontweight="bold": 该 CJK 可变字体没有可用的 Bold 实例, 请求粗体只会回退并告警,
-    # 这里用更大的字号和深红色来突出国名.
+    # 不用 fontweight="bold": 本机 CJK 字体是可变字体 TTC, matplotlib 只能取到默认实例,
+    # 请求粗体会回退并告警; 这里用更大的字号和深红色来突出国名.
     # 位置避开曼德勒、内比都等城市地名, 防止文字互相压盖.
     ax.text(
         95.6,

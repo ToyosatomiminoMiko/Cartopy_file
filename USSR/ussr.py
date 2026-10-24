@@ -8,6 +8,7 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 # ============================================================
 import os  # 读取环境变量,例如 ETOPO_PATH
+import sys  # 调整模块搜索路径, 以便导入项目根目录的全局字体设置
 from pathlib import Path  # 统一使用 pathlib 处理文件路径
 
 import cartopy.crs as ccrs  # 地图投影
@@ -19,11 +20,12 @@ import numpy as np  # 数组运算
 import xarray as xr  # 读取 NetCDF
 from shapely.ops import unary_union  # 合并多个面为单一几何边界
 
-# 设置 Matplotlib 中文字体,避免标题和警告中的中文显示为方框.
-# 若系统中没有 Noto Sans CJK SC,会自动回退到 DejaVu Sans.
-plt.rcParams["font.sans-serif"] = ["Noto Sans CJK SC", "JetBrains Mono Slashed Medium"]
-# 使用 Unicode 负号,避免坐标轴负号显示异常.
-plt.rcParams["axes.unicode_minus"] = False
+# 全局字体: 项目根目录 fonts.py 统一设置中英文字体(汉字 Noto Sans Mono CJK SC,
+# 英文/数字 JetBrains Mono Slashed Medium), 本脚本不再单独维护 rcParams.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from fonts import apply_matplotlib_fonts
+
+apply_matplotlib_fonts()
 
 
 # ============================

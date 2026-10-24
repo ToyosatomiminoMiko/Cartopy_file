@@ -1,9 +1,18 @@
 import json
+import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+
+# 全局字体: 项目根目录 fonts.py 是唯一的字体设置来源; 本脚本所在目录是
+# AmericaArmy/, 所以先把项目根目录加入模块搜索路径.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from fonts import apply_matplotlib_fonts
+
+apply_matplotlib_fonts()
 
 with open("./AmericaArmy/data.geojson", "r", encoding="utf-8") as f:
     data = json.load(f)
