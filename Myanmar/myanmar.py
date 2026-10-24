@@ -38,13 +38,13 @@ os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 import cartopy.crs as ccrs  # 地图投影
 import cartopy.feature as cfeature  # 海岸线和国界等自然要素
 import matplotlib.cm as cm  # 构造独立色标用的 ScalarMappable
-import matplotlib.colors as mcolors  # 归一化、色标与山体阴影
 import matplotlib.patheffects as pe  # 文字描边, 保证在深色地形上仍可读
 import matplotlib.pyplot as plt  # 绘图
 import matplotlib.ticker as mticker  # 经纬网刻度定位
 import numpy as np  # 数组运算
-import xarray as xr  # 读取 NetCDF
 from shapely.ops import unary_union  # 合并多块几何, 得到缅甸整体轮廓
+
+import map_lib  # 与本目录共用的 ETOPO/晕渲/边界工具
 
 # 中文字体: 优先等宽 CJK 字体, 没有时回退到 DejaVu Sans(中文会显示为方框).
 # 不使用 Noto Sans CJK SC: 本机装的是可变字体 TTC, matplotlib 只能识别其 Thin 实例,
@@ -80,7 +80,7 @@ PROJECTION = ccrs.LambertConformal(
 MYANMAR_NAMES = ("Myanmar", "Burma")
 
 # 数据未覆盖区域的底图配色: 先画 Natural Earth 陆地 + 海洋底色, 再叠加 ETOPO 地形.
-# 原因见 add_base_map(): 圆锥投影的矩形画框会探出 ETOPO 子集的范围,
+# 原因见 map_lib.add_base_map(): 圆锥投影的矩形画框会探出 ETOPO 子集的范围,
 # 用真实海陆分布打底比直接留白更不容易误导读者.
 BASE_OCEAN_COLOR = "#cfe0ee"
 BASE_LAND_COLOR = "#efe9cf"
@@ -127,138 +127,6 @@ TITLE = (
 )
 # 输出图片路径, 300 dpi 适合打印或后续排版.
 OUT_PNG = ROOT / "myanmar_topography_etopo2022_lambert_conformal.png"
-
-
-def find_etopo(stride: int | None) -> Path:
-    """Locate the local ETOPO NetCDF file.
-
-    Priority: explicit --stride > MYANMAR_ETOPO_PATH > highest-resolution
-    (smallest stride) file found in data/.
-    """
-    env_path = os.environ.get("MYANMAR_ETOPO_PATH")
-    if env_path:
-        return Path(env_path)
-    if stride is not None:
-        return DATA_DIR / f"ETOPO_2022_v1_15s_myanmar_stride{stride}.nc"
-
-    candidates = sorted(DATA_DIR.glob("ETOPO_2022_v1_15s_myanmar_stride*.nc"))
-    if not candidates:
-        return DATA_DIR / "ETOPO_2022_v1_15s_myanmar_stride2.nc"
-
-    # 文件名形如 ..._stride8.nc / ..._stride2.nc; 数值越小分辨率越高.
-    def stride_of(path: Path) -> int:
-        digits = "".join(ch for ch in path.stem.split("stride")[-1] if ch.isdigit())
-        return int(digits) if digits else 10**6
-
-    return min(candidates, key=stride_of)
-
-
-def load_elevation(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Read z as a 2-D array plus 1-D longitude/latitude coordinates.
-
-    ETOPO on ERDDAP is static but the NetCDF may still carry a length-1 time
-    dimension, so squeeze it away.  Latitude is flipped to south-to-north to
-    match ``imshow(origin="lower")``.
-    """
-    ds = xr.open_dataset(path, decode_times=False, engine="netcdf4")
-    # 只取高程变量, 其余元数据不需要.
-    elevation = ds["z"]
-    if elevation.ndim == 3:
-        dim = "time" if "time" in elevation.dims else elevation.dims[0]
-        elevation = elevation.isel({dim: 0})
-
-    lon = elevation["longitude"].to_numpy()
-    lat = elevation["latitude"].to_numpy()
-    z = elevation.to_numpy()
-
-    # ERDDAP 有时按纬度从北到南返回; 统一翻成从南到北.
-    if lat[0] > lat[-1]:
-        lat = lat[::-1]
-        z = z[::-1, :]
-
-    ds.close()
-    print(
-        f"高程数据: {path.name}, 形状 {z.shape}, "
-        f"经度 {lon[0]:.2f}~{lon[-1]:.2f}, 纬度 {lat[0]:.2f}~{lat[-1]:.2f}, "
-        f"高程 {np.nanmin(z):.0f}~{np.nanmax(z):.0f} m"
-    )
-    return lon, lat, z
-
-
-def make_relief(z: np.ndarray, lat: np.ndarray, lon: np.ndarray):
-    """Colour the elevation grid and blend it with a hillshade.
-
-    Why bother with a hillshade: a plain hypsometric colour map hides the
-    detailed relief at 30 arc-second resolution, because most of Myanmar lies
-    below 1000 m and therefore gets almost the same colour.  Multiplying the
-    colour by a shading factor derived from the local slope makes ridges,
-    valleys and the deep-sea trenches visible without changing the elevation
-    colour scale.
-
-    ``dx``/``dy`` are the grid spacings in metres: matplotlib's LightSource
-    divides the elevation difference by dx/dy, so they must use the same unit
-    as ``z`` (metres) or the apparent slope (and thus the shading) is wrong.
-    """
-    cmap = plt.get_cmap(ELEV_CMAP)
-    norm = mcolors.Normalize(ELEV_VMIN, ELEV_VMAX)
-
-    dlat = (lat[-1] - lat[0]) / (lat.size - 1)
-    dlon = (lon[-1] - lon[0]) / (lon.size - 1)
-    dy = 110540.0 * dlat  # 1° 纬度约 110.54 km
-    dx = 111320.0 * np.cos(np.deg2rad(np.mean(lat))) * dlon  # 经度随纬度收缩
-
-    light = mcolors.LightSource(
-        azdeg=HILLSHADE_AZIMUTH, altdeg=HILLSHADE_ALTITUDE
-    )
-    # blend_mode="soft": 柔光混合保留高程配色, 又叠加阴影; 换成 "overlay"
-    # 会把低地压得过亮发白, 层次反而不如 soft.
-    rgba = light.shade(
-        z,
-        cmap=cmap,
-        norm=norm,
-        blend_mode="soft",
-        vert_exag=HILLSHADE_VERT_EXAG,
-        dx=dx,
-        dy=dy,
-        fraction=1.2,
-    )
-    return rgba, norm, cmap
-
-
-def load_countries():
-    """Read the Natural Earth 10m country polygons, or return None if missing.
-
-    The same polygons are reused twice: as the base land fill and to outline
-    Myanmar.  Reading the shapefile once avoids parsing it twice.
-    """
-    shapefiles = sorted(BOUNDARY_DIR.glob("*.shp")) if BOUNDARY_DIR.exists() else []
-    if not shapefiles:
-        print("警告: 未找到 Natural Earth 边界 shapefile, 跳过底图填充与红色国界.")
-        return None
-    # 延迟导入: 没有边界数据时不需要 geopandas.
-    import geopandas as gpd
-
-    return gpd.read_file(shapefiles[0])
-
-
-def add_base_map(ax: plt.Axes, world) -> None:
-    """Fill ocean and land before drawing the relief.
-
-    Why: the ETOPO subset covers only 87~106°E / 5~31°N, while a rectangular
-    Lambert Conformal frame reaches slightly outside that box near the corners
-    (meridians converge northwards).  Painting real land polygons over an ocean
-    coloured axes background keeps those corners geographically correct instead
-    of showing a meaningless white/blue gap.
-    """
-    ax.set_facecolor(BASE_OCEAN_COLOR)
-    if world is not None:
-        ax.add_geometries(
-            world.geometry,
-            crs=ccrs.PlateCarree(),
-            facecolor=BASE_LAND_COLOR,
-            edgecolor="none",
-            zorder=0,
-        )
 
 
 def add_myanmar_boundary(ax: plt.Axes, world) -> None:
@@ -389,13 +257,18 @@ def main() -> None:
     parser.add_argument("--show", action="store_true", help="保存后弹出交互窗口(需要图形界面)")
     args = parser.parse_args()
 
-    etopo_path = find_etopo(args.stride)
+    etopo_path = map_lib.find_etopo(
+        DATA_DIR,
+        "myanmar",
+        args.stride,
+        env_path=os.environ.get("MYANMAR_ETOPO_PATH"),
+    )
     if not etopo_path.exists():
         raise FileNotFoundError(
             f"未找到高程数据: {etopo_path}\n"
             "请先运行: python download_etopo.py (或设置 MYANMAR_ETOPO_PATH)"
         )
-    lon, lat, z = load_elevation(etopo_path)
+    lon, lat, z = map_lib.load_elevation(etopo_path)
 
     # 画布偏竖长: 缅甸南北约 26°、东西约 19°, 投影后宽高比约 3:4,
     # 用 12x15 英寸能充分展示南北狭长的国土轮廓.
@@ -408,11 +281,26 @@ def main() -> None:
     ax.set_extent(EXTENT, crs=ccrs.PlateCarree())
 
     # 先铺一层真实海陆底色, 再把 ETOPO 地形叠上去.
-    world = load_countries()
-    add_base_map(ax, world)
+    world = map_lib.load_countries(BOUNDARY_DIR)
+    map_lib.add_base_map(
+        ax,
+        world,
+        ocean_color=BASE_OCEAN_COLOR,
+        land_color=BASE_LAND_COLOR,
+    )
 
     # 把高程配色与山体晕渲合成 RGB 图, 比单一高程色带更能读出山脊走向.
-    relief, norm, cmap = make_relief(z, lat, lon)
+    relief, norm, cmap = map_lib.make_relief(
+        z,
+        lat,
+        lon,
+        vmin=ELEV_VMIN,
+        vmax=ELEV_VMAX,
+        cmap=ELEV_CMAP,
+        azimuth=HILLSHADE_AZIMUTH,
+        altitude=HILLSHADE_ALTITUDE,
+        vert_exag=HILLSHADE_VERT_EXAG,
+    )
 
     # imshow 比 pcolormesh 快得多: cartopy 内部会按 regrid_shape 做重投影采样.
     # regrid_shape 默认只有 750, 对 30 弧秒数据会糊成一片, 这里提到 3200.

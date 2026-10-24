@@ -11,7 +11,10 @@
 ERDDAP 的经度约定是 0~360°, 而该区域整体落在 0~360° 之内, 不存在跨 0°/360° 的
 环绕问题, 因此不需要像 USSR 脚本那样把负经度 +360 处理.
 
-默认 stride=2 (30 弧秒), 对 300 dpi 出图足够, 文件约 34 MB;
+除了缅甸全境, 本脚本也用 --region northern_shan 下载掸邦北部放大图所需的
+更高分辨率子集 (经度 94.6°E~102.1°E, 纬度 20.9°N~25.2°N, stride=1 约 7 MB).
+
+默认 stride=2 (30 弧秒), 缅甸全境出图足够, 文件约 34 MB;
 确实需要完整 15 弧秒网格时用 --stride 1 (约 135 MB).
 
 作者: Haojiren Galactic
@@ -46,12 +49,20 @@ USER_AGENT = (
     "Chrome/124.0 Safari/537.36"
 )
 
+# 区域名 -> (经度范围, 纬度范围). 取值范围要覆盖兰勃特画框四角, 见模块说明.
+REGIONS = {
+    "myanmar": ((85.3, 107.7), (4.9, 31.1)),
+    # 掸邦北部放大图: 画框 95.3~101.5°E / 21.0~24.75°N, 投影后四角外扩到
+    # 约 95.2~101.6°E, 所以下载范围在此基础再留 0.5° 余量.
+    "northern_shan": ((94.6, 102.1), (20.9, 25.2)),
+}
 
-def erddap_url(stride: int, lon_range=(85.3, 107.7), lat_range=(4.9, 31.1)) -> str:
+
+def erddap_url(stride: int, lon_range, lat_range) -> str:
     min_lon, max_lon = lon_range
     min_lat, max_lat = lat_range
-    # ERDDAP 的经度是 0~360°; 本区域 (85.3~107.7°E) 完全落在该区间内,
-    # 直接写东经数值即可, 无需处理 -180° 到 0° 的转换.
+    # ERDDAP 的经度是 0~360°; 本脚本用到的区域 (85~108°E 或 94~103°E)
+    # 都完全落在该区间内, 直接写东经数值即可, 无需处理 -180° 到 0° 的转换.
     # 查询里的数字是坐标值 (用括号括起), stride 是索引步长, 因此步长 2 即 30 弧秒.
     query = (
         f"z%5B({min_lat}):{stride}:({max_lat})%5D"
@@ -164,6 +175,12 @@ def main() -> None:
         help="ERDDAP 采样步长；1=完整 15 弧秒，2=30 弧秒（默认，适合 300 dpi 出图），4=1 弧分",
     )
     parser.add_argument(
+        "--region",
+        choices=sorted(REGIONS),
+        default="myanmar",
+        help="下载区域: myanmar=缅甸全境(默认), northern_shan=掸邦北部放大图",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="覆盖已存在的下载文件",
@@ -173,14 +190,15 @@ def main() -> None:
     if args.stride < 1:
         parser.error("--stride 必须 >= 1")
 
-    etopo_path = DATA_DIR / f"ETOPO_2022_v1_15s_myanmar_stride{args.stride}.nc"
+    etopo_path = DATA_DIR / f"ETOPO_2022_v1_15s_{args.region}_stride{args.stride}.nc"
     ne_zip_path = DATA_DIR / "ne_10m_admin_0_countries.zip"
 
     if etopo_path.exists() and not args.force:
         print("提示: 目标文件已存在; 若它是旧的区域范围, 请加 --force 重新下载.")
 
-    url = erddap_url(args.stride)
-    print(f"下载 ETOPO 2022 缅甸区域高程 (stride={args.stride})")
+    lon_range, lat_range = REGIONS[args.region]
+    url = erddap_url(args.stride, lon_range, lat_range)
+    print(f"下载 ETOPO 2022 {args.region} 区域高程 (stride={args.stride})")
     print(url)
     started = time.time()
     download(url, etopo_path, "ETOPO 高程", args.force, expect_netcdf=True)
@@ -190,7 +208,10 @@ def main() -> None:
     download(NE_URL, ne_zip_path, "Natural Earth 边界", args.force)
     extract_shapefile(ne_zip_path)
 
-    print("\n完成。现在可运行: python myanmar.py")
+    if args.region == "myanmar":
+        print("\n完成。现在可运行: python myanmar.py")
+    else:
+        print(f"\n完成。现在可运行: python {args.region}.py")
 
 
 if __name__ == "__main__":
