@@ -11,11 +11,9 @@ The default stride is 8 (2 arc-minutes), which is still fine for the
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
