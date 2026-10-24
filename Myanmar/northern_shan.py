@@ -31,7 +31,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -62,10 +61,9 @@ import map_lib  # 与本目录共用的 ETOPO/晕渲/边界工具
 cartopy.config["data_dir"] = str(DATA_DIR / "cartopy")
 (DATA_DIR / "cartopy").mkdir(parents=True, exist_ok=True)
 
-# 全局字体: 项目根目录 fonts.py 统一设置. 汉字用 Noto Sans Mono CJK SC,
+# 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
 # 英文/数字用 JetBrains Mono Slashed Medium, 逐字符回退; 本脚本不再单独配字体.
-sys.path.insert(0, str(ROOT.parent))
-from fonts import apply_matplotlib_fonts
+from cartopy_file.fonts import apply_matplotlib_fonts
 
 apply_matplotlib_fonts()
 # 斜线填充的线宽: 默认 1.0 在 300 dpi 下偏粗, 会把特区填充压成深色块.

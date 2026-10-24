@@ -4,7 +4,7 @@
 # fonts.py
 # 项目全局字体设置: 汉字用 Noto Sans Mono CJK SC,
 # 英文与数字用 JetBrainsMonoSlashed-Medium.
-# 放在项目根目录, 是所有绘图脚本唯一的字体来源.
+# 属于可安装的项目包 cartopy_file, 是所有绘图脚本唯一的字体来源.
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 # ============================================================
 """Project-wide matplotlib font configuration.
@@ -22,11 +22,14 @@ DejaVu Sans.
 通用族别名(sans-serif 等)只会被解析成单个字体, 不参与逐字符回退, 结果
 汉字会报 "Glyph missing" 警告并画成方框.
 
-用法: 在导入 matplotlib 之后、创建任何文字之前调用一次(可重复调用):
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from fonts import apply_matplotlib_fonts
+用法: 本模块属于项目包 cartopy_file(源码在 src/cartopy_file/). 脚本能
+``import cartopy_file`` 的前提是项目已以可编辑模式安装进当前环境:
+
+    uv pip install -e .
+
+之后在导入 matplotlib 之后、创建任何文字之前调用一次(可重复调用):
+
+    from cartopy_file.fonts import apply_matplotlib_fonts
     apply_matplotlib_fonts()
 """
 

@@ -5,8 +5,8 @@
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
-# 全局字体: 根目录 fonts.py 是项目里唯一的字体设置来源, 中英文字体统一.
-from fonts import apply_matplotlib_fonts
+# 全局字体: 由项目包 cartopy_file 统一提供, 中英文字体与其他脚本一致.
+from cartopy_file.fonts import apply_matplotlib_fonts
 
 apply_matplotlib_fonts()
 

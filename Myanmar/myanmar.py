@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 from pathlib import Path
 
 # plt.rcParams 只能在导入 matplotlib 之后设置, 但缓存目录必须在导入前指定.
@@ -47,10 +46,9 @@ from shapely.ops import unary_union  # 合并多块几何, 得到缅甸整体轮
 
 import map_lib  # 与本目录共用的 ETOPO/晕渲/边界工具
 
-# 全局字体: 项目根目录 fonts.py 统一设置. 汉字用 Noto Sans Mono CJK SC,
+# 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
 # 英文/数字用 JetBrains Mono Slashed Medium, 逐字符回退; 本脚本不再单独配字体.
-sys.path.insert(0, str(ROOT.parent))
-from fonts import apply_matplotlib_fonts
+from cartopy_file.fonts import apply_matplotlib_fonts
 
 apply_matplotlib_fonts()
 

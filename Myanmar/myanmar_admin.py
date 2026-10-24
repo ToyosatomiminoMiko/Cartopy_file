@@ -38,7 +38,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
 
 # matplotlib 的缓存目录必须在导入 matplotlib 之前指定; 本机 ~/.config 不可写.
@@ -59,11 +58,10 @@ from shapely.geometry import shape  # GeoJSON -> Shapely
 
 import map_lib  # 复用 ETOPO 读取、晕渲、海陆底色工具
 
-# 全局字体: 项目根目录 fonts.py 统一设置. 汉字用 Noto Sans Mono CJK SC,
+# 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
 # 英文/数字用 JetBrains Mono Slashed Medium; 中英混排由逐字符回退自动选字体,
 # 所以下面的文字调用不再逐个指定 fontfamily.
-sys.path.insert(0, str(ROOT.parent))
-from fonts import apply_matplotlib_fonts
+from cartopy_file.fonts import apply_matplotlib_fonts
 
 apply_matplotlib_fonts()
 # 斜线填充过密会在 300 dpi 下糊成深色块, 这里保持项目里一致的细线.
