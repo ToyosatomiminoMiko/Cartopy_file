@@ -1,33 +1,19 @@
+import json
+
 import matplotlib.pyplot as plt
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
-from time import sleep
-from longlat import ffloat
+with open("./AmericaArmy/data.geojson", "r", encoding="utf-8") as f:
+    data = json.load(f)
 
-list = []
-with open("./AmericaArmy/code/data.txt", "r", encoding="utf-8") as f:
-    for line in f.readlines():
-        l = line.split("\n")[0].split(" ", 1)
-        if "N" in l[1]:
-            l0 = l[1].split("N")
-            l0[0] += "N"
-        elif "S" in l[1]:
-            l0 = l[1].split("S")
-            l0[0] += "S"
-        # 名字，经度，纬度
-        name, long, lat = l[0], "".join(l0[0].split(" ")), "".join(l0[1].split(" "))
-        list.append([name, ffloat(long), ffloat(lat)])
+# 名字,经度,纬度;GeoJSON 坐标顺序固定为 [经度, 纬度]
+points = [
+    [feat["properties"]["name"], *feat["geometry"]["coordinates"]]
+    for feat in data["features"]
+]
 
-"""
-fig = plt.figure(figsize=(10, 5))
-ax = fig.add_subplot(1, 1, 1, projection=ccrs.Robinson())
-#使地图成为全局地图，而不是将其范围放大到任何绘制数据的范围
-ax.set_global()
-ax.stock_img()
-ax.coastlines()
-"""
 
 fig = plt.figure(figsize=(10, 7.5))
 ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
@@ -53,7 +39,7 @@ S:南纬-
 # ax.plot([-0.08, 132], [51.53, 43.17], transform=ccrs.Geodetic())
 # ax.plot(-116.14816944444445,34.295252777777776 , '.', transform=ccrs.PlateCarree())
 
-for i in list:
-    ax.plot(i[2], i[1], ".", transform=ccrs.PlateCarree())
+for name, lon, lat in points:
+    ax.plot(lon, lat, "+", transform=ccrs.PlateCarree())
 
 plt.show()

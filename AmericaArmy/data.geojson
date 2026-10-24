@@ -1,0 +1,2609 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "加州海豹突击队第3小分队沙漠训练基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -115.49105833333333,
+          33.29166111111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "加州圣地亚哥海军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.15183055555556,
+          32.67905833333333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "加州圣地亚哥陆战队新兵训练基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.19814722222223,
+          32.74161388888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "加州陆战队山地作战训练中心"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.51420833333333,
+          38.357641666666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "加州中国湖海军空战中心"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.68087222222222,
+          35.688136111111106
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "加州中国湖海军武器中心"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.50275,
+          36.038469444444445
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "加州海军陆战队彭德尔顿兵营"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.39734166666668,
+          33.22088611111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "加州彭德尔顿兵营海军医院"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.32771944444444,
+          33.34054166666667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 9,
+        "name": "加州彭德尔顿陆战队兵营射击场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.41840277777779,
+          33.26221388888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 10,
+        "name": "加州彭德尔顿兵营直升飞机场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.34837499999999,
+          33.299077777777775
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 11,
+        "name": "加州彭德尔顿兵营训练兵营"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.51393611111111,
+          33.394061111111114
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 12,
+        "name": "加州陆战队彭德尔顿兵营"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.40952222222222,
+          33.34991388888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 13,
+        "name": "加州彭德尔顿兵营第5突击艇分队"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.43385833333333,
+          33.259825
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 14,
+        "name": "加州美国陆军欧文堡国家训练中心"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -116.68290833333334,
+          35.261269444444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 15,
+        "name": "加州威尔逊陆战队训练营地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -116.14816944444445,
+          34.295252777777776
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 16,
+        "name": "加州棕榈谷空军42号工厂"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -118.09171944444444,
+          34.634430555555554
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 17,
+        "name": "加州萨克拉曼多海岸警卫队航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.3940888888889,
+          38.664455555555556
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 18,
+        "name": "加州罗伯茨兵营"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.74344444444445,
+          35.792027777777776
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 19,
+        "name": "加州米拉玛陆战队航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.1380638888889,
+          32.87414166666667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 20,
+        "name": "加州席尔拉陆军补给站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.11855555555555,
+          40.176024999999996
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 21,
+        "name": "加州巴斯托海军陆战队后勤基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -116.95068333333333,
+          34.87565277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 22,
+        "name": "加州陆战队空地作战中心29棕榈村"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -116.06076944444445,
+          34.23820277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 23,
+        "name": "加州埃尔森特罗海军飞机场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -115.66555555555556,
+          32.820083333333336
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 24,
+        "name": "加州北岛海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.21118333333334,
+          32.702325
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 25,
+        "name": "加州洛马角海军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.2368,
+          32.687466666666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 26,
+        "name": "加州穆古海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.11339444444444,
+          34.11631388888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 27,
+        "name": "加州洛斯亚拉美图士陆军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -118.0544361111111,
+          33.79291944444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 28,
+        "name": "加州文图拉县海军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.20756388888888,
+          34.15237777777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 29,
+        "name": "加州马奇空军后备基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.25789166666667,
+          33.89745555555555
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 30,
+        "name": "加州比尔空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.43225833333334,
+          39.15068888888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 31,
+        "name": "加州特拉维斯空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.93715555555556,
+          38.26151388888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 32,
+        "name": "加州范登堡空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.56950555555555,
+          34.731519444444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 33,
+        "name": "加州爱德华兹空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.89430555555556,
+          34.91594722222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 34,
+        "name": "加州秘密军事基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.33594722222222,
+          35.816325
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "得克萨斯州沃思堡海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.43362222222223,
+          32.77612777777777
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "得克萨斯州科珀斯克里斯蒂城海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.28252499999999,
+          27.69318611111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "得克萨斯州布利斯堡比格斯陆军飞机场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.38858333333334,
+          31.83271111111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "得克萨斯州陆军胡德堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.77933333333333,
+          31.13474722222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "得克萨斯州胡德堡第一骑兵师司令部"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.78381666666667,
+          31.14084722222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "德克萨斯州胡德堡第4步兵师司令部"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.74643055555556,
+          31.13620277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "得克萨斯州陆军萨姆休斯顿堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -98.4144888888889,
+          29.45883611111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "得克萨斯州陆军布利斯堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.42133611111112,
+          31.81586666666667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 9,
+        "name": "得克萨斯州英格塞海军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.20455277777778,
+          27.82146388888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 10,
+        "name": "得克萨斯州Mabry兵营"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.7585,
+          30.31425
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 11,
+        "name": "德克萨斯州布鲁克斯城空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -98.44286111111111,
+          29.34191111111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 12,
+        "name": "得克萨斯州伦道夫空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -98.28194166666667,
+          29.533530555555558
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 13,
+        "name": "德克萨斯州劳夫林空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.78611944444444,
+          29.360000000000003
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 14,
+        "name": "德克萨斯州拉克兰空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -98.58442222222222,
+          29.378486111111112
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 15,
+        "name": "得克萨斯州古德费洛空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.4041,
+          31.43552222222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 16,
+        "name": "得克萨斯州戴伊斯空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -99.84678333333333,
+          32.414766666666665
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 17,
+        "name": "得克萨斯州谢帕德空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -98.50212777777777,
+          33.996119444444446
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "佐治亚州奥尔巴尼陆战队后勤基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.07757222222222,
+          31.553330555555558
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "佐治亚州第5游骑兵训练营"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.10489722222222,
+          34.62833888888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "佐治亚州美国陆军戈登堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -82.13745277777778,
+          33.417966666666665
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "佐治亚州美国陆军麦克弗森堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.43032777777778,
+          33.705444444444446
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "佐治亚州美国陆军本宁堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.969125,
+          32.360486111111115
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "佐治亚州本宁堡国家步兵博物馆"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.94977777777778,
+          32.365880555555556
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "佐治亚州亨特陆军机场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.0,
+          32.185449999999996
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "佐治亚州劳森陆军机场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.9841,
+          32.337133333333334
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 9,
+        "name": "佐治亚州陆军吉莱姆堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.35745,
+          33.62249444444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 10,
+        "name": "佐治亚州亚特兰大海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.51607222222222,
+          33.91028333333333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 11,
+        "name": "佐治亚州海军金斯湾潜艇基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.51565833333333,
+          30.795886111111113
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 12,
+        "name": "佐治亚州穆迪空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -83.19656388888889,
+          30.97478333333333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 13,
+        "name": "佐治亚州多宾斯空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.53558888888888,
+          33.916599999999995
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 14,
+        "name": "佐治亚州第75游骑兵团第一游骑兵营驻地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.12444444444444,
+          32.01867222222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 15,
+        "name": "佐治亚州美国海军潜水救援训练学校"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -85.75830833333333,
+          30.171713888888892
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 16,
+        "name": "佐治亚州美国海军航空博物馆"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.30362222222222,
+          30.34965
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "佛罗里达州布兰丁陆军训练基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.97989722222222,
+          29.937975
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "佛罗里达州空军武器博物馆"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.560875,
+          30.466088888888887
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "佛罗里达州赫伯特空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.69210277777778,
+          30.423833333333334
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "佛罗里达州陆军模拟训练和设施司令部"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.2045638888889,
+          28.58695277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "佛罗里达州杰克逊维尔海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.67619722222223,
+          30.22794722222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "佛罗里达州梅波特海军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.41834722222222,
+          30.392825
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "佛罗里达州彭萨科拉海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.310675,
+          30.352194444444446
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "佛罗里达州奇威斯特海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.69839444444445,
+          24.577694444444443
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 9,
+        "name": "佛罗里达州威挺菲尔德海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.01847222222221,
+          30.709722222222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 10,
+        "name": "佛罗里达州卡纳维拉尔角发射基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.65185555555556,
+          28.58648611111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 11,
+        "name": "佛罗里达州帕特里克空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.60928055555554,
+          28.244475
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 12,
+        "name": "佛罗里达州廷德尔空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -85.578,
+          30.068605555555557
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 13,
+        "name": "佛罗里达州霍姆斯特德空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.38284166666666,
+          25.49408888888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 14,
+        "name": "佛罗里达州麦克迪尔空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -82.49486666666667,
+          27.8538
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 15,
+        "name": "佛罗里达州埃格林空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.51490277777778,
+          30.481033333333333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "维吉尼亚州FBI特工学院"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.44309722222222,
+          38.53048611111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "维吉尼亚州CIA总部"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.14510833333334,
+          38.951883333333335
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "维吉尼亚海滩陆战队兵营"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.979725,
+          36.81081944444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "维吉尼亚州陆军A.P.希尔堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.28245833333334,
+          38.097550000000005
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "维吉尼亚州陆军贝尔沃艾尔堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.13826666666667,
+          38.69146666666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "维吉尼亚州陆军斯托里堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.59083888888888,
+          37.15218611111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "维吉尼亚州陆军门罗堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.30549722222221,
+          37.00661111111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "维吉尼亚州匡堤科陆战队基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.30520833333333,
+          38.5141
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 9,
+        "name": "维吉尼亚州利特尔-克里克海军两栖基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.03543611111111,
+          36.92754166666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 10,
+        "name": "维吉尼亚州奥西纳海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.03164444444444,
+          36.816605555555554
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 11,
+        "name": "维吉尼亚州诺福克海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.29491388888889,
+          36.94045555555555
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 12,
+        "name": "维吉尼亚州约克城海军武器站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.547175,
+          37.23793888888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 13,
+        "name": "维吉尼亚州兰利空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.3609361111111,
+          37.080555555555556
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 14,
+        "name": "维吉尼亚诺福克海军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.3982388888889,
+          36.93763055555555
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "华盛顿波林空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.0126138888889,
+          38.83976666666667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "华盛顿陆军麦克纳尔堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.01031388888889,
+          38.870533333333334
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "华盛顿安德鲁斯空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.85979999999999,
+          38.80881111111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "华盛顿州陆军刘易斯堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.58410555555555,
+          47.08255833333334
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "华盛顿州惠德贝岛海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.6643638888889,
+          48.34513611111112
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "华盛顿州埃弗雷特海军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.22025277777777,
+          47.98897777777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "华盛顿州普吉海峡海军造船厂"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.63226944444443,
+          47.561477777777775
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "华盛顿州班戈核潜艇基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.7303,
+          47.743002777777775
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 9,
+        "name": "华盛顿州麦科德空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.48646944444445,
+          47.141616666666664
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 10,
+        "name": "华盛顿州费尔柴尔德空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.64156944444446,
+          47.622675
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 11,
+        "name": "华盛顿州美国阿灵顿国家公墓"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.07128055555555,
+          38.87571666666667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "北卡罗来纳州波普空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.0159,
+          35.17404444444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "北卡罗来纳州陆军布拉格堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.00320833333333,
+          35.151355555555554
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "北卡罗来纳州布拉格堡陆军特种作战司令部"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.00198888888889,
+          35.11031666666667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "北卡罗来纳州布拉格堡82空降师博物馆"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.02202777777778,
+          35.13003888888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "北卡罗来纳州西蒙斯陆军机场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.93707222222223,
+          35.13459722222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "北卡罗来纳州切里角陆战队航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.88873055555557,
+          34.904375
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "北卡罗来纳州新河陆战队航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.4449388888889,
+          34.713950000000004
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "北卡罗莱纳州陆战队基地列尊兵营"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.32225277777778,
+          34.66141666666667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 9,
+        "name": "北卡罗来纳州基地列顿兵营狙击手训练场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.44525277777778,
+          34.59507777777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 10,
+        "name": "北卡罗来纳州陆战队基地列尊兵营机枪射击场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.38444444444445,
+          34.642377777777774
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "南卡罗来纳州帕里斯岛陆战队新兵训练基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.680125,
+          32.349538888888894
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "南卡罗来纳州波弗特陆战队航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.7221611111111,
+          32.470533333333336
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "南卡罗来纳州陆军杰克逊堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.94068333333334,
+          34.01091944444445
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "南卡罗来纳州查尔斯顿海军武器站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.94899166666667,
+          32.95194722222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "南卡罗莱那州空军国民警卫队基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.79825555555556,
+          33.920138888888886
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "南卡罗来纳州查尔斯顿空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.04296388888889,
+          32.90118888888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "南卡罗莱纳州肖空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.47196944444444,
+          33.97606666666667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "南达科他州埃尔斯沃思空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -103.09162222222221,
+          44.13941944444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "阿拉斯加埃达克岛海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -176.64230833333332,
+          51.870872222222225
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "阿拉斯加州美国国家导弹防御基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -145.7335388888889,
+          63.95647777777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "阿拉斯加州陆军理查德森堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -149.6901388888889,
+          61.258719444444445
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "阿拉斯加州陆军温莱特堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -147.63054722222222,
+          64.82610555555556
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "阿拉斯加州艾瑞克森空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          174.10734444444444,
+          52.71751666666667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "阿拉斯加州艾伦陆军机场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -145.7235611111111,
+          63.98918333333334
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "阿拉斯加州艾尔森空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -147.0982138888889,
+          64.66945
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "阿拉斯加埃尔门托夫空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -149.80005833333334,
+          61.250075
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "夏威夷太平洋司令部史密斯兵营"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -157.90715833333334,
+          21.38696111111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "夏威夷陆军斯科菲尔德兵营"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -158.0651138888889,
+          21.49846666666667
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "夏威夷沙夫特堡陆军太平洋司令部"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -157.8868861111111,
+          21.346072222222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "夏威夷珍珠港海军造船厂"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -157.9537722222222,
+          21.352430555555557
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "夏威夷亚利桑那号纪念馆"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -157.9500972222222,
+          21.364955555555557
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "夏威夷威克岛陆军机场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          166.64695555555554,
+          19.285258333333335
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "夏威夷陆战队基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -157.76460277777778,
+          21.448780555555555
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "夏威夷希卡姆空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -157.945325,
+          21.332294444444443
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "纽约州美国西点军校"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.95748611111111,
+          41.391755555555555
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "纽约州空军国民警卫队第105空运联队"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.08843055555555,
+          41.50114444444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "纽约州航空博物馆"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.93188888888889,
+          42.859322222222225
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "纽约州陆军后备队中心"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.90730833333333,
+          42.83333888888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "纽约州陆军德拉姆堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.76896111111111,
+          44.351258333333334
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "纽约州陆军哈密尔顿堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.026725,
+          40.609
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "纽约空军国民警卫队基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.64031944444446,
+          40.83765555555556
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "内华达州51区"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -115.81136944444444,
+          37.24364722222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "内华达州托诺帕靶场（52区）"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -116.47278055555556,
+          37.75291111111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "内华达州法伦海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -118.70692777777778,
+          39.420272222222216
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "内华达州霍桑陆军仓库"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -118.59362222222222,
+          38.560075
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "内华达州内黎空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -115.04156944444445,
+          36.227675000000005
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "内布拉斯加州奥夫特空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -95.9037,
+          41.111161111111116
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "科罗纳多州美国空军军官学校"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.88790277777778,
+          39.008966666666666
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "科罗拉多州彼得森空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.70424444444444,
+          38.814477777777775
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "科罗拉多州陆军卡森堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.78369166666667,
+          38.74422222222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "科罗纳多州夏延山北美联合防空司令部"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.84523055555555,
+          38.74396111111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "科罗拉多州谢里佛尔空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.52720833333333,
+          38.80098888888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "科罗拉多州巴克利空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.76276944444444,
+          39.71066944444445
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "马里兰州美国海军军官学校"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.48311666666667,
+          38.979819444444445
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "马里兰州陆军米德堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.73861111111111,
+          39.104419444444446
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "马里兰州陆军米德堡内美国国家安全局"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.77131666666666,
+          39.10879722222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "马里兰州陆军德特里克堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.44440833333334,
+          39.433949999999996
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "马里兰州帕塔克森特河海军航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.41877777777778,
+          38.288725
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "新泽西州皮卡汀尼兵工厂"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.57380833333333,
+          40.936027777777774
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "新泽西州厄尔海军武器站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.18023055555555,
+          40.30050833333333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "新泽西州陆军蒙茅斯堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.03508333333333,
+          40.31827222222223
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "新泽西州陆军迪克斯堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.61979722222222,
+          40.010133333333336
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "新泽西州的麦圭尔空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.59660833333332,
+          40.02461388888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "亚利桑那州卢克空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -112.37143611111111,
+          33.53482777777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "亚利桑那州海军陆战队尤马航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -114.59355277777777,
+          32.661030555555556
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "亚利桑那州陆军瓦丘卡堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -110.34667777777777,
+          31.561325
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "亚利桑那州戴维斯蒙森空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -110.88255277777778,
+          32.17316944444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "亚利桑那州戴维斯蒙森飞机坟场"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -110.84356666666666,
+          32.158519444444444
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "亚拉巴马州麦克斯韦-甘特空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.35830277777777,
+          32.38023611111111
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "亚拉巴马州安尼斯顿陆军仓库"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -85.94178611111111,
+          33.64359722222222
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "亚拉巴马州红石武器库"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.67008055555556,
+          34.65583888888889
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "亚拉巴马州陆军拉克堡"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -85.67852500000001,
+          31.394644444444445
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "俄克拉荷马州麦卡莱斯特陆军军火库"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -95.95921666666666,
+          34.82674444444445
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "俄克拉荷马州万斯空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.90955000000001,
+          36.344175
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "俄克拉荷马阿尔特斯空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -99.27708888888888,
+          34.65915277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "俄克拉荷马州廷克空军基地"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.39164444444445,
+          35.42498333333333
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "宾夕法尼亚州海军船舶部件控制中心"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.98285,
+          40.226886111111114
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "宾夕法尼亚州匹兹堡预备役航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.21146666666667,
+          40.48507777777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "宾夕法尼亚州威洛格罗夫空军后备航空站"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.14827222222223,
+          40.203775
+        ]
+      }
+    }
+  ]
+}
