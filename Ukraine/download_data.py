@@ -6,12 +6,14 @@
 #   1) NOAA ETOPO 2022 乌克兰区域高程子集(NetCDF);
 #   2) Natural Earth 10m 国家边界(邻国底色/国界/标注用);
 #   3) GADM 4.1 乌克兰一级行政区(州/克里米亚/塞瓦斯托波尔, 法理口径);
-#   4) OCHA HDX 2021 HNO GCA/NGCA 分区(顿巴斯接触线与分离武装控制区);
-#   5) OpenStreetMap 第聂伯河干流与梯级水库(Overpass API, 精细水系);
-#   6) OpenStreetMap 南布格河/顿河下游补段(NE 10m 在河口前收笔, 见下);
+#   4) GADM 4.1 摩尔多瓦一级行政区(只取 Transnistria 单元, 德左参照区域);
+#   5) OCHA HDX 2021 HNO GCA/NGCA 分区(顿巴斯接触线与分离武装控制区);
+#   6) OpenStreetMap 第聂伯河干流与梯级水库(Overpass API, 精细水系);
+#   7) OpenStreetMap 南布格河/顿河下游补段(NE 10m 在河口前收笔, 见下);
 # 再把它们加工成绘图脚本直接读取的 GeoJSON:
 #   1991 年国际承认边界、各州边界、2014 年克里米亚陆上控制线、
 #   2014 年顿巴斯控制区/接触线、2022 年俄方宣称的四州全境、
+#   德涅斯特河沿岸摩尔达维亚共和国(德左)区域面、
 #   第聂伯河干流中心线与梯级水库水面、南布格河/顿河中心线(NE + OSM 拼接).
 # 所有下载都是"文件已存在就跳过", 重复执行不会重新联网.
 # 运行: python Ukraine/download_data.py
@@ -53,11 +55,21 @@
        这两处改用 OSM waterway=river 的下游一小段补上, 并把 NE 上段与 OSM 下段
        在两条线的交点附近拼成一条连续中心线输出(做法见
        ``build_river_extension``).
+    7. 德涅斯特河沿岸摩尔达维亚共和国(德左): 图幅西南角的摩尔多瓦境内,
+       用 GADM 4.1 摩尔多瓦一级单元里的 Transnistria 单元作区域面.
+       为什么用它: 与本图乌克兰州界/1991 国界同一版本、同一套数字化,
+       Transnistria 单元的东缘与红色 1991 国界完全重合; 西缘沿德涅斯特河,
+       与 NE 10m 河网有 1~2 km 的数字化差异(填色不带描边, 不会叠出双线).
+       为什么不并入 GADM 的 Bender(宾杰里, 德涅斯特河右岸、PMR 实际控制):
+       本图要填的是"德涅斯特河左岸"这条狭长地带, 并入 Bender 会让填色跨过
+       德涅斯特河. 也不用 OSM 的 PMR 边界: 它包含 Bender 与部分右岸村庄,
+       同样会跨河, 而且与 GADM 的乌克兰国界不是同一套数字化.
 
 输出(都在 ``Ukraine/data/`` 下, 已在 .gitignore 里):
     ETOPO_2022_v1_15s_ukraine_stride2.nc      ETOPO 高程
     ne_10m_admin_0_countries/                 NE 10m 国界
     gadm41_UKR/gadm41_UKR_1.json              GADM 乌克兰一级行政区
+    gadm41_MDA/gadm41_MDA_1.json              GADM 摩尔多瓦一级行政区
     ocha_gca_ngca/                            OCHA GCA/NGCA shapefile
     ukraine_oblasts.geojson                   27 个一级行政区(含克里米亚/塞瓦斯托波尔)
     ukraine_1991.geojson                      1991 年国际承认边界(含克里米亚)
@@ -65,6 +77,7 @@
     occupied_2014.geojson                     2014 年顿巴斯分离武装控制区(顿/卢两州)
     contact_line_2014.geojson                 2014 年顿巴斯接触线(近似)
     claimed_2022.geojson                      2022 年俄方宣称的四州全境(面)
+    transnistria.geojson                      德左区域面(GADM 摩尔多瓦 Transnistria 单元)
     dnieper_river_osm.geojson                 第聂伯河干流中心线(OSM)
     dnieper_water_osm.geojson                 第聂伯河梯级水库水面(OSM + NE 卡霍夫卡)
     southern_bug_river_osm.geojson            南布格河中心线(NE 上段 + OSM 下段)
@@ -115,6 +128,15 @@ NE_ADMIN0_ZIP = DATA_DIR / "ne_10m_admin_0_countries.zip"
 GADM_DIR = DATA_DIR / "gadm41_UKR"
 GADM_JSON = GADM_DIR / "gadm41_UKR_1.json"
 GADM_URL = "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_UKR_1.json"
+# GADM 4.1 摩尔多瓦一级行政区: 只取 NAME_1 == "Transnistria" 的单元, 作为
+# 德涅斯特河沿岸摩尔达维亚共和国(德左)的参照区域面. 与乌克兰州界同源同版本,
+# Transnistria 的东缘就是摩尔多瓦-乌克兰 1991 国界, 填色不会与红线错位.
+# 为什么不并入 Bender(宾杰里): GADM 把德涅斯特河右岸的 Bender 单列为市镇
+# 单元, PMR 实际控制该市; 但本图要填的是"德涅斯特河左岸"这条狭长地带,
+# 并入 Bender 会让填色跨过德涅斯特河, 破坏"填色只在河东岸"的读图逻辑.
+GADM_MDA_DIR = DATA_DIR / "gadm41_MDA"
+GADM_MDA_JSON = GADM_MDA_DIR / "gadm41_MDA_1.json"
+GADM_MDA_URL = "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_MDA_1.json"
 # OCHA HDX: Ukraine - Affected areas (Donetska and Luhanska oblasts),
 # 2021 HNO 的 GCA/NGCA 面. 资源 id 固定, 换版本时只需改这一行.
 OCHA_DIR = DATA_DIR / "ocha_gca_ngca"
@@ -132,6 +154,7 @@ CRIMEA_LINE_PATH = DATA_DIR / "crimea_2014_line.geojson"
 OCCUPIED_2014_PATH = DATA_DIR / "occupied_2014.geojson"
 CONTACT_2014_PATH = DATA_DIR / "contact_line_2014.geojson"
 CLAIMED_2022_PATH = DATA_DIR / "claimed_2022.geojson"
+TRANSNISTRIA_PATH = DATA_DIR / "transnistria.geojson"
 
 # ---- 第聂伯河: OSM 精细水系(Overpass 原始 JSON 缓存 + 派生 GeoJSON) ----
 # 公共 Overpass 实例高峰期限流, 请求会排队/返回 502, 所以用"失败退避重试".
@@ -482,6 +505,15 @@ def fetch_gadm(force: bool) -> None:
     download(GADM_URL, GADM_JSON, "GADM 乌克兰一级行政区", force=force)
 
 
+def fetch_gadm_mda(force: bool) -> None:
+    """下载 GADM 4.1 摩尔多瓦一级行政区(只用到其中的 Transnistria 单元)."""
+    print("下载 GADM 4.1 摩尔多瓦一级行政区")
+    if not force and GADM_MDA_JSON.exists() and GADM_MDA_JSON.stat().st_size > 0:
+        print(f"已存在, 跳过: {GADM_MDA_JSON}")
+        return
+    download(GADM_MDA_URL, GADM_MDA_JSON, "GADM 摩尔多瓦一级行政区", force=force)
+
+
 def fetch_ocha(force: bool) -> None:
     print("下载 OCHA/HDX 2021 HNO 顿巴斯 GCA/NGCA 分区")
     download(OCHA_URL, OCHA_ZIP, "OCHA GCA/NGCA", force=force)
@@ -765,6 +797,56 @@ def build_claimed_2022(gdf: gpd.GeoDataFrame) -> None:
             )
         )
     write_fc(CLAIMED_2022_PATH, feats)
+
+
+def build_transnistria() -> None:
+    """输出德涅斯特河沿岸摩尔达维亚共和国(德左)的参照区域面.
+
+    数据口径: GADM 4.1 摩尔多瓦一级单元 NAME_1 == "Transnistria"(摩尔多瓦法理
+    上的"德涅斯特河左岸"地区). 这个单元正好是德涅斯特河东岸那条西北-东南
+    走向的狭长地带: 东缘与 GADM 的乌克兰 1991 国界完全重合; 西缘沿德涅斯特
+    河, 但 GADM 的单元边界与 NE 10m 河心线有 1~2 km 的数字化差异(单元边界
+    按河岸线走, NE 画河心线), 填色不描边, 这点差异不会叠成平行的双线.
+
+    为什么不用 OSM 的 PMR 边界或 Bender 并入:
+        - OSM 的 PMR 边界包含 Bender(德涅斯特河右岸, PMR 实际控制)与部分
+          右岸村庄, 填色会跨过德涅斯特河; 本图只表达"河东岸那条地带";
+        - 而且 OSM 与 GADM 的乌克兰国界不是同一套数字化, 东缘会与红线错开.
+    所以这里用 GADM 的法理单元, 并在属性里注明 Bender 未并入.
+
+    顶点数 ~546, 在该图比例尺(1:330 万)下远小于 1 px, 不简化, 保持原始岸线.
+    """
+    gdf = gpd.read_file(GADM_MDA_JSON)
+    if gdf.crs is None:
+        gdf = gdf.set_crs("EPSG:4326")
+    row = gdf[gdf["NAME_1"] == "Transnistria"]
+    if row.empty:
+        raise RuntimeError(f"GADM 摩尔多瓦数据里没有 Transnistria 单元: {GADM_MDA_JSON}")
+    geom = valid(row.geometry.iloc[0])
+    write_fc(
+        TRANSNISTRIA_PATH,
+        [
+            feat(
+                geom,
+                {
+                    "name": "Transnistria (GADM MDA level-1 unit)",
+                    "name_zh": "德涅斯特河沿岸摩尔达维亚共和国",
+                    "name_en": "Pridnestrovian Moldavian Republic",
+                    "alias_zh": "德涅斯特河左岸(德左)",
+                    "dejure_country": "Moldova",
+                    "status": "unrecognised breakaway state; Russian military presence",
+                    "source": "GADM 4.1 gadm41_MDA_1.json (NAME_1 = Transnistria)",
+                    "note": "摩尔多瓦法理上的德涅斯特河左岸地区; Bender(宾杰里)在 GADM "
+                            "中另列为市镇单元, 不并入本面, 因此填色不跨德涅斯特河.",
+                    "area_km2_geodesic": round(geod_area_km2(geom), 1),
+                },
+            )
+        ],
+    )
+    print(
+        f"  Transnistria: {n_vertices(geom)} 顶点, 面积 {geod_area_km2(geom):.0f} km², "
+        f"范围 {[round(v, 2) for v in geom.bounds]}"
+    )
 
 
 # ============================
@@ -1068,6 +1150,7 @@ def check_outputs(verbose: bool = True) -> int:
         ETOPO_PATH,
         NE_ADMIN0_DIR / "ne_10m_admin_0_countries.shp",
         GADM_JSON,
+        GADM_MDA_JSON,
         OCHA_DIR / "2021 HNO GCA_NGCA.shp",
         OBLASTS_PATH,
         BORDER_1991_PATH,
@@ -1075,6 +1158,7 @@ def check_outputs(verbose: bool = True) -> int:
         OCCUPIED_2014_PATH,
         CONTACT_2014_PATH,
         CLAIMED_2022_PATH,
+        TRANSNISTRIA_PATH,
         DNIEPER_RIVER_PATH,
         DNIEPER_WATER_PATH,
         *[spec["path"] for spec in RIVER_EXTENSIONS],
@@ -1108,6 +1192,7 @@ def main() -> None:
     fetch_etopo(force=args.force)
     fetch_admin0(force=args.force)
     fetch_gadm(force=args.force)
+    fetch_gadm_mda(force=args.force)
     fetch_ocha(force=args.force)
     fetch_dnieper_osm(force=args.force)
     fetch_river_extensions(force=args.force)
@@ -1120,6 +1205,8 @@ def main() -> None:
     build_donbas_2014()
     print("\n加工 2022 年俄方宣称四州边界")
     build_claimed_2022(gdf)
+    print("\n加工德左参照区域面")
+    build_transnistria()
     print("\n加工第聂伯河干流中心线")
     build_dnieper_river()
     print("\n加工第聂伯河梯级水库水面")

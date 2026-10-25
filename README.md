@@ -27,7 +27,7 @@ uv pip install -e .
 | `data/cartopy/` | cartopy 内置 Natural Earth 底图，全项目共用（海岸线、国界、河流、湖泊） |
 | `Myanmar/data/` | ETOPO 缅甸高程、Natural Earth 10m 国界/河流、行政区 GeoJSON、OSM 特区边界 |
 | `USSR/data/` | ETOPO 苏联高程、Natural Earth 国界 |
-| `Ukraine/data/` | ETOPO 乌克兰高程、Natural Earth 国界、GADM 4.1 行政区、OCHA 2021 GCA/NGCA 分区及派生边界、OSM 第聂伯河干流与梯级水库、南布格河/顿河下游补段（ODbL） |
+| `Ukraine/data/` | ETOPO 乌克兰高程、Natural Earth 国界、GADM 4.1 乌克兰/摩尔多瓦行政区（含德左参照面）、OCHA 2021 GCA/NGCA 分区及派生边界、OSM 第聂伯河干流与梯级水库、南布格河/顿河下游补段（ODbL） |
 | `AmericaArmy/data.geojson` | 基地点位，仓库自带 |
 
 一次性准备（每条命令都是"文件已存在就跳过"，重复执行不会重新下载）：
