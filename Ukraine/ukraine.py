@@ -101,10 +101,13 @@ import numpy as np  # 数组运算
 import geopandas as gpd  # 读取 GeoJSON/shapefile
 from matplotlib.lines import Line2D  # 图例线段
 from matplotlib.patches import Patch  # 图例色块
-from shapely.ops import linemerge, unary_union  # 合并几何 / 拼接碎线段
+from shapely.ops import unary_union  # 合并几何
 
 # 共享的 ETOPO/晕渲/底图工具(实现见 src/cartopy_file/relief.py).
 from cartopy_file.relief import add_base_map, find_etopo, load_countries, load_elevation, make_relief
+
+# 重合边界只画一条: 剪掉低优先级线里与高优先级线重合的段落(见 overlap.py).
+from cartopy_file.overlap import cut, overlap_mask
 
 # cartopy 的 Natural Earth 缓存统一到仓库 data/cartopy(见 cartopy_file.data).
 from cartopy_file.data import configure_cartopy, natural_earth_paths
@@ -483,40 +486,6 @@ def draw_basemap(
         )
 
 
-def line_minus_overlaps(line, overlays, *, tol: float = 0.003, min_length: float = 0.03):
-    """从一条边界线里剪掉与其它边界线重合的段落, 并拼回连续折线.
-
-    参数:
-        line: 待剪的线(LineString / MultiLineString).
-        overlays: 要避让的边界线, 可传多条; 与它们相距 tol 以内的线段被剪掉.
-        tol: 缓冲半径(度). 取 0.003° 只为吸收两套数据的浮点误差, 约 0.3 km;
-            切出的断口约 1~2 px(300 dpi), 远小于 1991 红线宽(2.7 pt 全宽
-            约 4.3 km, 半宽约 2.1 km), 所以断口会被后画的红线完全盖住.
-        min_length: 剪剩碎段的最小长度(度). 差集在"两条边界线以很小夹角
-            相交"的接头处会留下 1~2 km 的碎段(如赫尔松州界与海岸线的接头),
-            它们比线宽(约 3 km)还短, 单独画出来只是一个孤立的紫色小点, 不是
-            有意义的边界段, 所以丢掉; 0.03° 约 3 km, 与线宽同量级.
-
-    为什么必须剪掉而不是靠叠压: 1991 国界线是半透明的(alpha=0.62), 紫色
-    宣称线/橙色哈尔科夫线画在它下面会透出来, 重合段变成"红+紫"的混色,
-    不再是 1991 口径单独的红线; 用户要求重合段只绘制 COLOR_1991.
-
-    为什么必须 linemerge: 差集会把一条闭合边界切成多段, matplotlib 对每段
-    重新起笔会让虚线节距错乱; 拼回连续折线后, 剩余段落上的虚线才均匀.
-    整条线都被剪掉时返回 None, 调用方据此跳过该图层.
-    """
-    mask = unary_union([geom.buffer(tol) for geom in overlays])
-    rest = line.difference(mask)
-    parts = [
-        part
-        for part in getattr(rest, "geoms", [rest])
-        if part.geom_type == "LineString" and part.length >= min_length
-    ]
-    if not parts:
-        return None
-    return linemerge(parts)
-
-
 def draw_borders(
     ax: plt.Axes,
     *,
@@ -532,7 +501,13 @@ def draw_borders(
     函数开头先算好 1991 国界线, 并剪掉 2022 宣称边界/哈尔科夫州界中与它
     重合的段落: 半透明红线不能靠"后画叠压"盖住下面两种虚线 —— 紫/橙会
     透过 alpha=0.62 的红线混色, 所以重合段直接从紫/橙线里剪掉, 只在剪剩
-    的独有段落上画紫/橙(见 line_minus_overlaps).
+    的独有段落上画紫/橙(见 cartopy_file.overlap.cut).
+
+    剪枝参数: tol=0.003°(约 0.3 km)只吸收同源数据的浮点误差, 断口约
+    1~2 px; 1991 红线 2.7 pt 在图上约 4.3 km 宽(半宽约 2.1 km), 断口会被
+    后画的红线完全盖住. min_length=0.03°(约 3 km): 两条线以小夹角相交的
+    接头处(如赫尔松州界与海岸线)差集会留下 1~2 km 碎段, 比线宽还短,
+    单独画出来只是孤立小点, 所以丢掉.
     """
     claimed_union = unary_union(list(claimed.geometry))
     border_1991 = ukraine_geom.boundary
@@ -551,13 +526,15 @@ def draw_borders(
     #   - 东北段 = 乌克兰与俄罗斯的 1991 国界(红色半透明线). 橙线若留在
     #     红线下面会透出橙色, 重合段变成红橙混色; 所以重合段只画 1991 红线.
     # 剪剩的是哈尔科夫州与苏梅/波尔塔瓦/第聂伯罗/卢甘斯克/顿涅茨克相邻的
-    # 州内段. 差集切出的碎段由 line_minus_overlaps 拼回连续折线(否则虚线
-    # 节距会乱); 若数据变化导致州界被剪空, 则直接跳过橙线图层.
+    # 州内段. 差集切出的碎段由 cartopy_file.overlap.cut 拼回连续折线(否则
+    # 虚线节距会乱); 若数据变化导致州界被剪空, 则直接跳过橙线图层.
     kharkiv = oblasts[oblasts["name"] == "Kharkiv"]
     if not kharkiv.empty:
         kharkiv_boundary = unary_union(list(kharkiv.geometry)).boundary
-        kharkiv_only = line_minus_overlaps(
-            kharkiv_boundary, [claimed_union.boundary, border_1991]
+        kharkiv_only = cut(
+            kharkiv_boundary,
+            overlap_mask([claimed_union.boundary, border_1991], 0.003),
+            min_length_deg=0.03,
         )
         if kharkiv_only is not None:
             add_line_layer(
@@ -575,7 +552,11 @@ def draw_borders(
     # 半透明红线叠在紫线上会混出红紫色, 所以只保留红线. 剪剩的紫线才是
     # 2022 口径独有的段落; 与 2014 控制线重合的克里米亚地峡一段例外, 那里
     # 紫线先画, 由后画的不透明蓝线盖住, 不存在混色问题.
-    claimed_only = line_minus_overlaps(claimed_union.boundary, [border_1991])
+    claimed_only = cut(
+        claimed_union.boundary,
+        overlap_mask([border_1991], 0.003),
+        min_length_deg=0.03,
+    )
     if claimed_only is not None:
         add_line_layer(
             ax,

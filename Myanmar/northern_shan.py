@@ -80,6 +80,9 @@ import map_lib  # 与本目录共用的 ETOPO/晕渲/边界工具
 # 统一后各脚本共用同一份底图, 已下载过的要素不会重复下载.
 from cartopy_file.data import configure_cartopy
 
+# 区域/省界描边与国界重合时只保留国界: 用共享剪枝工具裁掉国界走廊.
+from cartopy_file.overlap import cut
+
 configure_cartopy()
 
 # 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
@@ -326,7 +329,9 @@ def add_admin_context(ax: plt.Axes, regions: dict[str, list], border_zone) -> No
     这些省/邦界沿国界的那一段也要裁掉, 否则灰色虚线会叠在深红国界线上.
     """
     for _, geom in regions.get("context", []):
-        edge = geom.boundary.difference(border_zone)
+        edge = cut(geom.boundary, border_zone)
+        if edge is None:
+            continue
         ax.add_geometries(
             [edge],
             crs=ccrs.PlateCarree(),
@@ -360,8 +365,11 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> 
             linewidth=0,
             zorder=2.5,
         )
+        edge = cut(geom.boundary, border_zone)
+        if edge is None:
+            continue
         ax.add_geometries(
-            [geom.boundary.difference(border_zone)],
+            [edge],
             crs=ccrs.PlateCarree(),
             facecolor="none",
             edgecolor=style["edge"],
@@ -402,8 +410,11 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> 
     # 同样裁掉国界走廊, 避免白色虚线与深红国界线重叠.
     for layer in ("sr1_county", "wa_district", "sr4_county"):
         for _, geom in regions.get(layer, []):
+            edge = cut(geom.boundary, border_zone)
+            if edge is None:
+                continue
             ax.add_geometries(
-                [geom.boundary.difference(border_zone)],
+                [edge],
                 crs=ccrs.PlateCarree(),
                 facecolor="none",
                 edgecolor=INTERNAL_EDGE_COLOR,
