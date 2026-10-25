@@ -9,6 +9,7 @@
 #   4) 2022 年俄方单方面宣称的赫尔松/扎波罗热/顿涅茨克/卢甘斯克四州全境边界.
 #   5) 第聂伯河干流与梯级水库: 用 OSM 河道中心线 + 水库实际水面填色,
 #      表达"河宽沿程变化"(上游窄河道 -> 五级水库的宽阔水面);
+#      德涅斯特河也改用 OSM 中心线, 与德左参照面的西缘共用同一条几何;
 #   6) 邻国地貌/水系参照: 喀尔巴阡山、高加索山与顿河的名称标注;
 #      南布格河与顿河在 NE 10m 里于河口前收笔, 下游改用 OSM 补到利曼/亚速海
 #      (两段在接缝处拼成一条线, 见 download_data.py 的 build_river_extension);
@@ -97,9 +98,12 @@
         中性灰(#555)而不用主题色(红/蓝/紫/橙)或城市黑: 这两处都在乌克兰
         境外, 也不属于本图任何一种边界口径, 上主题色会被读成"控制区/宣称区",
         用黑色又会和乌克兰境内城市混为一谈. 德左地带用灰色半透明填色(无
-        描边): 西缘沿德涅斯特河(蓝线), 东缘与 1991 国界(红线)重合, 这两条
-        已有图层就是区域的边界, 再画一条灰边只会与河/国界形成双线. 西缘与
-        NE 河网有 1~2 km 的数字化差异(填色不描边, 差异不会叠成平行灰线).
+        描边): 西缘就是德涅斯特河中心线, 东缘就是 1991 国界, 这两条已有图层
+        本身就是区域的边界, 再画一条灰边只会与河/国界形成双线. 西缘/东缘与
+        画出来的河线/红线是同一份几何(数据由 download_data.py 用 OSM 河心线 +
+        GADM 1991 国界裁切得到), 不是"差不多对上", 所以灰区不会偏到河里或
+        河外. 改前用 GADM 摩尔多瓦单元时西缘与河心线中位差 5.6 km、最远 30 km,
+        图上是明显的大锯齿.
         德左的正式名称有 15 个字, 最长一行 8 字要 1.17° 宽, 而地带最宽处只有
         约 0.5°(47.3°N 一带), 所以名称分两行放地带东侧敖德萨州的空地上, 用一条
         细灰指引线指回地带内部, 终点加一个小灰点. 顿河畔罗斯托夫用同样的
@@ -117,8 +121,9 @@
     data/occupied_2014.geojson                  2014 年顿巴斯控制区
     data/contact_line_2014.geojson              2014 年顿巴斯接触线(近似)
     data/claimed_2022.geojson                   2022 年俄方宣称四州全境
-    data/transnistria.geojson                   德左参照区域面(GADM 摩尔多瓦单元)
+    data/transnistria.geojson                   德左参照区域面(OSM PMR, 按河心线/1991 国界裁切)
     data/dnieper_river_osm.geojson              第聂伯河干流中心线(OSM)
+    data/dniester_river_osm.geojson             德涅斯特河干流中心线(OSM)
     data/dnieper_water_osm.geojson              第聂伯河梯级水库水面(OSM + NE 卡霍夫卡)
     data/southern_bug_river_osm.geojson         南布格河中心线(NE 上段 + OSM 下段)
     data/don_river_osm.geojson                  顿河中心线(NE 上段 + OSM 下段)
@@ -375,8 +380,8 @@ REFERENCE_CITIES = [
 # 字号: 这条走廊只有 1.4~1.7° 宽, 7.4 pt 时 8 字行宽 1.23°, 两边就只剩几 px,
 # 所以压到 7.0(比境外参照城市 8.4 小一档, 只作位置参照).
 # 指引线从文字块左缘(29.72E)水平指向地带内部(29.42E): 47.14°N 处地带西缘
-# (德涅斯特河)约 29.20E、东缘(国界)约 29.57E, 29.42E 离填色边界最近处也有
-# 0.06°(约 12 px), 端点小灰点不会碰到填色边缘.
+# (德涅斯特河)约 29.29E、东缘(国界)约 29.58E, 29.42E 离填色边界最近也有
+# 0.13°(约 26 px), 端点小灰点不会碰到填色边缘.
 # (文字经度, 文字纬度, 文字, 字号, 指引线起点经度, 起点纬度, 终点经度, 终点纬度).
 REFERENCE_REGIONS = [
     (30.30, 47.14, "德涅斯特河沿岸\n摩尔达维亚共和国", 7.0, 29.72, 47.14, 29.42, 47.14),
@@ -397,11 +402,15 @@ CRIMEA_LINE_PATH = DATA_DIR / "crimea_2014_line.geojson"
 OCCUPIED_2014_PATH = DATA_DIR / "occupied_2014.geojson"
 CONTACT_2014_PATH = DATA_DIR / "contact_line_2014.geojson"
 CLAIMED_2022_PATH = DATA_DIR / "claimed_2022.geojson"
-# 德左区域面: 由 download_data.py 从 GADM 4.1 摩尔多瓦一级单元派生(见
-# build_transnistria); 只用于灰色参照填色, 不参与任何边界口径.
+# 德左区域面: 由 download_data.py 用 OSM 的 PMR 边界面按"德涅斯特河心线 +
+# 1991 国界"裁切得到(见 build_transnistria); 只用于灰色参照填色, 不参与任何
+# 边界口径. 西缘与下面 DNIESTER_RIVER_PATH 是同一条几何, 所以填色不会与河错位.
 TRANSNISTRIA_PATH = DATA_DIR / "transnistria.geojson"
 DNIEPER_RIVER_PATH = DATA_DIR / "dnieper_river_osm.geojson"
 DNIEPER_WATER_PATH = DATA_DIR / "dnieper_water_osm.geojson"
+# 德涅斯特河中心线(OSM): 用来替代 NE 10m 的同名河. NE 版本在德左一段平均
+# ~1 km 一个顶点, 而德左参照面的西缘就压在这条河上, 两者必须同源同精度.
+DNIESTER_RIVER_PATH = DATA_DIR / "dniester_river_osm.geojson"
 # 南布格河/顿河中心线: NE 10m 在河口前收笔, download_data.py 用 OSM 补了下游段,
 # 并与 NE 上段在接缝处拼成一条线(文件里含 NE + OSM 两段, 属性 replaces_ne_id
 # 标出被替换的 NE 要素).
@@ -437,11 +446,12 @@ def load_vectors() -> tuple[gpd.GeoDataFrame, ...]:
 
 
 def load_reference_region():
-    """读取德左参照区域面(GADM 4.1 摩尔多瓦 Transnistria 单元).
+    """读取德左参照区域面(OSM PMR 边界, 按德涅斯特河心线与 1991 国界裁切).
 
     单独一个函数而不是并进 load_vectors: 这张面不参与任何边界口径计算,
     只用来填一层灰色; 缺文件时直接报错(数据由 download_data.py 准备),
-    避免悄悄少一个图层.
+    避免悄悄少一个图层. 面的西缘与 DNIESTER_RIVER_PATH 是同一条几何,
+    所以填色边缘与蓝线严格重合.
     """
     region = gpd.read_file(_require(TRANSNISTRIA_PATH)).to_crs("EPSG:4326")
     return unary_union(list(region.geometry))
@@ -456,6 +466,17 @@ def load_dnieper() -> tuple:
     river = gpd.read_file(_require(DNIEPER_RIVER_PATH)).to_crs("EPSG:4326")
     water = gpd.read_file(_require(DNIEPER_WATER_PATH)).to_crs("EPSG:4326")
     return river.geometry.iloc[0], water.geometry.iloc[0]
+
+
+def load_dniester():
+    """读取德涅斯特河干流中心线(由 download_data.py 从 OSM main_stream 派生).
+
+    单独读、单独画的原因: NE 10m 河网里那条同名河已被剔除, 否则同一条河会出现
+    两条位置略有差异的线; 而德左参照面的西缘用的正是这条 OSM 线, 绘图也用同
+    一条, 填色边缘与蓝线才能严格重合.
+    """
+    gdf = gpd.read_file(_require(DNIESTER_RIVER_PATH)).to_crs("EPSG:4326")
+    return unary_union(list(gdf.geometry))
 
 
 def load_river_extensions() -> tuple[list, set[int]] | None:
@@ -552,13 +573,12 @@ def draw_reference_region(ax: plt.Axes, region) -> None:
     """境外参照区域(德左)填色: 中性灰、无描边, 只表示"这里是德左".
 
     为什么只填色、不画边界:
-        德左西缘是德涅斯特河(NE 10m 河网, 蓝色细线), 东缘是摩尔多瓦-乌克兰
-        1991 国界(红色半透明粗线). 这两条线已经画好, 再加一条灰色区域边界
-        没有新增信息, 只会与蓝河/红线挨在一起形成双线: 东缘与 GADM 乌克兰
-        国界是同一份数字化, 能重合, 但西缘与 NE 河网有 1~2 km 的数字化差异
-        (GADM 的单元边界沿河岸, NE 画的是河心线), 描边会让这个差异变成一条
-        与蓝河平行、走向略有出入的灰线. 只填色时, 边界由已有线条"免费"给出,
-        读图者看到的是"河与国界之间这块地"被涂灰, 而不是一条新的边界线.
+        德左西缘是德涅斯特河(OSM 中心线, 蓝色细线), 东缘是摩尔多瓦-乌克兰
+        1991 国界(红色半透明粗线). 这两条线已经画好, 而且区域面就是按它们
+        裁出来的 —— 填色边缘与蓝线/红线是同一份几何, 再描一条灰边只会与
+        蓝河/红线挨在一起形成双线, 没有任何新增信息. 只填色时, 边界由已有
+        线条"免费"给出, 读图者看到的是"河与国界之间这块地"被涂灰, 而不是
+        一条新的边界线.
     为什么用灰色而不是主题色:
         红色是 1991 国界, 蓝色是 2014 控制, 紫/橙是宣称; 德左不属于其中
         任何一种, 上任何主题色都会被读成"俄方控制区/宣称区". 灰色与本图
@@ -688,6 +708,7 @@ def draw_basemap(
     oblast_lines,
     rivers,
     river_extensions,
+    dniester_river,
     dnieper_river,
     dnieper_water,
     neighbor_borders,
@@ -707,6 +728,10 @@ def draw_basemap(
     ``river_extensions`` 是南布格河/顿河的整条中心线(NE 上段 + OSM 下段拼好,
     见 download_data.py): 与一般河流同一图层、同一线型画, 这两条河的下游
     才不会在河口前断掉.
+
+    ``dniester_river`` 是 OSM 的德涅斯特河中心线, 也并入一般河流图层画: NE 的
+    同名要素已在 main 里剔除. 它与德左参照面共用同一条几何(填色西缘就压在这
+    条线上), 所以蓝线与灰区边缘不会出现"两条平行线"或"灰区偏到河里/河外".
     """
     add_base_map(ax, world, ocean_color=BASE_OCEAN_COLOR, land_color=BASE_LAND_COLOR)
 
@@ -737,11 +762,14 @@ def draw_basemap(
             zorder=3.1,
         )
     # 一般河流放在州界之下、主题边界之上; 10m 河流在国界附近可能超出画框,
-    # cartopy 会按画框裁剪. Dnieper 已从这一层剔除(改用 OSM 干流); 南布格河
-    # 与顿河的补段(NE 上段 + OSM 下段)与一般河流同色同宽一起画.
+    # cartopy 会按画框裁剪. Dnieper/Dniester 已从这一层剔除(改用 OSM 干流);
+    # 南布格河与顿河的补段(NE 上段 + OSM 下段)、德涅斯特河 OSM 线都与一般
+    # 河流同色同宽一起画.
     river_geoms = list(rivers.geometry) if rivers is not None else []
     if river_extensions:
         river_geoms.extend(river_extensions)
+    if dniester_river is not None:
+        river_geoms.append(dniester_river)
     if river_geoms:
         ax.add_geometries(
             river_geoms,
@@ -1240,6 +1268,9 @@ def main() -> None:
     dnieper_river, dnieper_water = load_dnieper()
     print(f"第聂伯河: 干流顶点 {len(dnieper_river.coords) if dnieper_river.geom_type == 'LineString' else '?'}, "
           f"水库水面 {dnieper_water.geom_type}")
+    dniester_river = load_dniester()
+    print(f"德涅斯特河: {dniester_river.geom_type}, "
+          f"顶点 {sum(len(g.coords) for g in (dniester_river.geoms if hasattr(dniester_river, 'geoms') else [dniester_river]))}")
     river_extensions = load_river_extensions()
     extension_lines = river_extensions[0] if river_extensions is not None else None
 
@@ -1252,9 +1283,11 @@ def main() -> None:
     if rivers_path is not None:
         rivers = gpd.read_file(rivers_path)
         rivers = rivers[rivers["scalerank"] <= 9]
-        # 第聂伯河改由 OSM 干流 + 水库水面绘制, 从 NE 图层里剔除, 避免同一条
-        # 河出现两条位置略有差异的线(NE 与 OSM 中位数偏差约 0.8 km).
-        rivers = rivers[rivers["name_en"].fillna("") != "Dnieper"]
+        # 第聂伯河改由 OSM 干流 + 水库水面绘制, 德涅斯特河改由 OSM 干流绘制,
+        # 两条河都从 NE 图层里剔除, 避免同一条河出现两条位置略有差异的线
+        # (NE 与 OSM 中位数偏差: 第聂伯河约 0.8 km, 德涅斯特河约 0.3 km).
+        # 德涅斯特河这条还关系到德左参照面的西缘: 填色边缘用的就是 OSM 线.
+        rivers = rivers[~rivers["name_en"].fillna("").isin(["Dnieper", "Dniester"])]
         if river_extensions is not None:
             # 南布格河/顿河的下游补段文件里已经含 NE 上段, 对应 NE 要素同理剔除.
             rivers = rivers[~rivers["ne_id"].isin(river_extensions[1])]
@@ -1317,6 +1350,7 @@ def main() -> None:
         oblast_lines=oblast_lines,
         rivers=rivers,
         river_extensions=extension_lines,
+        dniester_river=dniester_river,
         dnieper_river=dnieper_river,
         dnieper_water=dnieper_water,
         neighbor_borders=neighbor_borders,
