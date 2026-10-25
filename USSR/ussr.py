@@ -32,8 +32,11 @@ configure_cartopy()
 # 全局字体: 项目包 cartopy_file 统一设置中英文字体(汉字 Noto Sans Mono CJK SC,
 # 英文/数字 JetBrains Mono Slashed Medium), 本脚本不再单独维护 rcParams.
 from cartopy_file.fonts import apply_matplotlib_fonts
+from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
+# 产物统一为 SVG(见 cartopy_file.output): 文字/边界是矢量, 晕渲栅格内嵌.
+apply_svg_output()
 
 
 # ============================
@@ -235,13 +238,14 @@ ax.set_title(title, fontsize=15, pad=20)
 # 先收紧布局,避免四周留下过多空白.
 plt.tight_layout()
 
-# 输出到脚本同目录,300 dpi 适合后续查看或排版使用.
-save_img = False
+# 输出到脚本同目录: SVG 是唯一交付格式, 300 dpi 只决定内嵌晕渲栅格的像素密度.
+# 只想在窗口里看图时把 save_img 改成 False, 避免每次运行都覆盖成品.
+save_img = True
 if save_img:
-    out_png = ROOT / "ussr_topography_etopo2022_lambert_azimuthal.png"
+    out_svg = ROOT / "ussr_topography_etopo2022_lambert_azimuthal.svg"
     # bbox_inches="tight" 会裁掉坐标区外多余的空白.
-    plt.savefig(out_png, dpi=300, bbox_inches="tight")
-    print(f"✅ 地图已保存为 {out_png}")
+    save_svg(fig, out_svg, dpi=300, bbox_inches="tight")
+    print(f"✅ 地图已保存为 {out_svg}")
 
 # 在图形界面中显示结果; 无图形界面环境可注释掉这一行.
 plt.show()

@@ -18,6 +18,8 @@
     - ``make_relief``: 把高程色带与 ``LightSource`` 山体晕渲合成 RGB;
     - ``load_countries`` / ``add_base_map``: 读取 Natural Earth 国家边界,
       在画地形前铺一层真实海陆底色.
+    - ``clip_to_axes``: 把面几何裁到当前坐标范围, 避免把画面外的底图顶点写进
+      SVG(PNG 时无所谓, 矢量输出时画面外顶点同样占字节).
 
 为什么要把它们放进共享包:
     这些逻辑与具体国家无关, 只是"读高程 + 画地形"的公共部分. Myanmar 系列
@@ -40,6 +42,7 @@ import matplotlib.pyplot as plt  # 绘图
 import numpy as np  # 数组运算
 import xarray as xr  # 读取 NetCDF
 from cartopy import crs as ccrs  # 投影转换
+from shapely.geometry import box  # 底图裁剪窗口
 
 __all__ = [
     "find_etopo",
@@ -47,6 +50,7 @@ __all__ = [
     "make_relief",
     "load_countries",
     "add_base_map",
+    "clip_to_axes",
 ]
 
 
@@ -182,6 +186,33 @@ def load_countries(boundary_dir: Path):
     return gpd.read_file(shapefiles[0])
 
 
+def clip_to_axes(ax: plt.Axes, geoms) -> list:
+    """把面几何裁到当前坐标范围, 只保留画面(及其外接经纬度矩形)内的部分.
+
+    为什么需要: 底图用的是 Natural Earth 10m 全球国家多边形(约 55 万顶点),
+    画面里只用到其中很小一块. PNG 在栅格化时只关心画面内的像素, 画面外的
+    顶点不产生任何代价; 但 SVG 是矢量输出, 每个顶点都会被写成一段路径数据,
+    不裁的话单是这一层填色就有十几 MB(实测缅甸图 13.4 MB / 全图 26 MB).
+    裁完外观完全不变: 窗口取 ``ax.get_extent(PlateCarree)``, 它一定盖住整个
+    画面(非矩形投影时比画面还大, 多留的顶点本来也在画面外).
+
+    跨 180° 经线的图幅不裁: shapely 的 box 不处理经度环绕, 会把跨线几何裁坏.
+    """
+    x0, x1, y0, y1 = ax.get_extent(crs=ccrs.PlateCarree())
+    if not (x0 < x1 and x1 - x0 <= 300.0):
+        return list(geoms)
+
+    window = box(x0, y0, x1, y1)
+    clipped = []
+    for geom in geoms:
+        if geom is None or geom.is_empty:
+            continue
+        part = geom.intersection(window)
+        if not part.is_empty:
+            clipped.append(part)
+    return clipped
+
+
 def add_base_map(
     ax: plt.Axes,
     world,
@@ -197,7 +228,7 @@ def add_base_map(
     ax.set_facecolor(ocean_color)
     if world is not None:
         ax.add_geometries(
-            world.geometry,
+            clip_to_axes(ax, world.geometry),
             crs=ccrs.PlateCarree(),
             facecolor=land_color,
             edgecolor="none",

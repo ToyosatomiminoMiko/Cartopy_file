@@ -88,9 +88,13 @@ configure_cartopy()
 # 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
 # 英文/数字用 JetBrains Mono Slashed Medium, 逐字符回退; 本脚本不再单独配字体.
 from cartopy_file.fonts import apply_matplotlib_fonts
+from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
-# 斜线填充的线宽: 默认 1.0 在 300 dpi 下偏粗, 会把特区填充压成深色块.
+# 产物统一为 SVG(见 cartopy_file.output): 边界/填色/斜线是矢量,
+# 只有底下的地形晕渲是内嵌栅格.
+apply_svg_output()
+# 斜线填充的线宽: 默认 1.0 在成品尺寸下偏粗, 会把特区填充压成深色块.
 plt.rcParams["hatch.linewidth"] = 0.45
 
 
@@ -231,7 +235,7 @@ TITLE = (
     "NOAA ETOPO 2022 | 边界: OpenStreetMap | 底图: Natural Earth 10m | "
     "兰勃特等角圆锥投影(中央经线 98.4°E)"
 )
-OUT_PNG = ROOT / "northern_shan_topography_etopo2022_lambert_conformal.png"
+OUT_SVG = ROOT / "northern_shan_topography_etopo2022_lambert_conformal.svg"
 
 
 # ============================
@@ -592,7 +596,12 @@ def add_legend(ax: plt.Axes) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stride", type=int, default=None, help="指定 data/ 下的采样步长文件")
-    parser.add_argument("--dpi", type=int, default=300, help="输出 PNG 分辨率, 默认 300")
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="内嵌晕渲栅格的像素密度(dpi); 矢量部分与 dpi 无关, 默认 300",
+    )
     parser.add_argument("--show", action="store_true", help="保存后弹出交互窗口")
     args = parser.parse_args()
 
@@ -683,8 +692,8 @@ def main() -> None:
     # 与 myanmar.py 相同: 不用 tight_layout/bbox_inches="tight".
     # 原因: cartopy 0.25 在非矩形投影上提前绘制经纬网标签会触发
     # gridliner 用未闭合顶点构造多边形的 GEOSException, 且 tight bbox 会裁掉标签.
-    fig.savefig(OUT_PNG, dpi=args.dpi)
-    print(f"地图已保存: {OUT_PNG}")
+    save_svg(fig, OUT_SVG, dpi=args.dpi)
+    print(f"地图已保存: {OUT_SVG}")
 
     if args.show:
         plt.show()

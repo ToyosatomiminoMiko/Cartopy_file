@@ -163,8 +163,12 @@ configure_cartopy()
 
 # 全局字体: 汉字 Noto Sans Mono CJK SC, 英文/数字 JetBrains Mono Slashed Medium.
 from cartopy_file.fonts import apply_matplotlib_fonts
+from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
+# 产物统一为 SVG(见 cartopy_file.output): 边界/河流/文字是矢量,
+# 只有地形晕渲是内嵌栅格.
+apply_svg_output()
 
 
 # ============================
@@ -384,7 +388,7 @@ TITLE = (
     "NOAA ETOPO 2022 地形 | 兰勃特等角圆锥投影"
     "（中央经线 31°E，标准纬线 45°N / 52°N）"
 )
-OUT_PNG = ROOT / "ukraine_borders_1991_2014_2022_lambert_conformal.png"
+OUT_SVG = ROOT / "ukraine_borders_1991_2014_2022_lambert_conformal.svg"
 
 # 输出数据文件(由 download_data.py 生成).
 OBLASTS_PATH = DATA_DIR / "ukraine_oblasts.geojson"
@@ -1209,7 +1213,12 @@ def main() -> None:
         "--stride", type=int, default=None,
         help="使用 data/ 下对应采样步长的 ETOPO 文件; 缺省自动选分辨率最高(步长最小)的一个",
     )
-    parser.add_argument("--dpi", type=int, default=300, help="输出 PNG 分辨率, 默认 300")
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="内嵌晕渲栅格的像素密度(dpi); 矢量部分与 dpi 无关, 默认 300",
+    )
     parser.add_argument("--show", action="store_true", help="保存后弹出交互窗口(需要图形界面)")
     args = parser.parse_args()
 
@@ -1360,8 +1369,8 @@ def main() -> None:
     # 原因: cartopy 0.25 在非矩形投影上绘制经纬网标签时, 布局引擎触发的提前
     # 绘制会让 gridliner 抛 shapely GEOSException; bbox_inches="tight" 还会把
     # 标签包围盒算错, 导致图片被裁掉一截(项目里 myanmar.py 已踩过这个坑).
-    fig.savefig(OUT_PNG, dpi=args.dpi)
-    print(f"地图已保存: {OUT_PNG}")
+    save_svg(fig, OUT_SVG, dpi=args.dpi)
+    print(f"地图已保存: {OUT_SVG}")
 
     if args.show:
         plt.show()

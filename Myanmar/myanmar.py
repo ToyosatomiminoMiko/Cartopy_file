@@ -56,8 +56,11 @@ configure_cartopy()
 # 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
 # 英文/数字用 JetBrains Mono Slashed Medium, 逐字符回退; 本脚本不再单独配字体.
 from cartopy_file.fonts import apply_matplotlib_fonts
+from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
+# 产物统一为 SVG(见 cartopy_file.output): 文字/边界是矢量, 晕渲栅格内嵌.
+apply_svg_output()
 
 
 # ============================
@@ -131,8 +134,8 @@ TITLE = (
     "NOAA ETOPO 2022 | 兰勃特等角圆锥投影"
     "(中央经线 96.5°E, 标准纬线 10°N / 27°N)"
 )
-# 输出图片路径, 300 dpi 适合打印或后续排版.
-OUT_PNG = ROOT / "myanmar_topography_etopo2022_lambert_conformal.png"
+# 输出路径(脚本同目录). SVG 是唯一交付格式, 打印/排版由矢量保证清晰度.
+OUT_SVG = ROOT / "myanmar_topography_etopo2022_lambert_conformal.svg"
 
 
 def add_myanmar_boundary(ax: plt.Axes, world) -> None:
@@ -259,7 +262,12 @@ def main() -> None:
         default=None,
         help="使用 data/ 下对应采样步长的高程文件; 缺省自动选分辨率最高(步长最小)的一个",
     )
-    parser.add_argument("--dpi", type=int, default=300, help="输出 PNG 分辨率, 默认 300")
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="内嵌晕渲栅格的像素密度(dpi); 矢量部分与 dpi 无关, 默认 300",
+    )
     parser.add_argument("--show", action="store_true", help="保存后弹出交互窗口(需要图形界面)")
     args = parser.parse_args()
 
@@ -383,8 +391,8 @@ def main() -> None:
     # 原因: cartopy 0.25 在非矩形投影上绘制经纬网标签时, 布局引擎触发的提前绘制
     # 会让 gridliner 用未闭合的边界顶点构造多边形, 抛 shapely GEOSException;
     # 而 bbox_inches="tight" 又会把 gridliner 标签的包围盒算错, 导致图片被裁掉一截.
-    fig.savefig(OUT_PNG, dpi=args.dpi)
-    print(f"地图已保存: {OUT_PNG}")
+    save_svg(fig, OUT_SVG, dpi=args.dpi)
+    print(f"地图已保存: {OUT_SVG}")
 
     if args.show:
         plt.show()

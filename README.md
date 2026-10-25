@@ -51,6 +51,35 @@ python download_data.py --check
 只有换机器或重新 clone 时才需要重跑上面的命令；同一份数据反复出图不会再下载。
 需要把共用缓存放到别的可写磁盘时，设置环境变量 `CARTOPY_FILE_DATA=/path/to/data`。
 
+## 出图
+
+所有地图产物统一输出 **SVG**, 不再输出 PNG:
+
+| 脚本 | 产物(与脚本同目录) |
+| --- | --- |
+| `Myanmar/myanmar.py` | `myanmar_topography_etopo2022_lambert_conformal.svg` |
+| `Myanmar/myanmar_admin.py` | `myanmar_administrative_divisions_bilingual.svg` |
+| `Myanmar/northern_shan.py` | `northern_shan_topography_etopo2022_lambert_conformal.svg` |
+| `USSR/ussr.py` | `ussr_topography_etopo2022_lambert_azimuthal.svg` |
+| `Ukraine/ukraine.py` | `ukraine_borders_1991_2014_2022_lambert_conformal.svg` |
+
+统一的出图入口是 [src/cartopy_file/output.py](src/cartopy_file/output.py), 各脚本
+在 `apply_matplotlib_fonts()` 之后调用 `apply_svg_output()`, 保存时用
+`save_svg()` 而不是 `fig.savefig()`:
+
+- 文字、国界/州界、河流、填色、经纬网都是矢量, 放大不会糊; 汉字以字形路径
+  写入(`svg.fonttype="path"`), 换台机器打开不会缺字体或变方块, 代价是 SVG 里
+  的文字不能选中/检索;
+- 唯一无法矢量化的是山体晕渲: 它是由 ETOPO 高程算出的 RGB 栅格, 以 base64
+  内嵌进同一个 `.svg` 文件, 所以产物始终只有一个自包含文件, 不会在旁边再生成
+  `_1.png` 之类的附件;
+- 因此 `--dpi` 只影响内嵌晕渲栅格的像素密度, 矢量部分与 dpi 无关(默认 300);
+- 出图不写生成时间、内部 id 固定, 同一份数据重复运行得到相同内容, 提交 git
+  时不会因为时间戳/随机 id 产生无意义改动.
+
+`AmericaArmy/` 下的两张 PNG 是早期手工上传的底图素材, 不由任何脚本生成
+(`AmericaArmy/main.py` 只画图不落盘), 因此没有对应的 SVG 产物.
+
 ## 字体
 
 所有图表的字体由 [src/cartopy_file/fonts.py](src/cartopy_file/fonts.py) 统一提供，

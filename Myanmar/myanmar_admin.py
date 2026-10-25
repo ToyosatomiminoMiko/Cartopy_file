@@ -6,7 +6,7 @@
 #   - 七邦用冷色, 七省用暖色, 内比都联邦区用中性浅色 + 斜线;
 #   - 邦/省名与行政中心均为中文 + English 双语标注;
 #   - 叠加伊洛瓦底江、萨尔温江, 以及 ETOPO 2022 地形晕渲;
-#   - 输出 300 dpi PNG, 适合打印与排版.
+#   - 输出 SVG(内嵌 300 dpi 晕渲栅格), 适合打印与排版.
 # 运行前先执行:
 #   python prepare_admin_data.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
@@ -69,9 +69,13 @@ configure_cartopy()
 # 英文/数字用 JetBrains Mono Slashed Medium; 中英混排由逐字符回退自动选字体,
 # 所以下面的文字调用不再逐个指定 fontfamily.
 from cartopy_file.fonts import apply_matplotlib_fonts
+from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
-# 斜线填充过密会在 300 dpi 下糊成深色块, 这里保持项目里一致的细线.
+# 产物统一为 SVG(见 cartopy_file.output): 文字/边界/斜线填色是矢量,
+# 只有底下的地形晕渲是内嵌栅格.
+apply_svg_output()
+# 斜线填充过密会在成品尺寸下糊成深色块, 这里保持项目里一致的细线.
 plt.rcParams["hatch.linewidth"] = 0.5
 
 
@@ -199,7 +203,7 @@ SOURCE = (
     "国界·河流: Natural Earth 10m　|　地形: NOAA ETOPO 2022　|　"
     "投影: Lambert Conformal Conic"
 )
-OUT_PNG = ROOT / "myanmar_administrative_divisions_bilingual.png"
+OUT_SVG = ROOT / "myanmar_administrative_divisions_bilingual.svg"
 
 
 def load_admin_units():
@@ -932,7 +936,12 @@ def add_legend(fig: plt.Figure) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stride", type=int, default=None, help="ETOPO 采样步长; 缺省选分辨率最高的一个")
-    parser.add_argument("--dpi", type=int, default=300, help="输出 PNG 分辨率, 默认 300")
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="内嵌晕渲栅格的像素密度(dpi); 矢量部分与 dpi 无关, 默认 300",
+    )
     parser.add_argument("--show", action="store_true", help="保存后弹出交互窗口(需要图形界面)")
     args = parser.parse_args()
 
@@ -1038,8 +1047,8 @@ def main() -> None:
     # 注意: 不能用 tight_layout/constrained_layout/bbox_inches="tight";
     # cartopy 的 gridliner 在非矩形投影上提前绘制时会触发 GEOS 异常或裁掉标签,
     # 与项目内 myanmar.py 的处理保持一致.
-    fig.savefig(OUT_PNG, dpi=args.dpi)
-    print(f"地图已保存: {OUT_PNG}")
+    save_svg(fig, OUT_SVG, dpi=args.dpi)
+    print(f"地图已保存: {OUT_SVG}")
 
     if args.show:
         plt.show()
