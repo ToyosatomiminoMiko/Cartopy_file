@@ -8,7 +8,9 @@
 #   3) 2014 年宣布的"人民共和国"(顿涅茨克/卢甘斯克实际控制区, 哈尔科夫宣称范围);
 #   4) 2022 年俄方单方面宣称的赫尔松/扎波罗热/顿涅茨克/卢甘斯克四州全境边界.
 #   5) 第聂伯河干流与梯级水库: 用 OSM 河道中心线 + 水库实际水面填色,
-#      表达"河宽沿程变化"(上游窄河道 -> 五级水库的宽阔水面).
+#      表达"河宽沿程变化"(上游窄河道 -> 五级水库的宽阔水面);
+#   6) 邻国地貌/水系参照: 喀尔巴阡山、高加索山与顿河的名称标注;
+#   7) 1991 年国界改用红色半透明线, 让地形与下层边界线透出来.
 # 运行前先执行: python Ukraine/download_data.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 # ============================================================
@@ -44,7 +46,7 @@
        四州外边界的北段(紫点划线). 两条线重合时, 先画的橙虚线连同白描边会
        从紫线的点划间隙里露出来, 形成"双线"错觉; 所以重合段只画紫线, 橙线
        只保留独有段落(几何处理见 draw_borders). 2022 宣称线与 1991 国界在
-       顿巴斯东段重合时同理: 紫线先画, 后画的黑实线直接压住它.
+       顿巴斯东段重合时同理: 紫线先画, 后画的半透明红线叠在它上面.
     7. 第聂伯河的宽度必须沿程变化: 干流在乌克兰境内是一串梯级水库, 上游
        河道只有 200~500 m 宽, 水库水面却有几公里到十几公里宽. 如果像普通
        河流那样画一条等宽细线, 在图上会明显失真(实际水面宽度差一个数量级).
@@ -52,6 +54,11 @@
        梯级水库再用 OSM 的实际水面多边形填充 —— 图上"窄河道 / 宽水库"的
        宽窄变化是真实水面, 不是线宽画出来的. 卡霍夫卡水库 2023 年被放空,
        OSM 已无水面, 这一座用 Natural Earth 溃坝前轮廓补上(见下载脚本).
+    8. 邻国地貌/水系参照标注: 喀尔巴阡山、高加索山用棕色斜体、沿山脊走向
+       旋转; 顿河与第聂伯河共用同一套河名旋转规则(在投影平面里求角度,
+       不能拿经纬度差直接算 atan2). 顿河标在下游罗斯托夫一带的北岸陆地上:
+       上游河段在图幅右上角的俄罗斯腹地, 离乌克兰主体太远, 参照意义弱;
+       下游河段紧邻顿巴斯与亚速海, 读图时更容易定位.
 
 数据(由 Ukraine/download_data.py 准备, 脚本本身不联网):
     data/ETOPO_2022_v1_15s_ukraine_stride2.nc   NOAA ETOPO 2022 地形
@@ -180,17 +187,19 @@ BASE_OCEAN_COLOR = "#b5dcf2"
 BASE_LAND_COLOR = "#d2e5b2"
 
 # 图面配色: 每种边界一个固定颜色, 图例与标注共用同一套常量, 避免读图歧义.
-COLOR_1991 = "#111111"       # 1991 国际承认边界: 近黑
+COLOR_1991 = "#c62828"       # 1991 国际承认边界: 红
+COLOR_1991_ALPHA = 0.62      # 1991 国界线半透明度: 让地形与下层边界透出来
 COLOR_2014 = "#1565c0"       # 2014 实际控制线: 蓝
 COLOR_2014_FILL = "#42a5f5"  # 2014 实际控制区填充
 COLOR_KHARKIV = "#ef6c00"    # 2014 宣布的哈尔科夫人民共和国(未控制): 橙
 COLOR_2022 = "#7b1fa2"       # 2022 俄方宣称边界: 紫
 COLOR_OBLAST = "#5f6b73"     # 州界(背景参考线)
 COLOR_RIVER = "#3f7fb5"      # 一般河流(Natural Earth 10m)
-COLOR_RIVER_MAIN = "#2d6ea6"  # 第聂伯河干流: 比一般河流深一档
+COLOR_RIVER_MAIN = "#2d6ea6"  # 第聂伯河/顿河等干流及其河名: 比一般河流深一档
 COLOR_WATER = "#b3d2ea"      # 梯级水库水面填充
 COLOR_WATER_EDGE = "#4a7fb0"  # 水面轮廓
 COLOR_NEIGHBOR = "#8a8a8a"   # 邻国国界
+COLOR_MOUNTAIN = "#6d4a33"   # 山系标注文字: 深棕
 
 # 国家标注: (经度, 纬度, 文字). 放在画面中离边界线/城市较远的位置.
 COUNTRY_LABELS = [
@@ -206,18 +215,42 @@ SEA_LABELS = [
     (34.2, 44.25, "黑海"),
     (36.7, 46.35, "亚速海"),
 ]
+# 山系标注: (经度, 纬度, 文字, 走向起点经度, 起点纬度, 终点经度, 终点纬度).
+# 后四个数只用来求文字旋转角: 取山脊走向上两点, 在投影平面里算屏幕方向;
+# 直接拿经纬度差算 atan2 会偏(兰勃特投影下经线是斜的, 1° 经度对应的
+# 地面距离还随纬度变). 文字位置手工放在山体上, 不压国界/河名/城市.
+MOUNTAIN_LABELS = [
+    # 乌克兰喀尔巴阡山: 西北-东南走向, 文字压在乔尔诺霍拉一带的山体上.
+    (24.32, 48.42, "喀尔巴阡山", 22.80, 49.15, 25.40, 47.95),
+    # 大高加索山西端: 在图幅右下角(索契以东), 山脊同样是西北-东南走向.
+    (40.42, 43.86, "高加索山", 38.20, 44.65, 41.30, 43.35),
+]
+# 河流名称: (经度, 纬度, 文字, 走向起点经度, 起点纬度, 终点经度, 终点纬度).
+# 位置都放在河岸陆地上而不是水面上: 这张图要表达第聂伯河"河宽沿程变化",
+# 河名压在水面上会用白色描边遮掉一段水面; 顿河同理不压河道线.
+RIVER_LABELS = [
+    # 第聂伯河: 克列缅丘格水库东北岸的陆地, 与水面留出几像素间隙.
+    (33.30, 49.60, "第聂伯河", 31.70, 49.62, 33.05, 49.10),
+    # 顿河: 下游罗斯托夫段北岸陆地. 这一段在图幅内够长, 且离顿巴斯最近.
+    (40.15, 47.42, "顿河", 39.80, 47.20, 40.47, 47.45),
+]
 # 城市标注: (经度, 纬度, 名称, 是否首都, 经度偏移, 纬度偏移, 对齐方式).
 # 偏移都在 0.1~0.3°(约 10~25 km)量级, 只用于让文字离开边界线与其它标注.
 # 赫尔松城正好卡在第聂伯河(东)、第聂伯-布格河口(西南)与米科拉伊夫州界
 # (西北)之间, 横向 0.6° 宽的标签放不下: 往东压河, 往西压河口; 所以放在城点
 # 西北的陆地上并右对齐, 只跨过州界, 不压任何水面.
+# 顿涅茨克/卢甘斯克两城的标签单独调整过: 两个"人民共和国"的名称移到其宣称
+# 全境中心后, 会分别落在顿涅茨克城点与卢甘斯克城点附近, 城名必须让开;
+# 同时城名原本会压住 2014 接触线(顿涅茨克)或压住共和国名称(卢甘斯克).
 CITIES = [
     (30.523, 50.450, "基辅", True, 0.20, 0.12, "left"),
     (36.230, 49.993, "哈尔科夫", False, 0.16, 0.12, "left"),
     (30.732, 46.482, "敖德萨", False, 0.16, -0.12, "left"),
     (35.046, 48.464, "第聂伯罗", False, 0.16, 0.12, "left"),
-    (37.802, 48.015, "顿涅茨克", False, -0.16, -0.18, "right"),
-    (39.307, 48.574, "卢甘斯克", False, -0.16, 0.16, "right"),
+    # 顿涅茨克: 城点东南侧的 NGCA 空处, 文字整体在接触线以东, 不与线相交.
+    (37.802, 48.015, "顿涅茨克", False, 0.10, -0.16, "left"),
+    # 卢甘斯克: 城点正南, 避开北面的共和国名称与更北的 2014 接触线.
+    (39.307, 48.574, "卢甘斯克", False, 0.00, -0.19, "center"),
     (35.139, 47.838, "扎波罗热", False, 0.16, 0.14, "left"),
     (32.617, 46.640, "赫尔松", False, 0.16, -0.10, "left"),
     (37.556, 47.096, "马里乌波尔", False, -0.16, -0.06, "right"),
@@ -301,6 +334,7 @@ def add_line_layer(
     linewidth: float,
     linestyle="-",
     zorder: float,
+    alpha: float = 1.0,
     casing: bool = True,
     casing_width: float = 1.6,
     casing_alpha: float = 0.7,
@@ -309,6 +343,9 @@ def add_line_layer(
 
     为什么不用 path_effects: ``add_geometries`` 返回的 FeatureArtist 对描边
     支持不稳定; 用"先粗白线后细彩线"两次绘制是等效且跨 cartopy 版本可靠的做法.
+
+    ``alpha`` 是主线透明度, 只有 1991 国界线用到(红色半透明, 不加描边);
+    需要"半透明主线 + 描边"时, 描边透明度仍由 ``casing_alpha`` 单独控制.
     """
     geoms = list(geometries)
     if casing:
@@ -328,6 +365,7 @@ def add_line_layer(
         edgecolor=color,
         linewidth=linewidth,
         linestyle=linestyle,
+        alpha=alpha,
         zorder=zorder + 0.05,
     )
 
@@ -358,7 +396,7 @@ def draw_basemap(
 ) -> None:
     """地形 + 水系 + 邻国国界 + 乌克兰州界背景线.
 
-    乌克兰自己的海岸线不单独画: 1991 年国界(黑线)已经把它包进去; 再叠一条
+    乌克兰自己的海岸线不单独画: 1991 年国界(红线)已经把它包进去; 再叠一条
     不同来源的海岸线只会露出两条线的几十米~几公里偏差. 邻国的海岸线/国界
     则照常画, 提供地理参照.
 
@@ -385,7 +423,7 @@ def draw_basemap(
         )
     if neighbor_borders is not None:
         # 邻国国界线单独用更大的缓冲带: NE 的乌克兰国界(GADM 口径不同)会在
-        # 边界外侧留下一条与黑线平行的细虚线.
+        # 边界外侧留下一条与红色国界线平行的细虚线.
         outer_borders = neighbor_borders.difference(ukraine_geom.buffer(0.06))
         ax.add_geometries(
             [outer_borders],
@@ -507,14 +545,19 @@ def draw_borders(
         casing_alpha=0.55,
     )
 
-    # --- 1991 年国际承认边界: 最外层、最粗、实线 ---
+    # --- 1991 年国际承认边界: 最外层、最粗、红色半透明实线 ---
+    # 用户要求改成红色半透明: 红色 alpha 叠在地形上, 地形纹理能透出来; 不再加
+    # 白色描边——白描边会把半透明红线衬成发白的"粉带", 反而看不出是半透明红.
+    # 线宽保持最粗, 1991 口径仍是这张图的主线.
     add_line_layer(
         ax,
         [ukraine_geom],
         color=COLOR_1991,
-        linewidth=2.4,
+        linewidth=2.7,
         linestyle="-",
         zorder=6.0,
+        alpha=COLOR_1991_ALPHA,
+        casing=False,
     )
 
     # --- 2014 年实际控制线: 克里米亚陆上控制线 + 顿巴斯接触线 ---
@@ -528,8 +571,20 @@ def draw_borders(
     )
 
 
+def projected_angle(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    """求两点连线的屏幕方向角(度), 用于把文字旋转成与山脊/河道平行.
+
+    为什么要在投影平面里算: matplotlib 的 rotation 是屏幕角, 而兰勃特等角
+    圆锥投影下经线不是竖直的; 直接拿经纬度差算 atan2 会得到与屏幕不一致的
+    角度(1° 经度对应的地面距离还随纬度变化), 文字会明显偏离山脊/河道走向.
+    """
+    p1 = PROJECTION.transform_point(lon1, lat1, ccrs.PlateCarree())
+    p2 = PROJECTION.transform_point(lon2, lat2, ccrs.PlateCarree())
+    return float(np.degrees(np.arctan2(p2[1] - p1[1], p2[0] - p1[0])))
+
+
 def add_labels(ax: plt.Axes, oblasts: gpd.GeoDataFrame) -> None:
-    """国家/海域/城市标注 + 主题区域标注(2014 人民共和国与 2022 宣称州)."""
+    """国家/海域/山系/城市标注 + 主题区域标注(2014 人民共和国与 2022 宣称州)."""
     # --- 国家与海域 ---
     for lon, lat, text in COUNTRY_LABELS:
         ax.text(
@@ -545,17 +600,38 @@ def add_labels(ax: plt.Axes, oblasts: gpd.GeoDataFrame) -> None:
             fontsize=11.5, color="#1f4e79", style="italic",
             ha="center", va="center", path_effects=HALO, zorder=9,
         )
+    # --- 邻国山系: 棕色斜体, 旋转到与山脊走向平行; zorder 比边界低一级,
+    #     保证文字描边不会盖住国界/宣称边界这些主题线. ---
+    for lon, lat, text, lon1, lat1, lon2, lat2 in MOUNTAIN_LABELS:
+        ax.text(
+            lon, lat, text,
+            transform=ccrs.PlateCarree(),
+            fontsize=11.0, color=COLOR_MOUNTAIN, style="italic",
+            rotation=projected_angle(lon1, lat1, lon2, lat2),
+            rotation_mode="anchor", ha="center", va="center",
+            path_effects=HALO, zorder=9.2,
+        )
 
     # --- 2014 年宣布的"人民共和国": 卢甘斯克/顿涅茨克是实际控制区(蓝),
     #     哈尔科夫只有宣称(橙). 文字用两行, 避免横跨边界线. ---
+    # 名称位置按"宣称全境"取中心, 不再挤在 2014 实际控制区(蓝色填充)里:
+    #   - 卢甘斯克州宣称全境(约 37.85~40.22E, 47.82~50.09N)的形心在
+    #     39.03E / 48.98N, 图上是州中部的开阔地, 两行文字正好放得下;
+    #     文字中心再向北 0.03° 是为了让白描边与 2014 接触线北缘的尖峰
+    #     (48.78N 附近)留出间隙, 相对形心只偏 3 km, 可忽略;
+    #   - 顿涅茨克州宣称全境的形心(37.67E / 48.05N)恰好落在顿涅茨克城点上,
+    #     2014 接触线又绕城而过, 两行文字无论怎么摆都会压住城点或接触线;
+    #     所以整体北移到接触线以北的州内空处(37.70E / 48.65N, 离顿涅茨克-
+    #     卢甘斯克州界也留出一段), 仍在全境中轴线上, 只向北让开约 0.6°
+    #     (约 67 km)——这是不遮接触线、不遮城点、不遮州界的最小让步.
     ax.text(
-        39.45, 48.25, "卢甘斯克\n人民共和国",
+        39.03, 49.02, "卢甘斯克\n人民共和国",
         transform=ccrs.PlateCarree(),
         fontsize=8.8, color="#0d47a1",
         ha="center", va="center", linespacing=1.3, path_effects=HALO, zorder=9.5,
     )
     ax.text(
-        38.15, 47.35, "顿涅茨克\n人民共和国",
+        37.70, 48.65, "顿涅茨克\n人民共和国",
         transform=ccrs.PlateCarree(),
         fontsize=8.8, color="#0d47a1",
         ha="center", va="center", linespacing=1.3, path_effects=HALO, zorder=9.5,
@@ -614,27 +690,23 @@ def add_labels(ax: plt.Axes, oblasts: gpd.GeoDataFrame) -> None:
         )
 
 
-def add_dnieper_label(ax: plt.Axes) -> None:
-    """在克列缅丘格水库东北岸的陆地上, 沿河道方向标"第聂伯河".
+def add_river_labels(ax: plt.Axes) -> None:
+    """在河岸陆地上标注干流名称(第聂伯河/顿河), 文字沿河道方向旋转.
 
-    为什么不在水面上: 这张图要表达"河宽沿程变化", 河名压在梯级水库水面上会
-    直接用白色描边遮掉一段水面, 正好挡住要看的宽度变化. 所以把字放在水库
-    东北岸的陆地上, 与水面留出几像素间隙, 文字旋转方向仍与河道一致.
-    旋转角为什么用投影坐标算: 文字 rotation 是屏幕角, 兰勃特投影下经线是斜的,
-    直接拿经纬度差算 atan2 会偏; 所以在投影平面里取两点求方向.
+    为什么把字放在岸上而不是水面上: 这张图要表达"河宽沿程变化", 河名压在
+    梯级水库水面上会用白色描边遮掉一段水面, 正好挡住要看的宽度变化; 所以
+    文字放在水库/河道旁的陆地上, 与水面留出几像素间隙, 旋转方向仍与河道
+    一致. 顿河同理放在下游北岸, 不压河道线. 位置与旋转参考点见 RIVER_LABELS.
     """
-    lon1, lat1 = 31.70, 49.62
-    lon2, lat2 = 33.05, 49.10
-    p1 = PROJECTION.transform_point(lon1, lat1, ccrs.PlateCarree())
-    p2 = PROJECTION.transform_point(lon2, lat2, ccrs.PlateCarree())
-    angle = np.degrees(np.arctan2(p2[1] - p1[1], p2[0] - p1[0]))
-    ax.text(
-        33.30, 49.60, "第聂伯河",
-        transform=ccrs.PlateCarree(),
-        fontsize=10.5, color=COLOR_RIVER_MAIN, style="italic", rotation=angle,
-        rotation_mode="anchor", ha="center", va="center",
-        path_effects=HALO, zorder=9.4,
-    )
+    for lon, lat, text, lon1, lat1, lon2, lat2 in RIVER_LABELS:
+        ax.text(
+            lon, lat, text,
+            transform=ccrs.PlateCarree(),
+            fontsize=10.5, color=COLOR_RIVER_MAIN, style="italic",
+            rotation=projected_angle(lon1, lat1, lon2, lat2),
+            rotation_mode="anchor", ha="center", va="center",
+            path_effects=HALO, zorder=9.4,
+        )
 
 
 def add_gridlines(ax: plt.Axes) -> None:
@@ -664,8 +736,12 @@ def add_gridlines(ax: plt.Axes) -> None:
 
 
 def add_colorbar(fig: plt.Figure, norm, cmap) -> None:
-    """高程色标放在图例下方, 单独占一个窄坐标轴, 不抢地图的宽度."""
-    cax = fig.add_axes([0.79, 0.36, 0.014, 0.17])
+    """高程色标放在图例下方, 单独占一个窄坐标轴, 不抢地图的宽度.
+
+    纵向位置要压到 0.33: 右侧口径说明(注 3/注 4)文字块较高, 色标标题从
+    0.53 再往上一段, 若色标起始位置抬高, 标题就会压住注 4 的最后一行.
+    """
+    cax = fig.add_axes([0.79, 0.33, 0.014, 0.17])
     mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
     mappable.set_array([])
     cbar = fig.colorbar(mappable, cax=cax)
@@ -684,11 +760,11 @@ def add_legend(fig: plt.Figure) -> None:
     lax.set_axis_off()
 
     handles = [
-        Line2D([0], [0], color=COLOR_1991, linewidth=2.4, label="1991 年国际承认边界（含克里米亚）"),
+        Line2D([0], [0], color=COLOR_1991, linewidth=2.7, alpha=COLOR_1991_ALPHA, label="1991 年国际承认边界（含克里米亚）"),
         Line2D([0], [0], color=COLOR_2014, linewidth=2.1, label="2014 年实际控制线（克里米亚 · 顿巴斯接触线）"),
-        Patch(facecolor=COLOR_2014_FILL, alpha=0.35, edgecolor="none", label="2014 年俄方实际控制区（示意填色）"),
+        Patch(facecolor=COLOR_2014_FILL, alpha=0.24, edgecolor="none", label="2014 年俄方实际控制区（示意填色）"),
         Line2D([0], [0], color=COLOR_KHARKIV, linewidth=2.0, linestyle=(0, (6, 3)), label="2014 年宣布的「哈尔科夫人民共和国」\n（未实际控制）"),
-        Line2D([0], [0], color=COLOR_2022, linewidth=2.3, linestyle=(0, (7, 2.5, 1.6, 2.5)), label="2022 年俄方宣称四州全境边界\n（单方面宣称，非控制线）"),
+        Line2D([0], [0], color=COLOR_2022, linewidth=2.1, linestyle=(0, (6, 2.0, 1.6, 2.0)), label="2022 年俄方宣称四州全境边界\n（单方面宣称，非控制线）"),
     ]
     legend = lax.legend(
         handles=handles,
@@ -715,10 +791,13 @@ def add_legend(fig: plt.Figure) -> None:
         "注 2：2022 年边界为俄方 2022-09 单方面宣称的赫尔松州、扎波罗热州、\n"
         "顿涅茨克人民共和国、卢甘斯克人民共和国全境，并非实际控制线。\n"
         "注 3：卢甘斯克、顿涅茨克两「人民共和国」于 2014 年宣布，\n"
-        "实际控制范围见蓝色填充与接触线；哈尔科夫人民共和国只有\n"
-        "2014 年的宣称，图中按其宣称范围(哈尔科夫州)画出，未实际控制。\n"
+        "名称标注在各自宣称全境范围内（顿涅茨克形心被城点与接触线占据，\n"
+        "名称向北让开）；实际控制范围见蓝色填充与接触线。\n"
+        "哈尔科夫人民共和国只有 2014 年的宣称，图中按其宣称范围\n"
+        "(哈尔科夫州)画出，未实际控制。\n"
         "注 4：哈尔科夫州界（橙）南段与 2022 年宣称边界（紫）完全重合，\n"
-        "重合段只画紫线，橙线仅保留独有段落，避免两条虚线交织。"
+        "重合段只画紫线，橙线仅保留独有段落，避免两条虚线交织；\n"
+        "2022 宣称边界与 1991 国界在顿巴斯东缘重合时，由红色国界线叠压。"
     )
     fig.text(
         0.785, 0.735, notes,
@@ -830,7 +909,7 @@ def main() -> None:
         claimed=claimed,
     )
     add_labels(ax, oblasts)
-    add_dnieper_label(ax)
+    add_river_labels(ax)
     add_gridlines(ax)
 
     # 标题用 figure 级: GeoAxes 在有经纬网标签时重算标题位置, 多行标题
