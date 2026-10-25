@@ -8,10 +8,11 @@
 #   3) GADM 4.1 乌克兰一级行政区(州/克里米亚/塞瓦斯托波尔, 法理口径);
 #   4) OCHA HDX 2021 HNO GCA/NGCA 分区(顿巴斯接触线与分离武装控制区);
 #   5) OpenStreetMap 第聂伯河干流与梯级水库(Overpass API, 精细水系);
+#   6) OpenStreetMap 南布格河/顿河下游补段(NE 10m 在河口前收笔, 见下);
 # 再把它们加工成绘图脚本直接读取的 GeoJSON:
 #   1991 年国际承认边界、各州边界、2014 年克里米亚陆上控制线、
 #   2014 年顿巴斯控制区/接触线、2022 年俄方宣称的四州全境、
-#   第聂伯河干流中心线与梯级水库水面.
+#   第聂伯河干流中心线与梯级水库水面、南布格河/顿河中心线(NE + OSM 拼接).
 # 所有下载都是"文件已存在就跳过", 重复执行不会重新联网.
 # 运行: python Ukraine/download_data.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
@@ -45,6 +46,13 @@
        实际水面填充, 这才看得出"第聂伯河在乌克兰是一串水库".
        卡霍夫卡水库 2023-06 溃坝后被放空, OSM 已删除其水面多边形; 本图讲的
        是 2022 年, 所以这一座用 Natural Earth 10m 的溃坝前水库面补上.
+    6. 南布格河/顿河下游: Natural Earth 10m 河网在这两条河入海前提前收笔 ——
+       南布格河止于 (31.75, 47.26), 河口(米科拉伊夫一带的利曼)以上约 35 km;
+       顿河止于 (39.38, 47.11), 还在顿河三角洲里, 离亚速海约 10 km. 图上表现
+       为"河线断了": 南布格河只剩一串 ETOPO 水面像元, 顿河在三角洲里收笔.
+       这两处改用 OSM waterway=river 的下游一小段补上, 并把 NE 上段与 OSM 下段
+       在两条线的交点附近拼成一条连续中心线输出(做法见
+       ``build_river_extension``).
 
 输出(都在 ``Ukraine/data/`` 下, 已在 .gitignore 里):
     ETOPO_2022_v1_15s_ukraine_stride2.nc      ETOPO 高程
@@ -59,6 +67,8 @@
     claimed_2022.geojson                      2022 年俄方宣称的四州全境(面)
     dnieper_river_osm.geojson                 第聂伯河干流中心线(OSM)
     dnieper_water_osm.geojson                 第聂伯河梯级水库水面(OSM + NE 卡霍夫卡)
+    southern_bug_river_osm.geojson            南布格河中心线(NE 上段 + OSM 下段)
+    don_river_osm.geojson                     顿河中心线(NE 上段 + OSM 下段)
 
 数据许可: OpenStreetMap 贡献者, ODbL 1.0.
 """
@@ -67,6 +77,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 import urllib.error
@@ -77,8 +88,8 @@ from pathlib import Path
 
 import geopandas as gpd
 from pyproj import Geod
-from shapely.geometry import LineString, MultiPolygon, Polygon, box, mapping
-from shapely.ops import linemerge, polygonize, unary_union
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box, mapping
+from shapely.ops import linemerge, polygonize, substring, unary_union
 from shapely.validation import make_valid
 
 # ============================
@@ -150,6 +161,43 @@ DNIEPER_RIVER_CACHE = DATA_DIR / "osm_dnieper_river.json"
 DNIEPER_WATER_CACHE = DATA_DIR / "osm_dnieper_reservoirs.json"
 DNIEPER_RIVER_PATH = DATA_DIR / "dnieper_river_osm.geojson"
 DNIEPER_WATER_PATH = DATA_DIR / "dnieper_water_osm.geojson"
+
+# ---- 南布格河/顿河: NE 10m 在河口前收笔, 用 OSM 补下游段 ----
+# NE 10m 缓存的收笔位置: 南布格河 (31.749, 47.259), 顿河 (39.378, 47.111).
+# 两条河在图内都向南/西南入海, 所以"下游要素"= 末端纬度最低的那条
+# (见 build_river_extension). Overpass 的 bbox 用 (south, west, north, east),
+# 只覆盖 NE 收笔点到河口的一小段; 跨出 bbox 的 way 仍带完整几何, 足够接上.
+RIVER_EXTENSIONS: tuple[dict, ...] = (
+    {
+        "key": "southern_bug",
+        "ne_name": "Southern Bug",
+        # 乌克兰段在 OSM 里是乌克兰语名; 俄语/英语名一并收, 防止个别 way
+        # 用了别的语言标注而漏掉.
+        "osm_names": ("Південний Буг", "Южный Буг", "Southern Bug"),
+        "bbox": (46.85, 31.55, 47.40, 32.10),
+        "name_zh": "南布格河下游补段",
+        "cache": DATA_DIR / "osm_southern_bug_lower.json",
+        "path": DATA_DIR / "southern_bug_river_osm.geojson",
+    },
+    {
+        "key": "don",
+        "ne_name": "Don",
+        # 顿河下游在俄罗斯境内, OSM 用俄语名; 三角洲的汊道各有名字, 这里只要
+        # 主河道 "Дон" 本身(实测三角洲里同名 way 只有一条, 直通亚速海).
+        "osm_names": ("Дон",),
+        "bbox": (47.00, 39.05, 47.25, 39.60),
+        "name_zh": "顿河下游补段",
+        "cache": DATA_DIR / "osm_don_lower.json",
+        "path": DATA_DIR / "don_river_osm.geojson",
+    },
+)
+# 接缝点选择: 在 OSM 下游链的上游段上扫描, 取"离 NE 线近 + 走向一致"的点.
+# 为什么不直接首尾相接: 两套数据对同一条河的描绘相差 0.5~2 km, 且 NE 在河口
+# 附近简化出了一些不自然的弯; 直接接会留下台阶或硬折角. 按距离+方向挑接缝
+# 后, 实测两条河在接缝处的走向差都不到 5°, 图上就是一个普通河弯.
+RIVER_JOIN_SCAN = 0.6          # 只在前 60% 弧长里找接缝, 保证下游段仍在
+RIVER_JOIN_DIST_DEG = 0.01     # 距离权重: 0.01°(约 1.1 km) 记 1 个单位
+RIVER_JOIN_ANGLE_DEG = 30.0    # 方向权重: 30° 记 1 个单位
 
 GEOD = Geod(ellps="WGS84")
 
@@ -497,6 +545,26 @@ def fetch_dnieper_osm(force: bool) -> None:
     )
 
 
+def fetch_river_extensions(force: bool) -> None:
+    """下载南布格河/顿河下游的 OSM waterway=river way(Overpass, 小 bbox).
+
+    只取下游一小块: 上段已经由 NE 10m 画, 这里只补 NE 提前收笔的那一段.
+    不按河名过滤(在 Python 里按 ``osm_names`` 过滤): 同一段河在 OSM 里可能
+    用不同语言/拼写标注, bbox 又很小, 整块下载只多几百 KB, 换来的鲁棒性比
+    省那点流量值.
+    """
+    print("下载 OpenStreetMap 南布格河/顿河下游 (Overpass)")
+    for spec in RIVER_EXTENSIONS:
+        south, west, north, east = spec["bbox"]
+        overpass_query(
+            f'[out:json][timeout:120];way["waterway"="river"]'
+            f"({south},{west},{north},{east});out geom;",
+            spec["cache"],
+            spec["name_zh"],
+            force=force,
+        )
+
+
 # ============================
 # 2. 派生边界数据
 # ============================
@@ -827,6 +895,171 @@ def build_dnieper_water() -> None:
 
 
 # ============================
+# 3b. 南布格河/顿河: NE 上段 + OSM 下游段拼成一条连续中心线
+# ============================
+def load_ne_rivers() -> gpd.GeoDataFrame:
+    """读共享缓存里的 Natural Earth 10m 河网(只读, 不联网)."""
+    try:
+        from cartopy_file.data import configure_cartopy, natural_earth_paths
+    except ImportError as exc:
+        raise RuntimeError("无法导入 cartopy_file, 请先 `uv pip install -e .`") from exc
+    configure_cartopy()
+    path, _ = natural_earth_paths("10m", "physical", "rivers_lake_centerlines")
+    if path is None:
+        raise RuntimeError("缺少 Natural Earth 10m 河网缓存, 请先运行: python download_data.py")
+    return gpd.read_file(path)
+
+
+def _ne_river_features(rivers: gpd.GeoDataFrame, name: str) -> list[tuple[int, LineString]]:
+    """取某条河的全部 NE 线要素(MultiLineString 展开), 返回 (ne_id, 单条线)."""
+    features: list[tuple[int, LineString]] = []
+    for _, row in rivers[rivers["name_en"] == name].iterrows():
+        geom = row.geometry
+        parts = [geom] if geom.geom_type == "LineString" else list(getattr(geom, "geoms", []))
+        for part in parts:
+            if part.geom_type == "LineString" and len(part.coords) >= 2:
+                features.append((int(row["ne_id"]), part))
+    return features
+
+
+def _unit_direction(line: LineString, t: float, window: float = 0.004) -> tuple[float, float]:
+    """求线上弧长 t 处"沿距离增大方向"的单位向量; window 是取样窗口(度).
+
+    window 取 0.004°(约 450 m): 太短会被单个顶点带偏, 太长又会把河弯平均掉;
+    接缝选择只关心几公里尺度的走向, 这个窗口足够稳.
+    """
+    a = line.interpolate(max(0.0, t - window))
+    b = line.interpolate(min(line.length, t + window))
+    dx, dy = b.x - a.x, b.y - a.y
+    norm = (dx * dx + dy * dy) ** 0.5
+    return (dx / norm, dy / norm) if norm else (0.0, 0.0)
+
+
+def _orient_to_sea(chain: LineString, ne_line: LineString) -> LineString:
+    """把 OSM 下游链摆成"上游 -> 下游"方向.
+
+    依据: 下游端伸进利曼/亚速海, 离只画到河口附近的 NE 线远; 上游端与 NE 线
+    是同一条河, 距离近. OSM way 本身按水流方向画(起点在上游), 两端距离相近
+    时保持原方向.
+    """
+    head = Point(chain.coords[0]).distance(ne_line)
+    tail = Point(chain.coords[-1]).distance(ne_line)
+    if tail < head:
+        return LineString(list(chain.coords)[::-1])
+    return chain
+
+
+def _choose_seam(ne_line: LineString, osm_line: LineString):
+    """在 OSM 链上游段上挑接缝: 离 NE 线近、且两条线走向一致的点.
+
+    返回 ``(OSM 弧长比例, NE 上对应的点, 两条线的距离(度), 走向差(度))``.
+    代价函数把距离和方向差归一化后平方相加; 实测两条河的最优点距离
+    100~350 m、方向差 <5°, 接缝在图上就是一个普通河弯.
+    """
+    best = None
+    for i in range(121):
+        frac = RIVER_JOIN_SCAN * i / 120
+        t_osm = frac * osm_line.length
+        point = osm_line.interpolate(t_osm)
+        t_ne = ne_line.project(point)
+        near = ne_line.interpolate(t_ne)
+        dist = point.distance(near)
+        a = _unit_direction(ne_line, t_ne)
+        b = _unit_direction(osm_line, t_osm)
+        cos = max(-1.0, min(1.0, a[0] * b[0] + a[1] * b[1]))
+        angle = math.degrees(math.acos(cos))
+        cost = (dist / RIVER_JOIN_DIST_DEG) ** 2 + (angle / RIVER_JOIN_ANGLE_DEG) ** 2
+        if best is None or cost < best[0]:
+            best = (cost, frac, near, dist, angle)
+    return best[1:]
+
+
+def build_river_extension(spec: dict) -> None:
+    """南布格河/顿河: NE 上段与 OSM 下游段在接缝处拼成一条连续中心线.
+
+    步骤:
+      1. NE 侧: 取该河"末端纬度最低"的线要素 —— 两条河在图内都往南/西南
+         入海, 纬度最低的末端就是下游干流(其余要素更靠上游).
+      2. OSM 侧: 从下游 bbox 的 waterway=river way 里按河名挑出主河道,
+         合并(linemerge)后取最长的一段; 出现多段说明有三角洲汊道, 图上只要
+         主道.
+      3. 摆正方向: 把 OSM 链摆成上游 -> 下游(见 ``_orient_to_sea``).
+      4. 挑接缝: 在 OSM 链上游 60% 里找"离 NE 线近 + 走向一致"的点(见
+         ``_choose_seam``); 接缝以上用 NE、以下用 OSM —— 两套数据本来就
+         在这附近重合, 所以看不出是拼的.
+      5. 拼成一条 LineString, 简化到 ``RIVER_SIMPLIFY_DEG`` 后写 GeoJSON.
+         属性里带 ``replaces_ne_id``: 绘图时据此把 NE 图层里被替换的那条
+         下游要素剔除, 避免同一条河出现两条位置略有差异的线.
+    """
+    rivers = load_ne_rivers()
+    features = _ne_river_features(rivers, spec["ne_name"])
+    if not features:
+        raise RuntimeError(f"NE 10m 河网里没有 {spec['ne_name']}, 无法补下游段")
+    ne_id, ne_line = min(features, key=lambda item: item[1].coords[-1][1])
+
+    payload = json.loads(spec["cache"].read_text(encoding="utf-8"))
+    ways = []
+    for element in payload["elements"]:
+        if element.get("tags", {}).get("name") not in spec["osm_names"]:
+            continue
+        geom = _osm_way_geometry(element)
+        if geom is not None:
+            ways.append(geom)
+    if not ways:
+        raise RuntimeError(f"{spec['name_zh']}: OSM 缓存里没有同名 waterway=river")
+
+    union = unary_union(ways)
+    if union.geom_type == "LineString":
+        osm_line = union
+    else:
+        merged = linemerge(union)
+        parts = (
+            [merged]
+            if merged.geom_type == "LineString"
+            else [g for g in getattr(merged, "geoms", []) if g.geom_type == "LineString"]
+        )
+        if not parts:
+            raise RuntimeError(f"{spec['name_zh']}: OSM 河段无法合并")
+        osm_line = max(parts, key=lambda g: g.length)
+    osm_line = _orient_to_sea(osm_line, ne_line)
+
+    frac, seam, dist, angle = _choose_seam(ne_line, osm_line)
+    head = substring(ne_line, 0.0, ne_line.project(seam))
+    tail = substring(osm_line, frac * osm_line.length, osm_line.length)
+    coords = list(head.coords)
+    if Point(coords[-1]).distance(Point(tail.coords[0])) > 1e-9:
+        coords.append(tuple(tail.coords[0]))
+    coords.extend(list(tail.coords)[1:])
+    line = LineString(coords).simplify(RIVER_SIMPLIFY_DEG, preserve_topology=False)
+
+    write_fc(
+        spec["path"],
+        [
+            feat(
+                line,
+                {
+                    "name": f"{spec['ne_name']} lower reach (Natural Earth + OSM)",
+                    "name_zh": spec["name_zh"],
+                    "source": "Natural Earth 10m rivers_lake_centerlines (upstream, "
+                    "public domain) + OpenStreetMap waterway=river (downstream, ODbL 1.0)",
+                    "note": "NE 10m 在河口前收笔; 接缝以上用 NE, 以下用 OSM, "
+                    "接缝点按距离/走向自动挑选.",
+                    "replaces_ne_id": ne_id,
+                    "length_km_geodesic": round(geod_length_km(line), 1),
+                    "vertices": n_vertices(line),
+                    "simplify_deg": RIVER_SIMPLIFY_DEG,
+                },
+            )
+        ],
+    )
+    print(
+        f"  接缝: OSM 上游 {frac:.0%} 处, 距 NE 线 {dist * 111000:.0f} m, "
+        f"走向差 {angle:.1f}°; 合并后 {len(line.coords)} 顶点, "
+        f"{geod_length_km(line):.0f} km"
+    )
+
+
+# ============================
 # 4. 检查与主流程
 # ============================
 def check_outputs(verbose: bool = True) -> int:
@@ -844,6 +1077,7 @@ def check_outputs(verbose: bool = True) -> int:
         CLAIMED_2022_PATH,
         DNIEPER_RIVER_PATH,
         DNIEPER_WATER_PATH,
+        *[spec["path"] for spec in RIVER_EXTENSIONS],
     ]
     missing = 0
     for path in required:
@@ -876,6 +1110,7 @@ def main() -> None:
     fetch_gadm(force=args.force)
     fetch_ocha(force=args.force)
     fetch_dnieper_osm(force=args.force)
+    fetch_river_extensions(force=args.force)
 
     print("\n加工行政区与 1991 年边界")
     gdf, border_1991 = build_oblasts(load_gadm())
@@ -889,6 +1124,9 @@ def main() -> None:
     build_dnieper_river()
     print("\n加工第聂伯河梯级水库水面")
     build_dnieper_water()
+    for spec in RIVER_EXTENSIONS:
+        print(f"\n加工{spec['name_zh']}")
+        build_river_extension(spec)
 
     print("\n数据自检")
     check_outputs(verbose=True)

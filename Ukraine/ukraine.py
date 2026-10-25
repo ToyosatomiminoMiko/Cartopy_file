@@ -10,6 +10,8 @@
 #   5) 第聂伯河干流与梯级水库: 用 OSM 河道中心线 + 水库实际水面填色,
 #      表达"河宽沿程变化"(上游窄河道 -> 五级水库的宽阔水面);
 #   6) 邻国地貌/水系参照: 喀尔巴阡山、高加索山与顿河的名称标注;
+#      南布格河与顿河在 NE 10m 里于河口前收笔, 下游改用 OSM 补到利曼/亚速海
+#      (两段在接缝处拼成一条线, 见 download_data.py 的 build_river_extension);
 #   7) 1991 年国界改用红色半透明线, 让地形与下层边界线透出来;
 #   8) 2022 宣称边界与哈尔科夫界线同 1991 国界重合的段落只画 1991 红线,
 #      紫/橙虚线只保留各自独有的段落;
@@ -68,6 +70,11 @@
        不能拿经纬度差直接算 atan2). 顿河标在下游罗斯托夫一带的北岸陆地上:
        上游河段在图幅右上角的俄罗斯腹地, 离乌克兰主体太远, 参照意义弱;
        下游河段紧邻顿巴斯与亚速海, 读图时更容易定位.
+       这条参照水系本身在 NE 10m 里也有问题: 南布格河与顿河都在入海前
+       提前收笔(分别差约 35 km / 10 km), 图上就是"河线断了"—— 南布格河
+       只剩一串 ETOPO 水面像元, 顿河在三角洲里收笔. 这两条河的下游改用
+       OSM 补上并和 NE 上段拼成一条线(见 load_river_extensions), 与一般
+       河流同一图层、同一线型绘制, 不再有断口.
     9. 海岸线不单独画: 海(ETOPO 水深色带)与陆(高程色带)之间只靠 0 m 处的
        颜色跳变分界, 不再叠一条海岸线 —— 既能少一条与 1991 国界/州界争
        层级的线, 也避开了 NE 海岸线与 GADM 岸线两套数据在岸边几十米~几
@@ -95,6 +102,8 @@
     data/claimed_2022.geojson                   2022 年俄方宣称四州全境
     data/dnieper_river_osm.geojson              第聂伯河干流中心线(OSM)
     data/dnieper_water_osm.geojson              第聂伯河梯级水库水面(OSM + NE 卡霍夫卡)
+    data/southern_bug_river_osm.geojson         南布格河中心线(NE 上段 + OSM 下段)
+    data/don_river_osm.geojson                  顿河中心线(NE 上段 + OSM 下段)
     (河流/海岸线/邻国国界线复用仓库 data/cartopy 的 Natural Earth 10m 缓存)
 """
 
@@ -327,6 +336,13 @@ CONTACT_2014_PATH = DATA_DIR / "contact_line_2014.geojson"
 CLAIMED_2022_PATH = DATA_DIR / "claimed_2022.geojson"
 DNIEPER_RIVER_PATH = DATA_DIR / "dnieper_river_osm.geojson"
 DNIEPER_WATER_PATH = DATA_DIR / "dnieper_water_osm.geojson"
+# 南布格河/顿河中心线: NE 10m 在河口前收笔, download_data.py 用 OSM 补了下游段,
+# 并与 NE 上段在接缝处拼成一条线(文件里含 NE + OSM 两段, 属性 replaces_ne_id
+# 标出被替换的 NE 要素).
+RIVER_EXTENSION_PATHS = (
+    DATA_DIR / "southern_bug_river_osm.geojson",
+    DATA_DIR / "don_river_osm.geojson",
+)
 COUNTRY_DIR = DATA_DIR / "ne_10m_admin_0_countries"
 
 # 文字描边: 白边保证汉字压在深色地形/彩色填充上仍可读.
@@ -363,6 +379,28 @@ def load_dnieper() -> tuple:
     river = gpd.read_file(_require(DNIEPER_RIVER_PATH)).to_crs("EPSG:4326")
     water = gpd.read_file(_require(DNIEPER_WATER_PATH)).to_crs("EPSG:4326")
     return river.geometry.iloc[0], water.geometry.iloc[0]
+
+
+def load_river_extensions() -> tuple[list, set[int]] | None:
+    """读取南布格河/顿河中心线(NE 上段 + OSM 下段拼好的整条线).
+
+    返回 ``(线几何列表, 被替换的 NE 要素 id 集合)``. 为什么要 id: 这些文件里
+    的线已经包含 NE 上段, 所以 NE 图层里对应的那条下游要素不能再画, 否则同
+    一条河会出现两条位置略有差异的线(与第聂伯河从 NE 图层剔除同理).
+    文件缺失时返回 None: 用旧数据仍能出图, 只是这两条河又回到"河口前断线".
+    """
+    lines: list = []
+    replaced: set[int] = set()
+    for path in RIVER_EXTENSION_PATHS:
+        if not path.exists():
+            print(f"警告: 缺少河流补段 {path.name}, 该河下游仍按 NE 原数据绘制")
+            continue
+        gdf = gpd.read_file(path).to_crs("EPSG:4326")
+        lines.extend(list(gdf.geometry))
+        replaced.update(int(ne_id) for ne_id in gdf["replaces_ne_id"])
+    if not lines:
+        return None
+    return lines, replaced
 
 
 def shared_layer(resolution: str, category: str, name: str):
@@ -548,6 +586,7 @@ def draw_basemap(
     ukraine_geom,
     oblast_lines,
     rivers,
+    river_extensions,
     dnieper_river,
     dnieper_water,
     neighbor_borders,
@@ -563,6 +602,10 @@ def draw_basemap(
     中心线. 这样图上"上游窄河道、下游宽水库"的宽度变化是真实水面宽度, 而不是
     靠加粗同一根线来假装 —— 等宽线在这里会失真一个数量级(河道 0.2~0.5 km,
     水库 3~15 km).
+
+    ``river_extensions`` 是南布格河/顿河的整条中心线(NE 上段 + OSM 下段拼好,
+    见 download_data.py): 与一般河流同一图层、同一线型画, 这两条河的下游
+    才不会在河口前断掉.
     """
     add_base_map(ax, world, ocean_color=BASE_OCEAN_COLOR, land_color=BASE_LAND_COLOR)
 
@@ -593,10 +636,14 @@ def draw_basemap(
             zorder=3.1,
         )
     # 一般河流放在州界之下、主题边界之上; 10m 河流在国界附近可能超出画框,
-    # cartopy 会按画框裁剪. Dnieper 已从这一层剔除(改用 OSM 干流).
-    if rivers is not None:
+    # cartopy 会按画框裁剪. Dnieper 已从这一层剔除(改用 OSM 干流); 南布格河
+    # 与顿河的补段(NE 上段 + OSM 下段)与一般河流同色同宽一起画.
+    river_geoms = list(rivers.geometry) if rivers is not None else []
+    if river_extensions:
+        river_geoms.extend(river_extensions)
+    if river_geoms:
         ax.add_geometries(
-            list(rivers.geometry),
+            river_geoms,
             crs=ccrs.PlateCarree(),
             facecolor="none",
             edgecolor=COLOR_RIVER,
@@ -1026,6 +1073,8 @@ def main() -> None:
     dnieper_river, dnieper_water = load_dnieper()
     print(f"第聂伯河: 干流顶点 {len(dnieper_river.coords) if dnieper_river.geom_type == 'LineString' else '?'}, "
           f"水库水面 {dnieper_water.geom_type}")
+    river_extensions = load_river_extensions()
+    extension_lines = river_extensions[0] if river_extensions is not None else None
 
     # 共享缓存里的 Natural Earth 10m 图层(缺失就跳过, 不联网下载).
     # 图幅外扩 1°: 经纬度标签画在画框外, 裁剪图层时要把那一圈也带上.
@@ -1039,6 +1088,9 @@ def main() -> None:
         # 第聂伯河改由 OSM 干流 + 水库水面绘制, 从 NE 图层里剔除, 避免同一条
         # 河出现两条位置略有差异的线(NE 与 OSM 中位数偏差约 0.8 km).
         rivers = rivers[rivers["name_en"].fillna("") != "Dnieper"]
+        if river_extensions is not None:
+            # 南布格河/顿河的下游补段文件里已经含 NE 上段, 对应 NE 要素同理剔除.
+            rivers = rivers[~rivers["ne_id"].isin(river_extensions[1])]
         rivers = rivers.cx[bbox[0]:bbox[2], bbox[1]:bbox[3]]
     coastline = None
     coast_path = shared_layer("10m", "physical", "coastline")
@@ -1097,6 +1149,7 @@ def main() -> None:
         ukraine_geom=ukraine_geom,
         oblast_lines=oblast_lines,
         rivers=rivers,
+        river_extensions=extension_lines,
         dnieper_river=dnieper_river,
         dnieper_water=dnieper_water,
         neighbor_borders=neighbor_borders,
