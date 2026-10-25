@@ -3,7 +3,7 @@
 # ============================================================
 # ukraine.py
 # 乌克兰全图: 以 ETOPO 2022 地形晕渲为底图, 叠加
-#   1) 1991 年国际承认边界(含克里米亚);
+#   1) 1991 年国际承认边界(含克里米亚), 只画陆上段;
 #   2) 2014 年实际控制线(克里米亚陆上控制线 + 顿巴斯接触线)及其控制区;
 #   3) 2014 年宣布的"人民共和国"(顿涅茨克/卢甘斯克实际控制区, 哈尔科夫宣称范围);
 #   4) 2022 年俄方单方面宣称的赫尔松/扎波罗热/顿涅茨克/卢甘斯克四州全境边界.
@@ -12,7 +12,11 @@
 #   6) 邻国地貌/水系参照: 喀尔巴阡山、高加索山与顿河的名称标注;
 #   7) 1991 年国界改用红色半透明线, 让地形与下层边界线透出来;
 #   8) 2022 宣称边界与哈尔科夫界线同 1991 国界重合的段落只画 1991 红线,
-#      紫/橙虚线只保留各自独有的段落.
+#      紫/橙虚线只保留各自独有的段落;
+#   9) 海岸线不单独画: 海陆界线由地形配色在 0 m 处的跳变表达(两侧近 0 m
+#      的颜色差已拉大); 1991 国界与州界的沿海段都剪掉不画, 岸边没有任何
+#      国界线/行政界线; NE 海岸线漏画的利曼/沙嘴岸段再按"离外国陆地太远"
+#      兜底剪掉; 国界两端(顿巴斯亚速海岸、多瑙河口)再沿原边界补到海边.
 # 运行前先执行: python Ukraine/download_data.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 # ============================================================
@@ -64,6 +68,21 @@
        不能拿经纬度差直接算 atan2). 顿河标在下游罗斯托夫一带的北岸陆地上:
        上游河段在图幅右上角的俄罗斯腹地, 离乌克兰主体太远, 参照意义弱;
        下游河段紧邻顿巴斯与亚速海, 读图时更容易定位.
+    9. 海岸线不单独画: 海(ETOPO 水深色带)与陆(高程色带)之间只靠 0 m 处的
+       颜色跳变分界, 不再叠一条海岸线 —— 既能少一条与 1991 国界/州界争
+       层级的线, 也避开了 NE 海岸线与 GADM 岸线两套数据在岸边几十米~几
+       公里的偏差. 没有线以后这条色界必须够显眼, 所以两侧近 0 m 的颜色
+       特意拉开: 水面用更饱和的浅蓝, 陆地用偏黄的浅绿, 0 m 两侧 L* 差约
+       7、色相差约 135°(见 make_relief_cmap). 1991 国界仍只画陆上段:
+       先按 NE 海岸线几何剪掉沿海段(见 COAST_CLIP_DEG), 再按"离外国陆地
+       超过 LAND_KEEP_DEG"剪掉 NE 海岸线漏画的利曼/潟湖岸与狭长沙嘴
+       (见 load_neighbor_land) —— 克里米亚西部、亚速海沿岸那些孤立红线
+       就是第一步漏剪的. 剪掉的段落不再补画海岸线, 于是岸上一条线都没有,
+       岸线就是颜色分界. 州界同理: GADM 州级面的外缘也沿海岸闭合, 用
+       "国界被剪掉的部分"当蒙版一起剪(见 main), 海边那圈灰线也不会留下.
+       最后把剪断的两端沿原边界补到 ETOPO 水面处(见 extend_border_to_sea):
+       顿巴斯东缘与多瑙河口这两处, 陆地国界会在离岸 5~7 km 的内陆收笔,
+       补到海边才像"国界入海"; 多瑙河口那段是沿河北上的真边界, 不能拉直线.
 
 数据(由 Ukraine/download_data.py 准备, 脚本本身不联网):
     data/ETOPO_2022_v1_15s_ukraine_stride2.nc   NOAA ETOPO 2022 地形
@@ -101,6 +120,7 @@ import numpy as np  # 数组运算
 import geopandas as gpd  # 读取 GeoJSON/shapefile
 from matplotlib.lines import Line2D  # 图例线段
 from matplotlib.patches import Patch  # 图例色块
+from shapely.geometry import LineString, Point, box  # 图幅范围/端头延伸
 from shapely.ops import unary_union  # 合并几何
 
 # 共享的 ETOPO/晕渲/底图工具(实现见 src/cartopy_file/relief.py).
@@ -154,8 +174,12 @@ def make_relief_cmap(vmin: float, vmax: float) -> mcolors.LinearSegmentedColorma
         锚点密集放在 0~500 m, 平原上的高程差异才拉得开.
 
     返回的色带配合 Normalize(vmin, vmax) 使用(色标横轴保持线性, 只是中点
-    处色带不连续); N=2048 是为了让 0 m 处的水/陆跳变只占一个色阶宽度,
-    海岸线不会被渐变糊掉. 颜色按 (高程 m, 十六进制) 给出, 便于按数据调整.
+    处色带不连续); N=2048 是为了让 0 m 处的水/陆跳变只占一个色阶宽度.
+    图上不画海岸线(见模块说明第 9 条), 这条跳变本身就是岸线, 所以要够
+    显眼: 水面从 -100 m 到 -1 m 逐渐变浅、变饱和, 陆地从 +1 m 起是偏黄
+    的浅绿, 0 m 两侧的 L* 差约 7、色相差约 135° —— 原先那对近白色的
+    #b5dcf2 / #d2e5b2 只差 3 和 119°, 没有海岸线时岸边会糊成一片.
+    颜色按 (高程 m, 十六进制) 给出, 便于按数据调整.
     """
     sea = [
         (-2500, "#07203c"),
@@ -163,12 +187,12 @@ def make_relief_cmap(vmin: float, vmax: float) -> mcolors.LinearSegmentedColorma
         (-1250, "#1b628f"),
         (-700, "#2f82b5"),
         (-300, "#5aa2cd"),
-        (-100, "#82c0e2"),
-        (-20, "#a6d3ec"),
-        (-1, "#b5dcf2"),
+        (-100, "#75b3db"),
+        (-20, "#8cc4e7"),
+        (-1, "#a2d0ee"),
     ]
     land = [
-        (1, "#d2e5b2"),
+        (1, "#dce4a2"),
         (75, "#dde3a4"),
         (175, "#e8dd92"),
         (300, "#dbc786"),
@@ -191,8 +215,8 @@ def make_relief_cmap(vmin: float, vmax: float) -> mcolors.LinearSegmentedColorma
 ELEV_CMAP = make_relief_cmap(ELEV_VMIN, ELEV_VMAX)
 
 # 海陆底色(只在 ETOPO 子集边缘露出来时可见, 与 ELEV_CMAP 两端的颜色一致).
-BASE_OCEAN_COLOR = "#b5dcf2"
-BASE_LAND_COLOR = "#d2e5b2"
+BASE_OCEAN_COLOR = "#a2d0ee"
+BASE_LAND_COLOR = "#dce4a2"
 
 # 图面配色: 每种边界一个固定颜色, 图例与标注共用同一套常量, 避免读图歧义.
 COLOR_1991 = "#c62828"       # 1991 国际承认边界: 红
@@ -208,6 +232,25 @@ COLOR_WATER = "#b3d2ea"      # 梯级水库水面填充
 COLOR_WATER_EDGE = "#4a7fb0"  # 水面轮廓
 COLOR_NEIGHBOR = "#8a8a8a"   # 邻国国界
 COLOR_MOUNTAIN = "#6d4a33"   # 山系标注文字: 深棕
+
+# 1991 国界剪掉沿海段的缓冲半径(度). GADM 的国家面边界沿岸线与 Natural
+# Earth 海岸线是两套数据, 偏差中位约 0.5 km、个别沙嘴可达 8 km; 0.06° 在
+# 48°N 处约纬向 6.7 km / 经向 4.5 km, 覆盖绝大多数岸段. 缓冲是经纬度下的
+# 圆(投影后是椭圆), 漏掉的岸段由 LAND_KEEP_DEG 那一步兜底. 剪剩的碎段
+# (两条线小夹角相交的接头)按 3 km 丢掉.
+COAST_CLIP_DEG = 0.06
+COAST_CLIP_MIN_LEN = 0.03
+
+# 1991 国界只保留"与邻国接壤"的陆上段: 边界线离任何外国陆地都超过
+# LAND_KEEP_DEG 的段落, 说明它一侧是水(海岸、利曼/潟湖岸、狭长沙嘴), 剪掉.
+# 这一步是给海岸线缓冲兜底的: NE 10m 海岸线没有画出的岸段(例如克里米亚
+# 西部的利曼、亚速海的狭长沙嘴), 岸线缓冲剪不到, 会在图上留下孤立的红线.
+# 实测真正的陆上国界离外国陆地最远约 0.07°(NE 与 GADM 在摩尔多瓦北端一带
+# 的偏差), 而那些残段都在 1.4° 以上, 取 0.15° 两边都留足余量.
+LAND_KEEP_DEG = 0.15
+# 克里米亚半岛范围: NE 的 admin_0_countries 把克里米亚划给俄罗斯, 统计
+# "外国陆地"时必须把这部分剔掉, 否则克里米亚的利曼/沙嘴岸段会被当成接壤.
+CRIMEA_BOX = (32.0, 44.3, 37.0, 46.5)
 
 # 国家标注: (经度, 纬度, 文字). 放在画面中离边界线/城市较远的位置.
 COUNTRY_LABELS = [
@@ -390,23 +433,131 @@ def add_fill_layer(ax: plt.Axes, geometries, *, color: str, alpha: float, zorder
     )
 
 
+def clip_coast_segments(line, coastline):
+    """剪掉边界线里贴着海岸线的段落: 1991 国界"只画陆上段"的第一步.
+
+    为什么必须剪: GADM 的州级面和国家面都是沿海岸线闭合的, 直接画出来会在
+    黑海/亚速海岸上多出一圈灰色州界线和一条红色国界线. 图上又不画海岸线
+    (见模块说明第 9 条), 所以岸边的线一律剪掉, 岸线只由地形配色在 0 m 处的
+    跳变表达.
+
+    缓冲半径 COAST_CLIP_DEG 用来吸收 GADM 岸线与 NE 海岸线的偏差(中位约
+    0.5 km, 个别沙嘴可达 8 km); 剪出的碎段按 COAST_CLIP_MIN_LEN 丢掉.
+    但 NE 海岸线本身会漏画一些利曼/潟湖岸和狭长沙嘴, 这些岸段这一步剪不到,
+    要由 load_neighbor_land 那一步兜底(见 main). 岸线缓存缺失时原样返回,
+    图不会因为少一层数据而残.
+    """
+    if coastline is None:
+        return line
+    return cut(
+        line,
+        overlap_mask([coastline], COAST_CLIP_DEG),
+        min_length_deg=COAST_CLIP_MIN_LEN,
+    )
+
+
+def load_neighbor_land(world, view):
+    """图幅内除乌克兰以外的陆地; NE 错划给俄罗斯的克里米亚也剔掉.
+
+    用途: 1991 国界只画"与邻国接壤"的陆上段 —— 边界线离外国陆地足够近
+    (<= LAND_KEEP_DEG)才算国界. 沿岸、利曼/潟湖岸、狭长沙嘴一侧是水, 离
+    外国陆地都很远, 即使 NE 海岸线没覆盖到, 也会在 main 里被这一步剪掉.
+
+    只取图幅附近的国家再合并: 全球国家面合并 + 缓冲很慢, 而图幅外的陆地
+    对这条边界没有意义.
+    """
+    if world is None:
+        return None
+    name_col = "ADMIN" if "ADMIN" in world.columns else "NAME"
+    v = view.bounds
+    near = world.cx[v[0]:v[2], v[1]:v[3]]
+    foreign = unary_union(
+        [geom for name, geom in zip(near[name_col], near.geometry) if name != "Ukraine"]
+    )
+    return foreign.intersection(view).difference(box(*CRIMEA_BOX))
+
+
+def extend_border_to_sea(border_land, full_boundary, lat, lon, z):
+    """把剪断的陆上国界端头沿原边界一直补到海边, 国界不在离岸几公里处收笔.
+
+    为什么需要: 剪掉沿海段后, 陆地国界的两端(顿巴斯东缘的亚速海岸、多瑙河口
+    的黑海岸)停在离岸约一个 COAST_CLIP_DEG(5~7 km)的内陆, 图上看起来国界
+    没画到海. 这里沿原始 GADM 边界(GADM 的乌克兰-罗马尼亚国界沿多瑙河走,
+    所以多瑙河口这一段必须沿河, 不能拉直线)朝海的方向走, 走到 ETOPO 高程
+    连续几个采样点都在水面以下为止, 再把这一段补回红线.
+
+    为什么用 ETOPO 水面判断: 图上不画海岸线, 海陆界线就是配色在 0 m 处的
+    跳变, "靠海"等于走到这条色界. NE 海岸线在这两处(多瑙河三角洲、亚速海
+    沙嘴一带)与 GADM 岸线/ETOPO 陆海边界差得比较远, 拿它当终点会提前停下.
+
+    sustain 的 5 个采样点(约 1.1 km)用来跳过三角洲里的窄河道: 河道也是
+    z<0, 但连续 5 个点都在水里才是真正到了海.
+    """
+    if border_land is None or full_boundary is None:
+        return border_land
+    ring = full_boundary
+    if ring.geom_type == "MultiLineString":
+        ring = max(ring.geoms, key=lambda g: g.length)
+    ring_len = ring.length
+    step = 0.002  # 约 220 m
+    sustain = 5
+    max_steps = int(0.16 / step)  # 最远 0.16°(约 12~18 km), 防止跑飞
+
+    def is_water(x, y):
+        i = int(np.argmin(np.abs(lat - y)))
+        j = int(np.argmin(np.abs(lon - x)))
+        return z[i, j] < 0
+
+    extensions = []
+    for part in getattr(border_land, "geoms", [border_land]):
+        if part.geom_type != "LineString" or part.is_closed:
+            continue
+        for end in (part.coords[0], part.coords[-1]):
+            p_end = Point(end)
+            t0 = ring.project(p_end)
+            # 沿原始边界向剪掉的那侧走: 走 1 km 后离现存陆上国界更远的一侧,
+            # 就是被剪掉(通向海)的方向.
+            d_plus = ring.interpolate((t0 + 0.01) % ring_len).distance(border_land)
+            d_minus = ring.interpolate((t0 - 0.01) % ring_len).distance(border_land)
+            fwd = 1.0 if d_plus >= d_minus else -1.0
+            samples = [p_end]
+            found = False
+            for k in range(1, max_steps + 1):
+                samples.append(ring.interpolate((t0 + fwd * k * step) % ring_len))
+                if len(samples) > sustain and all(
+                    is_water(q.x, q.y) for q in samples[-sustain:]
+                ):
+                    found = True
+                    break
+            if found:
+                # 只保留到连续水面的第一个采样点: 端点落进海里不到一个采样步长,
+                # 不会在蓝色水面上拖出一条长红线.
+                cut_at = len(samples) - sustain
+                extensions.append(
+                    LineString([(p.x, p.y) for p in samples[: cut_at + 1]])
+                )
+    if not extensions:
+        return border_land
+    return unary_union([border_land, *extensions])
+
+
 def draw_basemap(
     ax: plt.Axes,
     world,
     *,
     ukraine_geom,
-    oblasts: gpd.GeoDataFrame,
+    oblast_lines,
     rivers,
     dnieper_river,
     dnieper_water,
-    coastline,
     neighbor_borders,
 ) -> None:
     """地形 + 水系 + 邻国国界 + 乌克兰州界背景线.
 
-    乌克兰自己的海岸线不单独画: 1991 年国界(红线)已经把它包进去; 再叠一条
-    不同来源的海岸线只会露出两条线的几十米~几公里偏差. 邻国的海岸线/国界
-    则照常画, 提供地理参照.
+    海岸线不画: 海陆界线由 ETOPO 配色在 0 m 处的跳变表达(见
+    make_relief_cmap), 岸边一条线都没有. 1991 国界与州界同样只画陆上段
+    (国界见 draw_borders, 州界在 main 里用海岸蒙版剪好), 所以黑海/亚速海
+    岸上、以及 NE 海岸线漏画的利曼/沙嘴岸边, 都不会出现国界线或州界线.
 
     第聂伯河单独处理: 先画中心线, 再用梯级水库的实际水面盖住穿过水库的那段
     中心线. 这样图上"上游窄河道、下游宽水库"的宽度变化是真实水面宽度, 而不是
@@ -415,20 +566,6 @@ def draw_basemap(
     """
     add_base_map(ax, world, ocean_color=BASE_OCEAN_COLOR, land_color=BASE_LAND_COLOR)
 
-    # 邻国与乌克兰沿海的海岸线: 裁掉乌克兰范围(含克里米亚), 避免与 1991 年
-    # 边界线在海岸处出现"双线". Natural Earth 与 GADM 的海岸线偏差中位数
-    # ~0.5 km、个别沙嘴可达 8 km, 所以缓冲带取 0.05°(~5 km)覆盖绝大多数.
-    ua_buffer = ukraine_geom.buffer(0.05)
-    if coastline is not None:
-        outer_coast = coastline.difference(ua_buffer)
-        ax.add_geometries(
-            [outer_coast],
-            crs=ccrs.PlateCarree(),
-            facecolor="none",
-            edgecolor="#3c3c3c",
-            linewidth=0.45,
-            zorder=3,
-        )
     if neighbor_borders is not None:
         # 邻国国界线单独用更大的缓冲带: NE 的乌克兰国界(GADM 口径不同)会在
         # 边界外侧留下一条与红色国界线平行的细虚线.
@@ -442,16 +579,19 @@ def draw_basemap(
             linestyle=(0, (5, 3)),
             zorder=3,
         )
-    # 乌克兰州界: 只作背景参考, 用细灰线, 不与主题边界争视觉层级.
-    ax.add_geometries(
-        list(oblasts.geometry),
-        crs=ccrs.PlateCarree(),
-        facecolor="none",
-        edgecolor=COLOR_OBLAST,
-        linewidth=0.45,
-        alpha=0.55,
-        zorder=3.1,
-    )
+    # 乌克兰州界: 沿海段已在 main 里剪掉, 这里只画陆上段; 仍逐个州画
+    # (相邻两州的公共边界会被画两遍, 叠出比单画更深的灰线, 效果与改前一致),
+    # 只作背景参考, 不与主题边界争视觉层级.
+    if oblast_lines:
+        ax.add_geometries(
+            oblast_lines,
+            crs=ccrs.PlateCarree(),
+            facecolor="none",
+            edgecolor=COLOR_OBLAST,
+            linewidth=0.45,
+            alpha=0.55,
+            zorder=3.1,
+        )
     # 一般河流放在州界之下、主题边界之上; 10m 河流在国界附近可能超出画框,
     # cartopy 会按画框裁剪. Dnieper 已从这一层剔除(改用 OSM 干流).
     if rivers is not None:
@@ -490,6 +630,7 @@ def draw_borders(
     ax: plt.Axes,
     *,
     ukraine_geom,
+    border_land,
     oblasts: gpd.GeoDataFrame,
     crimea_line,
     contact,
@@ -502,6 +643,14 @@ def draw_borders(
     重合的段落: 半透明红线不能靠"后画叠压"盖住下面两种虚线 —— 紫/橙会
     透过 alpha=0.62 的红线混色, 所以重合段直接从紫/橙线里剪掉, 只在剪剩
     的独有段落上画紫/橙(见 cartopy_file.overlap.cut).
+
+    ``border_land`` 是已经剪掉沿海段的 1991 国界线(在 main 里先按海岸线
+    缓冲带剪, 再剪掉离外国陆地太远的利曼/沙嘴残段): 红线只画陆上段, 沿海段
+    一律不画 —— 海岸线图层也整个去掉了, 海陆界线由地形配色在 0 m 处的跳变
+    表达(见 make_relief_cmap). 而上面两处"重合段"仍以完整的
+    ``ukraine_geom.boundary`` 为参考 —— 紫/橙线的沿海段与完整国界重合,
+    必须一并剪掉, 否则会沿黑海/亚速海岸画出一条紫色/橙色国界线, 正好是
+    这张图要避免的.
 
     剪枝参数: tol=0.003°(约 0.3 km)只吸收同源数据的浮点误差, 断口约
     1~2 px; 1991 红线 2.7 pt 在图上约 4.3 km 宽(半宽约 2.1 km), 断口会被
@@ -548,10 +697,12 @@ def draw_borders(
 
     # --- 2022 年俄方宣称的四州全境: 四州合并后的外边界, 紫色点划线 ---
     # 先把与 1991 国界重合的段落剪掉: 顿巴斯东缘的俄乌边界、赫尔松/扎波罗热/
-    # 顿涅茨克南部的海岸线, 这几段上 2022 宣称边界与 1991 边界是同一条线,
-    # 半透明红线叠在紫线上会混出红紫色, 所以只保留红线. 剪剩的紫线才是
-    # 2022 口径独有的段落; 与 2014 控制线重合的克里米亚地峡一段例外, 那里
-    # 紫线先画, 由后画的不透明蓝线盖住, 不存在混色问题.
+    # 顿涅茨克南部的海岸线, 这几段上 2022 宣称边界与 1991 边界是同一条线.
+    # 顿巴斯东缘是陆上段, 只保留红色 1991 线; 南部沿海段既不能画紫线(与
+    # 半透明红线混色), 也不能靠红线代替(红线本身不画沿海段), 所以那里
+    # 什么都不画, 海陆界线由地形配色表达. 剪剩的紫线才是 2022 口径独有的
+    # 段落; 与 2014 控制线重合的克里米亚地峡一段例外, 紫线先画, 由后画的
+    # 不透明蓝线盖住, 不存在混色问题.
     claimed_only = cut(
         claimed_union.boundary,
         overlap_mask([border_1991], 0.003),
@@ -574,16 +725,21 @@ def draw_borders(
     # 白色描边——白描边会把半透明红线衬成发白的"粉带", 反而看不出是半透明红.
     # 线宽保持最粗, 1991 口径仍是这张图的主线; 紫/橙线的重合段已在前面剪掉,
     # 所以红线下面不会再透出它们的颜色.
-    add_line_layer(
-        ax,
-        [ukraine_geom],
-        color=COLOR_1991,
-        linewidth=2.7,
-        linestyle="-",
-        zorder=6.0,
-        alpha=COLOR_1991_ALPHA,
-        casing=False,
-    )
+    # 只画陆上段: 沿海段在 main 里按海岸线缓冲带剪掉, 且不补画海岸线 ——
+    # 标准地形图的岸边不画线, 海陆界线由配色在 0 m 处的跳变表达(见
+    # make_relief_cmap), 这样也不会有一条与国界平行的海岸线抢层级.
+    # border_land 为空(数据缺失)时退回完整国界, 保证图不残.
+    if border_land is not None:
+        add_line_layer(
+            ax,
+            [border_land],
+            color=COLOR_1991,
+            linewidth=2.7,
+            linestyle="-",
+            zorder=6.0,
+            alpha=COLOR_1991_ALPHA,
+            casing=False,
+        )
 
     # --- 2014 年实际控制线: 克里米亚陆上控制线 + 顿巴斯接触线 ---
     add_line_layer(
@@ -776,7 +932,7 @@ def add_colorbar(fig: plt.Figure, norm, cmap) -> None:
 
 
 def add_legend(fig: plt.Figure) -> None:
-    """右下角图例 + 三条口径说明.
+    """右下角图例 + 口径说明.
 
     图例只列"图上线型", 说明文字解释数据口径与近似程度; 两者分开写是为了
     让图例本身保持简洁, 又不会把"宣称边界"误读成"实际控制线".
@@ -785,7 +941,7 @@ def add_legend(fig: plt.Figure) -> None:
     lax.set_axis_off()
 
     handles = [
-        Line2D([0], [0], color=COLOR_1991, linewidth=2.7, alpha=COLOR_1991_ALPHA, label="1991 年国际承认边界（含克里米亚）"),
+        Line2D([0], [0], color=COLOR_1991, linewidth=2.7, alpha=COLOR_1991_ALPHA, label="1991 年国际承认边界（含克里米亚，仅陆上段）"),
         Line2D([0], [0], color=COLOR_2014, linewidth=2.1, label="2014 年实际控制线（克里米亚 · 顿巴斯接触线）"),
         Patch(facecolor=COLOR_2014_FILL, alpha=0.24, edgecolor="none", label="2014 年俄方实际控制区（示意填色）"),
         Line2D([0], [0], color=COLOR_KHARKIV, linewidth=2.0, linestyle=(0, (6, 3)), label="2014 年宣布的「哈尔科夫人民共和国」\n（未实际控制）"),
@@ -821,8 +977,9 @@ def add_legend(fig: plt.Figure) -> None:
         "哈尔科夫人民共和国只有 2014 年的宣称，图中按其宣称范围\n"
         "(哈尔科夫州)画出，未实际控制。\n"
         "注 4：哈尔科夫州界（橙）南段与 2022 年宣称边界（紫）完全重合，\n"
-        "重合段只画紫线；紫/橙线与 1991 国界重合处只画红色 1991 线\n"
-        "（顿巴斯东缘、南部海岸、哈尔科夫州东北的俄乌边界）。"
+        "重合段只画紫线；紫/橙线与 1991 国界重合处只画红色 1991 线。\n"
+        "1991 国界只画陆上段；海岸线不单独画，\n"
+        "海陆界线由地形配色在 0 m 处的跳变表达。"
     )
     fig.text(
         0.785, 0.735, notes,
@@ -871,6 +1028,9 @@ def main() -> None:
           f"水库水面 {dnieper_water.geom_type}")
 
     # 共享缓存里的 Natural Earth 10m 图层(缺失就跳过, 不联网下载).
+    # 图幅外扩 1°: 经纬度标签画在画框外, 裁剪图层时要把那一圈也带上.
+    bbox = (EXTENT[0] - 1, EXTENT[2] - 1, EXTENT[1] + 1, EXTENT[3] + 1)
+    view = box(*bbox)
     rivers = None
     rivers_path = shared_layer("10m", "physical", "rivers_lake_centerlines")
     if rivers_path is not None:
@@ -879,16 +1039,52 @@ def main() -> None:
         # 第聂伯河改由 OSM 干流 + 水库水面绘制, 从 NE 图层里剔除, 避免同一条
         # 河出现两条位置略有差异的线(NE 与 OSM 中位数偏差约 0.8 km).
         rivers = rivers[rivers["name_en"].fillna("") != "Dnieper"]
-        bbox = (EXTENT[0] - 1, EXTENT[2] - 1, EXTENT[1] + 1, EXTENT[3] + 1)
         rivers = rivers.cx[bbox[0]:bbox[2], bbox[1]:bbox[3]]
     coastline = None
     coast_path = shared_layer("10m", "physical", "coastline")
     if coast_path is not None:
-        coastline = unary_union(list(gpd.read_file(coast_path).geometry))
+        # 岸线本身不画(海陆界线由配色表达), 这里只取图幅附近的一小段几何,
+        # 用来给 1991 国界剪掉沿海段; 全球岸线整体缓冲既慢又没意义.
+        coast = gpd.read_file(coast_path)
+        coast = coast.cx[bbox[0]:bbox[2], bbox[1]:bbox[3]]
+        coastline = unary_union(list(coast.geometry)).intersection(view)
     neighbor_borders = None
     borders_path = shared_layer("10m", "cultural", "admin_0_boundary_lines_land")
     if borders_path is not None:
         neighbor_borders = unary_union(list(gpd.read_file(borders_path).geometry))
+
+    # 1991 国界只画陆上段, 分两步剪:
+    #   1) clip_coast_segments: 剪掉贴着海岸线的段落;
+    #   2) 离外国陆地太远的残段: NE 海岸线没画出来的利曼/潟湖岸、狭长沙嘴
+    #      第 1 步剪不到, 它们一侧是水, 离外国陆地都在 1.4° 以上, 这里清掉.
+    # 剪完再把顿巴斯/多瑙河口这两个端头沿原边界补到海边(见 extend_border_to_sea),
+    # 否则陆地国界会在离岸 5~7 km 的内陆收笔, 看起来没画到海.
+    border_land = clip_coast_segments(ukraine_geom.boundary, coastline)
+    neighbor_land = load_neighbor_land(world, view)
+    if border_land is not None and neighbor_land is not None:
+        border_land = cut(
+            border_land,
+            view.difference(neighbor_land.buffer(LAND_KEEP_DEG)),
+            min_length_deg=COAST_CLIP_MIN_LEN,
+        )
+    border_land = extend_border_to_sea(border_land, ukraine_geom.boundary, lat, lon, z)
+
+    # 州界: 沿海段与国界完全重合(同一个 GADM 源, 州级面溶解成国家面), 所以
+    # 直接拿"国界被剪掉的那部分"当蒙版剪州界 —— 第 2 步清掉的利曼/沙嘴残段
+    # 也不会在州界图层里留下灰色线. 仍按州逐个剪、逐个画, 相邻两州公共边界
+    # 照旧叠两遍, 灰度与改前一致.
+    if border_land is not None:
+        coast_zone = overlap_mask([ukraine_geom.boundary.difference(border_land)], 0.003)
+        oblast_lines = [
+            line
+            for line in (
+                cut(g.boundary, coast_zone, min_length_deg=COAST_CLIP_MIN_LEN)
+                for g in oblasts.geometry
+            )
+            if line is not None
+        ]
+    else:
+        oblast_lines = [g.boundary for g in oblasts.geometry]
 
     # 画布比例按投影后画框的宽高比(约 1.41)定制, 避免地图上下留大片空白.
     fig = plt.figure(figsize=(20, 12.5), facecolor="white")
@@ -899,11 +1095,10 @@ def main() -> None:
     draw_basemap(
         ax, world,
         ukraine_geom=ukraine_geom,
-        oblasts=oblasts,
+        oblast_lines=oblast_lines,
         rivers=rivers,
         dnieper_river=dnieper_river,
         dnieper_water=dnieper_water,
-        coastline=coastline,
         neighbor_borders=neighbor_borders,
     )
 
@@ -927,6 +1122,7 @@ def main() -> None:
     draw_borders(
         ax,
         ukraine_geom=ukraine_geom,
+        border_land=border_land,
         oblasts=oblasts,
         crimea_line=crimea_line,
         contact=contact,

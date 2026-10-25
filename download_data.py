@@ -45,7 +45,7 @@ from cartopy_file.data import (
 # 名称必须与 cartopy.feature 里的一致, 否则会下到用不上的数据.
 NE_FEATURES = [
     # 缅甸系列(myanmar.py / northern_shan.py)显式使用 10m.
-    ("10m", "physical", "coastline", "myanmar.py / ukraine.py 海岸线"),
+    ("10m", "physical", "coastline", "myanmar.py 海岸线 / ukraine.py 剪国界岸段"),
     ("10m", "cultural", "admin_0_boundary_lines_land", "myanmar.py / ukraine.py 国界"),
     ("10m", "physical", "rivers_lake_centerlines", "northern_shan.py / ukraine.py 河流"),
     ("10m", "physical", "lakes", "northern_shan.py 湖泊"),
