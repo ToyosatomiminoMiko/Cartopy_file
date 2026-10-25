@@ -40,7 +40,12 @@
          不把四州整体填色, 避免被误读为俄方实际控制.
     5. 分离"实际控制"与"单方面宣称": 2014 年控制区用浅蓝色填充 + 蓝色
        实线, 2022 年宣称边界用紫色点划线; 两者不混用同一种线型.
-    6. 第聂伯河的宽度必须沿程变化: 干流在乌克兰境内是一串梯级水库, 上游
+    6. 重合的边界只画一次: 哈尔科夫州界(橙虚线)的南段同时是 2022 年宣称
+       四州外边界的北段(紫点划线). 两条线重合时, 先画的橙虚线连同白描边会
+       从紫线的点划间隙里露出来, 形成"双线"错觉; 所以重合段只画紫线, 橙线
+       只保留独有段落(几何处理见 draw_borders). 2022 宣称线与 1991 国界在
+       顿巴斯东段重合时同理: 紫线先画, 后画的黑实线直接压住它.
+    7. 第聂伯河的宽度必须沿程变化: 干流在乌克兰境内是一串梯级水库, 上游
        河道只有 200~500 m 宽, 水库水面却有几公里到十几公里宽. 如果像普通
        河流那样画一条等宽细线, 在图上会明显失真(实际水面宽度差一个数量级).
        因此干流用 OSM 中心线(顶点数约为 Natural Earth 的 4 倍)画细线, 五个
@@ -84,7 +89,7 @@ import numpy as np  # 数组运算
 import geopandas as gpd  # 读取 GeoJSON/shapefile
 from matplotlib.lines import Line2D  # 图例线段
 from matplotlib.patches import Patch  # 图例色块
-from shapely.ops import unary_union  # 合并几何
+from shapely.ops import linemerge, unary_union  # 合并几何 / 拼接碎线段
 
 # 共享的 ETOPO/晕渲/底图工具(实现见 src/cartopy_file/relief.py).
 from cartopy_file.relief import add_base_map, find_etopo, load_countries, load_elevation, make_relief
@@ -445,7 +450,13 @@ def draw_borders(
     occupied: gpd.GeoDataFrame,
     claimed: gpd.GeoDataFrame,
 ) -> None:
-    """按"先填充后线条"的顺序叠加所有主题边界."""
+    """按"先填充后线条"的顺序叠加所有主题边界.
+
+    2022 宣称四州的合并几何在函数开头就算好: 哈尔科夫州界要先减掉与它
+    重合的段落再画, 否则两条虚线在同一段上交织(原因见橙线部分的注释).
+    """
+    claimed_union = unary_union(list(claimed.geometry))
+
     # --- 2014 年实际控制区(克里米亚 + 顿巴斯 NGCA): 浅蓝填充 ---
     crimea_units = oblasts[oblasts["name"].isin(["Crimea", "Sevastopol'"])]
     ngca_units = occupied[occupied["name"].str.startswith("NGCA,", na=False)]
@@ -453,22 +464,38 @@ def draw_borders(
     add_fill_layer(ax, list(ngca_units.geometry), color=COLOR_2014_FILL, alpha=0.24, zorder=2.2)
 
     # --- 2014 年宣布的哈尔科夫人民共和国: 只有宣称、没有实际控制, 用橙色虚线 ---
+    # 这里画的是哈尔科夫州界. 州界南段与 2022 年宣称四州的外边界完全重合,
+    # 而紫色点划线(后画)的点划间隙里仍会露出橙色虚线及其白描边, 两种虚线
+    # 交织在一起, 分不清哪条线在表达哪个口径. 所以重合段只画紫线, 橙线只
+    # 保留独有段:
+    #   - 用 0.003°(约 0.2~0.3 km)缓冲做差集, 只为吸收两次几何运算的浮点
+    #     误差; 切掉的长度远小于紫线半宽(300 dpi 下紫线约 3 km 宽), 断口会
+    #     被后画的紫线盖住, 看不出缺口;
+    #   - 差集会把原本闭合的州界切成碎段, matplotlib 对每个碎段重新起笔,
+    #     虚线节距会乱, 所以必须 linemerge 拼回一条连续折线.
     kharkiv = oblasts[oblasts["name"] == "Kharkiv"]
     if not kharkiv.empty:
-        add_line_layer(
-            ax,
-            list(kharkiv.geometry),
-            color=COLOR_KHARKIV,
-            linewidth=2.0,
-            linestyle=(0, (6, 3)),
-            zorder=5.0,
-        )
+        kharkiv_boundary = unary_union(list(kharkiv.geometry)).boundary
+        kharkiv_only = kharkiv_boundary.difference(claimed_union.boundary.buffer(0.003))
+        line_parts = [
+            part
+            for part in getattr(kharkiv_only, "geoms", [kharkiv_only])
+            if part.geom_type == "LineString"
+        ]
+        if line_parts:
+            add_line_layer(
+                ax,
+                [linemerge(line_parts)],
+                color=COLOR_KHARKIV,
+                linewidth=2.0,
+                linestyle=(0, (6, 3)),
+                zorder=5.0,
+            )
 
     # --- 2022 年俄方宣称的四州全境: 四州合并后的外边界, 紫色点划线 ---
     # 先画 2022 宣称线, 再画 1991 国界与 2014 控制线: 这样在"宣称边界刚好
     # 与国界/控制线重合"的段落(顿巴斯东段、克里米亚地峡)上, 基础边界仍然
     # 清楚; 紫色线只在它独有的段落上显眼, 不会被误读成实际控制线.
-    claimed_union = unary_union(list(claimed.geometry))
     add_line_layer(
         ax,
         [claimed_union.boundary],
@@ -686,7 +713,9 @@ def add_legend(fig: plt.Figure) -> None:
         "顿涅茨克人民共和国、卢甘斯克人民共和国全境，并非实际控制线。\n"
         "注 3：卢甘斯克、顿涅茨克两「人民共和国」于 2014 年宣布，\n"
         "实际控制范围见蓝色填充与接触线；哈尔科夫人民共和国只有\n"
-        "2014 年的宣称，图中按其宣称范围(哈尔科夫州)画出，未实际控制。"
+        "2014 年的宣称，图中按其宣称范围(哈尔科夫州)画出，未实际控制。\n"
+        "注 4：哈尔科夫州界（橙）南段与 2022 年宣称边界（紫）完全重合，\n"
+        "重合段只画紫线，橙线仅保留独有段落，避免两条虚线交织。"
     )
     fig.text(
         0.785, 0.735, notes,
