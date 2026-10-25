@@ -4,7 +4,8 @@
 """Bilingual administrative-division map of Myanmar.
 
 是什么: 绘制缅甸省/邦级行政区划图, 七邦冷色、七省暖色、内比都联邦区中性色加
-斜线, 行政区名与行政中心中英双语标注, 并叠加河流与 ETOPO 2022 地形晕渲.
+斜线, 行政区名与行政中心中英双语标注, 并叠加河流与 ETOPO 2022 地形晕渲;
+国界用半透明红色、只画陆上段, 海岸线不单独绘制.
 完整说明(配色、投影、数据来源、运行方式)见 ``docs/maps/myanmar-admin.md``.
 """
 
@@ -29,7 +30,8 @@ import matplotlib.ticker as mticker  # 经纬网刻度
 import numpy as np  # 数组运算
 from cartopy.mpl.gridliner import LATITUDE_FORMATTER, LONGITUDE_FORMATTER
 from matplotlib.patches import Rectangle  # 图例面要素
-from shapely.geometry import shape  # GeoJSON -> Shapely
+from shapely.geometry import LineString, shape  # GeoJSON -> Shapely / 取外环
+from shapely.ops import unary_union  # 合并行政区, 得到缅甸整体轮廓
 
 import map_lib  # 复用 ETOPO 读取、晕渲、海陆底色工具
 
@@ -41,6 +43,9 @@ configure_cartopy()
 # 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
 from cartopy_file.output import apply_svg_output, save_svg
+
+# 国界/海岸线吻合处只画一条线: 用共享剪枝工具, 见 docs/reference/overlap.md.
+from cartopy_file.overlap import cut, overlap_mask
 
 apply_matplotlib_fonts()
 # 产物统一为 SVG, 见 docs/reference/output.md.
@@ -83,7 +88,11 @@ STATE_COLORS = {
     "shan": "#5c6bc0",
 }
 REGION_COLORS = {
-    "ayeyarwady": "#ffb74d",
+    # 伊洛瓦底省与勃固省有很长的公共边界, 旧色 #ffb74d(浅橙) 与勃固省的
+    # #f9a825(琥珀) 色相几乎相同(约 36°)、亮度也接近, 半透明叠在米色地形上
+    # 几乎分不出界线; 改用 #ff8a65(deep orange 300) 把色相拉到橙红一侧,
+    # 两者色差放大到约 3 倍, 同时与相邻的仰光省品红、若开邦青绿仍保持足够区分.
+    "ayeyarwady": "#ff8a65",
     "bago": "#f9a825",
     "magway": "#d84315",
     "mandalay": "#ef6c00",
@@ -94,6 +103,25 @@ REGION_COLORS = {
 UNION_COLOR = "#f3e5ab"
 FILL_ALPHA = 0.58
 BOUNDARY_COLOR = "#2f2f2f"
+
+# 国界配色(与 Ukraine 图一致): 红色半透明, 让地形与下层填色透出来.
+COLOR_BORDER = "#c62828"
+BORDER_ALPHA = 0.62
+BORDER_WIDTH = 2.7
+# 邻国国界: 中性灰虚线, 只作定位参照, 不与红色国界争视觉层级.
+COLOR_NEIGHBOR = "#8a8a8a"
+
+# 国界剪掉沿海段的缓冲半径(度). 本图不画海岸线, 海陆界线由底色/填色分界表达;
+# 国界面本身沿海岸闭合, 整圈画出来就等于又画了一条红色海岸线, 所以只留陆上段.
+# 0.06° 在 20°N 一带约 6 km, 覆盖两套折线的数字化偏差; 剪剩碎段按 3 km 丢掉.
+COAST_CLIP_DEG = 0.06
+COAST_CLIP_MIN_LEN = 0.03
+# 邻国国界从缅甸国界两侧这么宽的走廊里剪掉, 避免红线下透出平行灰线.
+NEIGHBOR_GAP_DEG = 0.06
+# 省/邦界在国界、海岸走廊里剪掉的宽度(度). 这些填色单元的外缘与国界/海岸
+# 完全重合, 不剪会在半透明红线下面透出一条深灰的省界线, 海岸上也会留下一圈
+# 省界线 —— 都等于变相画了海岸线. 0.005° 约 550 m, 远小于图上国界线半宽.
+BORDER_ZONE_DEG = 0.005
 
 # 地形底纹: 从低地米白过渡到山地浅褐; 负高程(海洋)在 alpha 通道里挖掉.
 RELIEF_CMAP = mcolors.LinearSegmentedColormap.from_list(
@@ -170,8 +198,8 @@ SUBTITLE = (
 )
 SOURCE = (
     "行政区划: GADM 4.1 / OpenStreetMap (ODbL)　|　"
-    "国界·河流: Natural Earth 10m　|　地形: NOAA ETOPO 2022　|　"
-    "投影: Lambert Conformal Conic"
+    "国界: 行政区合并轮廓(仅陆上段)　|　河流·海岸线剪枝: Natural Earth 10m　|　"
+    "地形: NOAA ETOPO 2022　|　投影: Lambert Conformal Conic"
 )
 OUT_SVG = ROOT / "myanmar_administrative_divisions_bilingual.svg"
 
@@ -193,20 +221,51 @@ def load_admin_units():
     return units
 
 
-def add_relief(ax: plt.Axes, etopo_path: Path) -> None:
-    """铺海陆底色, 再叠加只覆盖陆地的低透明度地形晕渲."""
+def country_exterior(myanmar_geom):
+    """只取行政区并集的外环(真正的国界), 丢掉内部的零面积细缝.
+
+    为什么需要: 15 个单元的相邻边来自不同折线, 逐点浮点误差会让 unary_union
+    在内部边界上留下零面积的细缝(interior ring). 直接画 ``polygon.boundary``
+    会把这些细缝的环也当成国界画出来 —— 半透明红线在掸邦-克钦邦、仰光省-勃固省
+    这些内部边界上就会留下一串红色短段. 外环才是国界; 内部细缝既不画线, 也不
+    参与省/邦界的剪枝走廊. 返回 MultiLineString, 并集为空时返回 None.
+    """
+    parts = getattr(myanmar_geom, "geoms", [myanmar_geom])
+    rings = [
+        LineString(part.exterior.coords)
+        for part in parts
+        if part.geom_type == "Polygon" and not part.exterior.is_empty
+    ]
+    if not rings:
+        return None
+    return unary_union(rings)
+
+
+def add_relief(ax: plt.Axes, etopo_path: Path, myanmar_geom) -> None:
+    """铺海陆底色, 叠加只覆盖陆地的低透明度地形晕渲, 并画邻国国界参照.
+
+    海岸线不画: 海与陆靠底色与行政区填色分界, Natural Earth 的国家面轮廓
+    会把海岸线一起描出来, 所以这里不画 ``world.geometry``, 只用
+    ``admin_0_boundary_lines_land`` 画邻国国界(细灰虚线), 并从缅甸国界走廊
+    里剪掉, 免得与红色国界并行成双线.
+    """
     world = map_lib.load_countries(COUNTRY_DIR)
     map_lib.add_base_map(ax, world, ocean_color=OCEAN_COLOR, land_color=LAND_COLOR)
-    if world is not None:
-        # 邻国海岸线/国界用细灰线, 弱化到行政区分层之下.
-        ax.add_geometries(
-            world.geometry,
-            crs=ccrs.PlateCarree(),
-            facecolor="none",
-            edgecolor="#9a9488",
-            linewidth=0.45,
-            zorder=1.5,
-        )
+
+    land_borders = map_lib.load_ne_layer("10m", "cultural", "admin_0_boundary_lines_land")
+    if land_borders is not None:
+        others = unary_union(map_lib.clip_to_axes(ax, list(land_borders.geometry)))
+        others = others.difference(myanmar_geom.buffer(NEIGHBOR_GAP_DEG))
+        if not others.is_empty:
+            ax.add_geometries(
+                [others],
+                crs=ccrs.PlateCarree(),
+                facecolor="none",
+                edgecolor=COLOR_NEIGHBOR,
+                linewidth=0.45,
+                linestyle=(0, (5, 3)),
+                zorder=1.5,
+            )
 
     lon, lat, z = map_lib.load_elevation(etopo_path)
     relief, _, _ = map_lib.make_relief(
@@ -234,11 +293,15 @@ def add_relief(ax: plt.Axes, etopo_path: Path) -> None:
     )
 
 
-def add_admin_fills(ax: plt.Axes, units) -> None:
+def add_admin_fills(ax: plt.Axes, units, border_zone) -> None:
     """按邦/省/联邦区填色, 再统一描内部边界.
 
     先画无边框的填充, 再单独画边界, 避免半透明填充在相邻边界处叠成
     一条颜色更深的粗线; 内比都联邦区最后画, 保证斜线填充不被覆盖.
+
+    省/邦界的沿海段与国家边界段用 ``border_zone`` 剪掉: 单元面沿海岸闭合,
+    不剪就会在海岸上留一圈深灰省界线, 等于变相画了海岸线; 与红色国界重合
+    的那一段不剪则会从半透明红线下面透出来, 让国界发灰.
     """
     for unit in units:
         key = unit["key"]
@@ -254,14 +317,22 @@ def add_admin_fills(ax: plt.Axes, units) -> None:
         )
 
     # 省/邦边界: 所有一级单元放在同一图层, 线宽一致, 不区分冷暖和类型.
-    ax.add_geometries(
-        [unit["geometry"].boundary for unit in units if unit["kind"] != "union"],
-        crs=ccrs.PlateCarree(),
-        facecolor="none",
-        edgecolor=BOUNDARY_COLOR,
-        linewidth=1.05,
-        zorder=5,
-    )
+    # 逐个单元剪枝(而不是合并后再剪): 相邻两州的公共边界仍各画一遍, 与改前
+    # 一样叠出略深的线; 只想去掉贴着国界/海岸的那一段.
+    for unit in units:
+        if unit["kind"] == "union":
+            continue
+        edge = cut(unit["geometry"].boundary, border_zone)
+        if edge is None:
+            continue
+        ax.add_geometries(
+            [edge],
+            crs=ccrs.PlateCarree(),
+            facecolor="none",
+            edgecolor=BOUNDARY_COLOR,
+            linewidth=1.05,
+            zorder=5,
+        )
 
     union = next(unit for unit in units if unit["kind"] == "union")
     ax.add_geometries(
@@ -309,31 +380,34 @@ def add_rivers(ax: plt.Axes) -> None:
     )
 
 
-def add_country_outline(ax: plt.Axes) -> None:
-    """用白色外描边 + 黑色内线强调缅甸国界, 与内部省/邦界区分."""
-    world = map_lib.load_countries(COUNTRY_DIR)
-    if world is None:
-        return
-    myanmar = world.loc[world["ADMIN"] == "Myanmar", "geometry"]
-    if myanmar.empty:
-        return
-    from shapely.ops import unary_union
+def add_country_outline(ax: plt.Axes, border) -> None:
+    """用半透明红线画缅甸陆上国界, 与内部省/邦界区分; 海岸线不画.
 
-    boundary = unary_union(myanmar)
+    国界取自 15 个行政区并集的**外环**(见 `country_exterior`), 与填色同源,
+    所以红线一定压在填色边缘上; 内部零面积细缝不画, 免得在省/邦界上留下红色
+    短段. 沿海段先按 Natural Earth 海岸线缓冲剪掉: 本图不画海岸线, 海陆界线
+    由底色与填色分界表达, 若红线沿整圈海岸画就会变成一条红色海岸线. 剪掉的
+    岸段也不补画, 岸线只留颜色分界.
+    """
+    coastline = map_lib.load_ne_layer("10m", "physical", "coastline")
+    if coastline is not None:
+        coast = unary_union(map_lib.clip_to_axes(ax, list(coastline.geometry)))
+        border = cut(
+            border,
+            overlap_mask([coast], COAST_CLIP_DEG),
+            min_length_deg=COAST_CLIP_MIN_LEN,
+        )
+    else:
+        print("警告: 缺少海岸线数据, 国界无法剪掉沿海段, 将画出完整国界.")
+    if border is None:
+        return
     ax.add_geometries(
-        [boundary],
+        [border],
         crs=ccrs.PlateCarree(),
         facecolor="none",
-        edgecolor="white",
-        linewidth=4.6,
-        zorder=9,
-    )
-    ax.add_geometries(
-        [boundary],
-        crs=ccrs.PlateCarree(),
-        facecolor="none",
-        edgecolor="#111111",
-        linewidth=2.15,
+        edgecolor=COLOR_BORDER,
+        linewidth=BORDER_WIDTH,
+        alpha=BORDER_ALPHA,
         zorder=10,
     )
 
@@ -826,8 +900,9 @@ def add_legend(fig: plt.Figure) -> None:
     lax.plot(
         [0.02, 0.11],
         [0.335, 0.335],
-        color="#111111",
-        linewidth=2.2,
+        color=COLOR_BORDER,
+        linewidth=BORDER_WIDTH,
+        alpha=BORDER_ALPHA,
     )
     lax.text(
         0.18,
@@ -932,16 +1007,25 @@ def main() -> None:
             f"未找到行政区数据: {ADMIN_GEOJSON}\n请先运行: python prepare_admin_data.py"
         )
     units = load_admin_units()
+    # 国界与省/邦界都以 15 个行政区合并后的外环为基准: 填色与红线同源,
+    # 岸上不会出现两套边界; border_zone 用来剪掉省/邦界里与国界/海岸重合的段.
+    # 只取外环是为了丢掉并集内部因浮点误差产生的零面积细缝 —— 否则红线会在
+    # 掸邦-克钦邦、仰光省-勃固省等内部边界上残留一串红色短段.
+    myanmar_geom = unary_union([unit["geometry"] for unit in units])
+    country_border = country_exterior(myanmar_geom)
+    if country_border is None:
+        raise ValueError("行政区并集没有外环, 无法确定国界")
+    border_zone = country_border.buffer(BORDER_ZONE_DEG)
     # 画布偏竖长: 投影后缅甸国土宽高比约 0.56, 右侧留 2.9 英寸给图例.
     fig = plt.figure(figsize=(13, 17), facecolor="white")
     ax = fig.add_axes([0.075, 0.045, 0.655, 0.855], projection=PROJECTION)
     ax.set_anchor("C")
     ax.set_extent(EXTENT, crs=ccrs.PlateCarree())
 
-    add_relief(ax, etopo_path)
-    add_admin_fills(ax, units)
+    add_relief(ax, etopo_path, myanmar_geom)
+    add_admin_fills(ax, units, border_zone)
     add_rivers(ax)
-    add_country_outline(ax)
+    add_country_outline(ax, country_border)
     add_admin_labels(ax, units)
     add_place_labels(ax)
     add_scale_bar(ax)

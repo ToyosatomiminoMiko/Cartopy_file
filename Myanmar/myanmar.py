@@ -4,7 +4,8 @@
 """Draw a full-territory topographic map of the Republic of the Union of Myanmar.
 
 是什么: 读取本地 NOAA ETOPO 2022 缅甸区域高程, 用兰勃特等角圆锥投影绘制全国
-地形图, 叠加 Natural Earth 10m 海岸线与国界, 并标注邻国、城市和海域.
+地形图, 叠加 Natural Earth 10m 国界(仅陆上段, 半透明红色)与邻国国界(灰虚线),
+并标注邻国、城市和海域; 海岸线不单独绘制, 海陆界线由地形配色在 0 m 处的跳变表达.
 完整说明(投影选择、数据来源、运行方式)见 ``docs/maps/myanmar.md``.
 """
 
@@ -20,8 +21,8 @@ DATA_DIR = ROOT / "data"
 os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
 import cartopy.crs as ccrs  # 地图投影
-import cartopy.feature as cfeature  # 海岸线和国界等自然要素
 import matplotlib.cm as cm  # 构造独立色标用的 ScalarMappable
+import matplotlib.colors as mcolors  # 构造 0 m 处断开的海陆色带
 import matplotlib.patheffects as pe  # 文字描边, 保证在深色地形上仍可读
 import matplotlib.pyplot as plt  # 绘图
 import matplotlib.ticker as mticker  # 经纬网刻度定位
@@ -38,6 +39,9 @@ configure_cartopy()
 # 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
 from cartopy_file.output import apply_svg_output, save_svg
+
+# 国界与海岸线重合时只保留国界: 用共享剪枝工具裁掉沿海段, 见 docs/reference/overlap.md.
+from cartopy_file.overlap import cut, overlap_mask
 
 apply_matplotlib_fonts()
 # 产物统一为 SVG, 见 docs/reference/output.md.
@@ -71,15 +75,66 @@ MYANMAR_NAMES = ("Myanmar", "Burma")
 
 # 数据未覆盖区域的底图配色: 先画 Natural Earth 陆地 + 海洋底色, 再叠加 ETOPO 地形.
 # 原因见 map_lib.add_base_map(): 圆锥投影的矩形画框会探出 ETOPO 子集的范围,
-# 用真实海陆分布打底比直接留白更不容易误导读者.
-BASE_OCEAN_COLOR = "#cfe0ee"
-BASE_LAND_COLOR = "#efe9cf"
+# 用真实海陆分布打底比直接留白更不容易误导读者. 两色与 ELEV_CMAP 两端一致,
+# 只在 ETOPO 子集边缘露出来时可见.
+BASE_OCEAN_COLOR = "#a2d0ee"
+BASE_LAND_COLOR = "#dce4a2"
 
 # 地形配色与山体阴影参数.
 # 高程范围取 ±5000 m 与 USSR 图一致; 该子集西北角是喜马拉雅山, 最高约 8100 m,
 # 超出上限的部分用色标末端的 extend 三角形表示"被截断"而不是画成纯白大块.
 ELEV_VMIN, ELEV_VMAX = -5000, 5000
-ELEV_CMAP = "terrain"
+
+
+def make_relief_cmap(vmin: float, vmax: float) -> mcolors.LinearSegmentedColormap:
+    """高程/水深双色带: 深蓝(深水) -> 浅蓝(0 m 水面) | 浅绿(0 m 陆地) -> 黄 -> 棕 -> 雪白.
+
+    为什么在 0 m 处断开(与 Ukraine 图同一套思路):
+        本图不再单独画海岸线(见 draw_borders), 海陆界线只由这条色界表达.
+        "terrain" 是单段色带, 0 m 落在中点附近: -1 m 的海面与 +1 m 的陆地
+        几乎同色, 去掉海岸线后伊洛瓦底江三角洲、若开海岸这些低地岸边会糊成
+        一片, 分不出哪里是海. 这里让水色在 0 m 处直接跳到陆色, 浅海也一眼
+        是"水"; 陆地段把锚点密集放在 0~500 m, 低地高程差异才拉得开.
+
+    返回的色带配合 Normalize(vmin, vmax) 使用(色标横轴保持线性, 只是中点处
+    色带不连续); N=2048 是为了让 0 m 处的水/陆跳变只占一个色阶宽度. 海水
+    锚点比 Ukraine 图更深, 因为安达曼海最深约 4700 m. 颜色按 (高程 m, 十六
+    进制) 给出, 便于按数据调整.
+    """
+    sea = [
+        (-5000, "#06213d"),
+        (-3500, "#0d3355"),
+        (-2000, "#0f3c66"),
+        (-1250, "#1b628f"),
+        (-700, "#2f82b5"),
+        (-300, "#5aa2cd"),
+        (-100, "#75b3db"),
+        (-20, "#8cc4e7"),
+        (-1, "#a2d0ee"),
+    ]
+    land = [
+        (1, "#dce4a2"),
+        (75, "#dde3a4"),
+        (175, "#e8dd92"),
+        (300, "#dbc786"),
+        (500, "#c8aa72"),
+        (800, "#ad8a5f"),
+        (1100, "#937147"),
+        (1500, "#7d613e"),
+        (2000, "#84725c"),
+        (3000, "#b9aa97"),
+        (4200, "#dddad2"),
+        (5000, "#f6f5f1"),
+    ]
+
+    def u(elev: float) -> float:
+        return (elev - vmin) / (vmax - vmin)
+
+    anchors = [(u(e), color) for e, color in sea] + [(u(e), color) for e, color in land]
+    return mcolors.LinearSegmentedColormap.from_list("myanmar_relief", anchors, N=2048)
+
+
+ELEV_CMAP = make_relief_cmap(ELEV_VMIN, ELEV_VMAX)
 # 方位角 315°(西北方向来光)是地形晕渲的制图惯例: 山脊西北坡受光、东南坡背光,
 # 这样阴影方向与人的直觉一致; 高度角 45° 兼顾平原与陡坡的对比度.
 HILLSHADE_AZIMUTH = 315
@@ -87,6 +142,24 @@ HILLSHADE_ALTITUDE = 45
 # 垂直夸张 1.5 倍: ETOPO 15 弧秒数据在 1:1000 万级地图上起伏很弱,
 # 不夸张时低地几乎看不出山脊与河谷的走向.
 HILLSHADE_VERT_EXAG = 1.5
+
+# 国界配色(与 Ukraine 图一致): 红色半透明, 让地形与下层要素透出来.
+COLOR_BORDER = "#c62828"
+BORDER_ALPHA = 0.62
+BORDER_WIDTH = 2.7
+# 邻国国界: 中性灰虚线, 只作定位参照, 不与红色国界争视觉层级.
+COLOR_NEIGHBOR = "#8a8a8a"
+
+# 国界剪掉沿海段的缓冲半径(度). Natural Earth 的国界面沿海岸闭合, 整圈画出来
+# 会在若开/德林达依海岸与安达曼海岛屿上多出一条红色海岸线; 本图不画海岸线,
+# 所以国界也只留陆上段. 0.06° 在 20°N 一带约 6 km, 覆盖国界折线与海岸线折线
+# 的数字化偏差; 剪剩的碎段按 COAST_CLIP_MIN_LEN(约 3 km)丢掉.
+COAST_CLIP_DEG = 0.06
+COAST_CLIP_MIN_LEN = 0.03
+# 邻国国界从缅甸国界两侧这么宽的走廊里剪掉, 避免在红色国界下面透出一条
+# 与它平行的灰虚线.
+NEIGHBOR_GAP_DEG = 0.06
+
 
 # 邻国与海域文字标注: (经度, 纬度, 文字).
 # 坐标是 PlateCarree 经纬度, 由 transform 转换到当前投影.
@@ -119,8 +192,16 @@ TITLE = (
 OUT_SVG = ROOT / "myanmar_topography_etopo2022_lambert_conformal.svg"
 
 
-def add_myanmar_boundary(ax: plt.Axes, world) -> None:
-    """Outline the whole Myanmar territory in red using Natural Earth 10m."""
+def draw_borders(ax: plt.Axes, world) -> None:
+    """画缅甸陆上国界(半透明红线)与邻国国界(灰虚线), 不画海岸线.
+
+    为什么国界只画陆上段: 本图不画海岸线, 海陆界线由地形配色在 0 m 处的
+    跳变表达(见 make_relief_cmap). 国界面本身沿海岸闭合, 整圈画出来就等于
+    又画了一条红色海岸线; 所以先按 Natural Earth 海岸线缓冲剪掉沿海段,
+    红线在孟加拉湾/安达曼海岸收笔, 岸线交给颜色分界. 岛屿(安达曼海群岛等)
+    的边界整圈都贴着海岸线, 会被一并剪掉, 岛上只剩地形色斑 —— 这正是
+    "不画海岸线"的直接结果.
+    """
     if world is None:
         return
 
@@ -132,19 +213,52 @@ def add_myanmar_boundary(ax: plt.Axes, world) -> None:
 
     myanmar = world[mask]
     if myanmar.empty:
-        print("警告: Natural Earth 数据中未找到缅甸, 跳过红色国界.")
+        print("警告: Natural Earth 数据中未找到缅甸, 跳过国界.")
         return
 
-    # 缅甸由大陆主体和安达曼海若干岛屿组成, 合并成一个 MultiPolygon 后再画.
-    boundary = unary_union(myanmar.geometry)
-    ax.add_geometries(
-        [boundary],
-        crs=ccrs.PlateCarree(),
-        edgecolor="red",
-        facecolor="none",
-        linewidth=2.2,
-        zorder=6,
-    )
+    # 缅甸由大陆主体和安达曼海若干岛屿组成, 合并成一个 MultiPolygon 后再处理.
+    myanmar_geom = unary_union(myanmar.geometry)
+
+    # 国界: 红色半透明实线, 只画陆上段.
+    border = myanmar_geom.boundary
+    coastline = map_lib.load_ne_layer("10m", "physical", "coastline")
+    if coastline is not None:
+        coast = unary_union(map_lib.clip_to_axes(ax, list(coastline.geometry)))
+        border = cut(
+            border,
+            overlap_mask([coast], COAST_CLIP_DEG),
+            min_length_deg=COAST_CLIP_MIN_LEN,
+        )
+    else:
+        print("警告: 缺少海岸线数据, 国界无法剪掉沿海段, 将画出完整国界.")
+    if border is not None:
+        ax.add_geometries(
+            [border],
+            crs=ccrs.PlateCarree(),
+            facecolor="none",
+            edgecolor=COLOR_BORDER,
+            linewidth=BORDER_WIDTH,
+            alpha=BORDER_ALPHA,
+            zorder=6,
+        )
+
+    # 邻国国界: 细灰虚线, 只提供地理参照; 缅甸国界走廊里的段落剪掉,
+    # 否则红线下面会透出一条与它平行的灰虚线.
+    land_borders = map_lib.load_ne_layer("10m", "cultural", "admin_0_boundary_lines_land")
+    if land_borders is not None:
+        others = unary_union(map_lib.clip_to_axes(ax, list(land_borders.geometry)))
+        others = others.difference(myanmar_geom.buffer(NEIGHBOR_GAP_DEG))
+        if not others.is_empty:
+            ax.add_geometries(
+                [others],
+                crs=ccrs.PlateCarree(),
+                facecolor="none",
+                edgecolor=COLOR_NEIGHBOR,
+                linewidth=0.7,
+                linestyle=(0, (5, 3)),
+                zorder=3,
+            )
+
     print(f"缅甸边界: {len(myanmar)} 个要素, 边界框 {myanmar.total_bounds.round(2)}")
 
 
@@ -316,19 +430,9 @@ def main() -> None:
     mappable.set_array([])
     fig.colorbar(mappable, cax=cax, label="高程 / 水深 (m)", extend="max")
 
-    # 海岸线与国界: cartopy 自动使用已缓存的 Natural Earth 10m 数据.
-    # 必须用 edgecolor 而不是 color: 这两个要素的 facecolor 被预定义为 "never",
-    # 传 color= 会同时设置面颜色, cartopy 会打出 "facecolor will have no effect" 警告.
-    ax.add_feature(cfeature.COASTLINE.with_scale("10m"), linewidth=0.6, edgecolor="black", zorder=3)
-    ax.add_feature(
-        cfeature.BORDERS.with_scale("10m"),
-        linewidth=0.6,
-        linestyle="--",
-        edgecolor="#555555",
-        zorder=3,
-    )
-
-    add_myanmar_boundary(ax, world)
+    # 海岸线不画: 海陆界线由 ELEV_CMAP 在 0 m 处的跳变表达. 国界只画陆上段
+    # (半透明红线), 邻国国界用细灰虚线, 详见 draw_borders.
+    draw_borders(ax, world)
     add_labels(ax)
 
     # 经纬网: 经度每 3°, 纬度每 5°, 只保留左侧和底部标签, 避免画面边缘拥挤.

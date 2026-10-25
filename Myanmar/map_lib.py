@@ -22,16 +22,20 @@ os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 # 因此上面必须先把 MPLCONFIGDIR 设好.
 from cartopy_file.relief import (  # noqa: E402 - 必须在设置 MPLCONFIGDIR 之后
     add_base_map,
+    clip_to_axes,
     find_etopo,
     load_countries,
     load_elevation,
+    load_ne_layer,
     make_relief,
 )
 
 __all__ = [
     "add_base_map",
+    "clip_to_axes",
     "find_etopo",
     "load_countries",
     "load_elevation",
+    "load_ne_layer",
     "make_relief",
 ]

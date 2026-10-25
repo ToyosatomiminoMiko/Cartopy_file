@@ -123,11 +123,14 @@ INTERNAL_EDGE_COLOR = "#ffffff"
 MNDAA_HATCH = "///"
 MNDAA_HATCH_COLOR = "#4a1486"
 
-# 国界: 用 OSM admin_level=2 数据(精度与区域边界一致), 深红粗实线.
-BORDER_COLOR = "#8b0000"
-BORDER_WIDTH = 2.0
+# 国界: 用 OSM admin_level=2 数据(精度与区域边界一致), 红色半透明实线.
+# 半透明与 Ukraine 图一致: 让下面的地形与区域填色透出来, 国界不至于压死
+# 与它重合的区域边界; 图例里的线段也带同样的 alpha.
+BORDER_COLOR = "#c62828"
+BORDER_ALPHA = 0.62
+BORDER_WIDTH = 2.7
 # 区域边界描边在国界两侧各裁掉这么宽(度)的走廊, 让重合段只由国界线表示.
-# 0.001° 约 110 m, 远小于 300 dpi 下 2 pt 线宽对应的大约 1.4 km, 肉眼不可见.
+# 0.001° 约 110 m, 远小于 300 dpi 下 2.7 pt 线宽对应的大约 1.9 km, 肉眼不可见.
 BORDER_ZONE_DEG = 0.001
 
 # 原果敢自治区(第一特区前身): 与第一特区同色系、明显加深的填充, 用嵌套色块
@@ -187,6 +190,14 @@ AREA_LABELS = [
     (95.72, 22.45, "曼德勒省", 11, "#666666"),
     (97.18, 19.32, "克耶邦", 11, "#666666"),
     (99.02, 20.30, "佤邦(南)", 13, "#045a8d"),
+]
+# 两条大江的强调线所对应的 Natural Earth name_en, 以及河名标注位置.
+# 位置都放在河道东/西侧的空地上, 离河心线约 0.3°(30~40 km), 不压河道本身;
+# 也避开了城市点、特区名和邻国名(见 CITIES / REGION_LABELS / AREA_LABELS).
+MAIN_RIVERS = ("Irrawaddy", "Salween")
+RIVER_LABELS = [
+    (96.45, 22.90, "伊洛瓦底江"),
+    (98.33, 21.55, "萨尔温江"),
 ]
 
 # 图标题与输出路径.
@@ -269,6 +280,7 @@ def add_context(ax: plt.Axes, border_line) -> None:
         facecolor="none",
         edgecolor=BORDER_COLOR,
         linewidth=BORDER_WIDTH,
+        alpha=BORDER_ALPHA,
         zorder=6.2,
     )
     # 河流/湖泊放在区域填充之上, 避免半透明色块把水系盖住.
@@ -284,6 +296,42 @@ def add_context(ax: plt.Axes, border_line) -> None:
         edgecolor="#1f78b4",
         linewidth=0.4,
         zorder=4,
+    )
+
+
+def add_main_rivers(ax: plt.Axes) -> None:
+    """把伊洛瓦底江与萨尔温江从一般河流里强调出来, 并供河名标注对位.
+
+    河流数据里这两条已经被拆成几段(NE 10m: Irrawaddy 干流 + Irrawaddy Delta,
+    Salween 上游 Nu + 下游 Salween); 按 name_en 全部选出再画, 河线才从画框
+    北缘一直连到南缘, 不会在 20.95°N 的分段点断掉. 先用浅色粗描边、再用深蓝
+    细线, 与行政图里的强调方式一致; 一般河流仍是上面那条 0.7 pt 蓝线, 作为
+    背景水系, 不抢这两条干流的层级.
+    """
+    rivers = map_lib.load_ne_layer("10m", "physical", "rivers_lake_centerlines")
+    if rivers is None:
+        print("警告: 缺少 Natural Earth 河流数据, 跳过干流强调.")
+        return
+    selected = rivers[rivers["name_en"].isin(MAIN_RIVERS)]
+    if selected.empty:
+        print("警告: 未找到伊洛瓦底江/萨尔温江, 跳过干流强调.")
+        return
+    geoms = [geom for geom in selected.geometry if geom is not None and not geom.is_empty]
+    ax.add_geometries(
+        geoms,
+        crs=ccrs.PlateCarree(),
+        facecolor="none",
+        edgecolor="#e8f4ff",
+        linewidth=4.2,
+        zorder=4.2,
+    )
+    ax.add_geometries(
+        geoms,
+        crs=ccrs.PlateCarree(),
+        facecolor="none",
+        edgecolor="#1565c0",
+        linewidth=1.9,
+        zorder=4.3,
     )
 
 
@@ -407,6 +455,21 @@ def add_text_labels(ax: plt.Axes) -> None:
             zorder=8,
         )
 
+    # 两条大江的河名: 与干流同色, 用稍大的白描边, 压在彩色区域上也能读.
+    for lon, lat, text in RIVER_LABELS:
+        ax.text(
+            lon,
+            lat,
+            text,
+            transform=ccrs.PlateCarree(),
+            fontsize=10.5,
+            color="#1565c0",
+            ha="center",
+            va="center",
+            path_effects=[pe.withStroke(linewidth=3.2, foreground="white")],
+            zorder=9.5,
+        )
+
     # 区域名: 第一特区/佤邦/四特名加粗效果通过字号与颜色实现
     # (本机 CJK 可变字体在 matplotlib 里只有默认实例, 不能用 fontweight="bold").
     for lon, lat, text, size, color in REGION_LABELS:
@@ -523,7 +586,14 @@ def add_legend(ax: plt.Axes) -> None:
             linewidth=1.5,
             label="掸邦东部第四特区",
         ),
-        Line2D([0], [0], color=BORDER_COLOR, linewidth=BORDER_WIDTH, label="国界"),
+        Line2D(
+            [0],
+            [0],
+            color=BORDER_COLOR,
+            linewidth=BORDER_WIDTH,
+            alpha=BORDER_ALPHA,
+            label="国界",
+        ),
         Line2D([0], [0], color="#7f7f7f", linewidth=1.0, linestyle="--", label="省/邦界"),
         Line2D([0], [0], color="#1f78b4", linewidth=0.9, label="河流"),
         Line2D(
@@ -594,6 +664,8 @@ def main() -> None:
     norm, cmap = add_relief(ax, etopo_path)
     add_admin_context(ax, regions, border_zone)
     add_context(ax, border_line)
+    # 两条大江压在一般河流与区域填充之上、国界/区域边界之下.
+    add_main_rivers(ax)
     add_special_regions(ax, regions, border_zone)
 
     # 色标独立占一个轴, 不抢占地图宽度.
@@ -631,7 +703,7 @@ def main() -> None:
         0.5,
         0.026,
         "地形数据: NOAA NCEI ETOPO 2022(15 弧秒) | 边界: OpenStreetMap(ODbL, 2026-10) | "
-        "海陆底图: Natural Earth 10m | MNDAA=缅甸民族民主同盟军, TNLA=德昂民族解放军",
+        "海陆底图·河流: Natural Earth 10m | MNDAA=缅甸民族民主同盟军, TNLA=德昂民族解放军",
         ha="center",
         va="bottom",
         fontsize=8.5,

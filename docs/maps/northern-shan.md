@@ -35,8 +35,9 @@
 Natural Earth 10m 国界在画框内只有几百个顶点(同范围 OSM 约两万个), 与 OSM 区域边界沿国界
 的平均偏差约 1.5 km、最大约 5 km, 直接叠加会画成两条线. 因此国界改用 OSM
 `admin_level=2` 关系(与区域边界同源、共享节点), 并把落在国界上的那一段从区域边界描边里
-裁掉, 让重合段只按国界样式出现一次. 裁剪用 [`reference/overlap.md`](../reference/overlap.md)
-的 `overlap_mask` / `cut`.
+裁掉, 让重合段只按国界样式出现一次. 国界画成红色半透明实线(`#c62828`, alpha 0.62), 与
+Ukraine 图一致: 下面的地形与区域填色透出来, 与它重合的区域边界也不会被压成一块死色. 裁剪用
+[`reference/overlap.md`](../reference/overlap.md) 的 `overlap_mask` / `cut`.
 
 ### 4. 数据来源为什么用 OSM
 
@@ -50,6 +51,15 @@ Natural Earth 10m 国界在画框内只有几百个顶点(同范围 OSM 约两�
 
 数据来源: OpenStreetMap 贡献者, ODbL 1.0(许可见 [`data-preparation.md`](../data-preparation.md)).
 
+### 5. 伊洛瓦底江与萨尔温江
+
+两条干流是本图最主要的自然地理参照, 从一般河流图层里单独强调: 先用 4.2 pt 浅色描边、再用
+1.9 pt 深蓝画线, 颜色与行政图同源; 一般河流保持 0.7 pt, 不抢层级. Natural Earth 10m 把两条
+江拆成多段(Salween 上游 `Nu` + 下游 `Salween`, Irrawaddy 另有三角洲段), 按 `name_en` 全部
+选出再画, 河线才不会在 20.95°N 的分段点断开. 河名用与干流同色的 10.5 pt 文字加白描边,
+放在河道东/西侧空地上, 不压河线、城市点和特区名. 数据仍取自共享的 cartopy Natural Earth
+缓存, 不需要额外准备.
+
 ## 数据
 
 | 文件 | 内容 | 生成方式 |
@@ -58,6 +68,7 @@ Natural Earth 10m 国界在画框内只有几百个顶点(同范围 OSM 约两�
 | `Myanmar/data/regions/shan_north_boundaries.geojson` | 特区/自治区域多边形 | `python Myanmar/download_regions.py` |
 | `Myanmar/data/regions/osm_country_borders.geojson` | 画框附近 OSM 国界线 | 同上 |
 | `Myanmar/data/ne_10m_admin_0_countries/` | Natural Earth 10m 国界(邻国参照) | `python Myanmar/download_etopo.py` |
+| `data/cartopy/` | cartopy 缓存的 10m 河流/湖泊/海陆底图 | `python download_data.py` |
 
 `_stride1_chunked.py` 是一次性脚本: 早期用来把缅甸 15 弧秒高程分 8 个纬度带下载再拼接,
 现在 `download_etopo.py --region northern_shan --stride 1` 已能一次拿到所需子集, 日常不再

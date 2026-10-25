@@ -18,11 +18,14 @@ import xarray as xr  # 读取 NetCDF
 from cartopy import crs as ccrs  # 投影转换
 from shapely.geometry import box  # 底图裁剪窗口
 
+from .data import natural_earth_paths  # Natural Earth 缓存定位
+
 __all__ = [
     "find_etopo",
     "load_elevation",
     "make_relief",
     "load_countries",
+    "load_ne_layer",
     "add_base_map",
     "clip_to_axes",
 ]
@@ -158,6 +161,25 @@ def load_countries(boundary_dir: Path):
     import geopandas as gpd  # 延迟导入: 没有边界数据时不需要它
 
     return gpd.read_file(shapefiles[0])
+
+
+def load_ne_layer(resolution: str, category: str, name: str):
+    """按 cartopy 缓存位置读取一份 Natural Earth 图层; 缺失时返回 None.
+
+    是什么: 只读已经缓存好的 shapefile(``.shp`` 在即整层在), 不触发下载, 返回
+    GeoDataFrame. 用 cartopy_file.data.natural_earth_paths 定位, 与 cartopy 自己
+    用的是同一份缓存(见 docs/reference/data.md).
+
+    为什么不用 cfeature: 调用方常常只要某一层线要素, 例如只用海岸线当裁剪蒙版、
+    只用国界线画邻国; 直接读缓存既省掉 FeatureArtist 建图层, 也不会把整层海岸线
+    当成要绘制的线画出来(缅甸图不画海岸线, 见 docs/maps/myanmar.md).
+    """
+    path, _ = natural_earth_paths(resolution, category, name)
+    if path is None:
+        return None
+    import geopandas as gpd  # 延迟导入: 没有该图层时不需要它
+
+    return gpd.read_file(path)
 
 
 def clip_to_axes(ax: plt.Axes, geoms) -> list:

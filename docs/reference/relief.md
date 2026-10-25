@@ -15,6 +15,8 @@
 - `make_relief(z, lat, lon, *, vmin, vmax, ...)`: 把高程色带与 `LightSource` 晕渲合成 RGB;
 - `load_countries(boundary_dir)` / `add_base_map(ax, world, *, ocean_color, land_color)`:
   读 Natural Earth 国界, 在画地形前铺一层真实海陆底色;
+- `load_ne_layer(resolution, category, name)`: 按 cartopy 缓存位置读取一份 Natural Earth
+  图层(返回 `GeoDataFrame`, 缺失时 `None`), 用来取国界线或海岸线等单个图层;
 - `clip_to_axes(ax, geoms)`: 把面几何裁到当前坐标范围, 避免画面外顶点写进 SVG(矢量输出时
   同样占字节).
 
@@ -30,6 +32,9 @@
   适合浅色底图上的平原国家; `shade_floor` 是压暗下限, 水面(`z < 0`)不晕渲;
 - `load_countries()`: 读 10m 国界 shapefile; 文件不存在时打印警告并返回 `None`, 调用方据此
   跳过底图与国界;
+- `load_ne_layer()`: 只读缓存(不联网), `.shp` 在即整层在; 与 `load_countries()` 的区别是
+  按 resolution/category/name 取任意一层(如 `10m` / `physical` / `coastline`), 常用作裁剪
+  蒙版或只画某一层线要素, 不会把整层海岸线当成要绘制的线画出来;
 - `clip_to_axes()`: 底图是全球国家多边形(约 55 万顶点), 不裁时单这一层填色就让 SVG 大出十几
   MB; 裁剪窗口取 `ax.get_extent(PlateCarree)`, 一定盖住整个画面, 外观不变. 跨 180° 经线的
   图幅不裁(shapely 的 `box` 不处理经度环绕);
