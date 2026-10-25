@@ -214,12 +214,12 @@ SEA_LABELS = [
 CITIES = [
     (30.523, 50.450, "基辅", True, 0.20, 0.12, "left"),
     (36.230, 49.993, "哈尔科夫", False, 0.16, 0.12, "left"),
-    (30.732, 46.482, "敖德萨", False, 0.16, 0.12, "left"),
-    (35.046, 48.464, "第聂伯", False, 0.16, 0.12, "left"),
+    (30.732, 46.482, "敖德萨", False, 0.16, -0.12, "left"),
+    (35.046, 48.464, "第聂伯罗", False, 0.16, 0.12, "left"),
     (37.802, 48.015, "顿涅茨克", False, -0.16, -0.18, "right"),
     (39.307, 48.574, "卢甘斯克", False, -0.16, 0.16, "right"),
     (35.139, 47.838, "扎波罗热", False, 0.16, 0.14, "left"),
-    (32.617, 46.640, "赫尔松", False, 0.03, 0.22, "right"),
+    (32.617, 46.640, "赫尔松", False, 0.16, -0.10, "left"),
     (37.556, 47.096, "马里乌波尔", False, -0.16, -0.06, "right"),
     (34.102, 44.952, "辛菲罗波尔", False, 0.16, 0.12, "left"),
     (33.522, 44.606, "塞瓦斯托波尔", False, -0.16, 0.10, "right"),
@@ -560,8 +560,11 @@ def add_labels(ax: plt.Axes, oblasts: gpd.GeoDataFrame) -> None:
         fontsize=8.8, color="#0d47a1",
         ha="center", va="center", linespacing=1.3, path_effects=HALO, zorder=9.5,
     )
+    # 纬度比州界折角高一截: 第二行文字的白色描边原本正压在
+    # 2022 宣称边界由南北向折向西南的那一段上, 把整段折线遮掉; 上移后
+    # 折角完整露出, 只剩右端"国"字附近与竖直线段的一小段交叠.
     ax.text(
-        37.15, 49.10, "哈尔科夫人民共和国\n（2014年宣布，未实际控制）",
+        36.80, 49.50, "哈尔科夫人民共和国\n（2014年宣布，未实际控制）",
         transform=ccrs.PlateCarree(),
         fontsize=9.4, color=COLOR_KHARKIV, style="italic",
         ha="center", va="center", linespacing=1.35, path_effects=HALO, zorder=9.5,
