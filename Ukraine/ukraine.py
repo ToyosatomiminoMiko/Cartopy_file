@@ -19,6 +19,9 @@
 #      的颜色差已拉大); 1991 国界与州界的沿海段都剪掉不画, 岸边没有任何
 #      国界线/行政界线; NE 海岸线漏画的利曼/沙嘴岸段再按"离外国陆地太远"
 #      兜底剪掉; 国界两端(顿巴斯亚速海岸、多瑙河口)再沿原边界补到海边.
+#  10) 境外参照标注: 德涅斯特河左岸(摩尔多瓦境内德涅斯特河东岸的俄方军事
+#      存在区)与顿河畔罗斯托夫(俄南部军区司令部驻地)用灰字/灰点标出; 两者
+#      都不属于本图的边界口径, 不能与乌克兰境内城市、邻国国名混用同一种样式.
 # 运行前先执行: python Ukraine/download_data.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 # ============================================================
@@ -90,6 +93,14 @@
        最后把剪断的两端沿原边界补到 ETOPO 水面处(见 extend_border_to_sea):
        顿巴斯东缘与多瑙河口这两处, 陆地国界会在离岸 5~7 km 的内陆收笔,
        补到海边才像"国界入海"; 多瑙河口那段是沿河北上的真边界, 不能拉直线.
+    10. 境外参照标注: 德涅斯特河左岸与顿河畔罗斯托夫都用灰色(#555)而不用
+       主题色(红/蓝/紫/橙)或城市黑: 这两处都在乌克兰境外, 也不属于本图任何
+       一种边界口径, 上主题色会被读成"控制区/宣称区", 用黑色又会和乌克兰境内
+       城市混为一谈. 德左地带最窄处只有约 0.1°(10 km, 图上不到 20 px), 横排
+       地名放不进去, 强行放会把 1991 国界(红线)与德涅斯特河(蓝线)一起盖掉;
+       所以名字放在地带东侧敖德萨州的空地上, 用一条细灰指引线指回地带内部,
+       终点加一个小灰点. 顿河畔罗斯托夫用同样的灰点 + 灰字, 名称放在城点
+       东南的空旷草原上, 避开顿河河道与已经标好的"顿河"河名.
 
 数据(由 Ukraine/download_data.py 准备, 脚本本身不联网):
     data/ETOPO_2022_v1_15s_ukraine_stride2.nc   NOAA ETOPO 2022 地形
@@ -241,6 +252,7 @@ COLOR_WATER = "#b3d2ea"      # 梯级水库水面填充
 COLOR_WATER_EDGE = "#4a7fb0"  # 水面轮廓
 COLOR_NEIGHBOR = "#8a8a8a"   # 邻国国界
 COLOR_MOUNTAIN = "#6d4a33"   # 山系标注文字: 深棕
+COLOR_REFERENCE = "#555555"  # 境外参照标注(德左/罗斯托夫): 中性灰, 不参与主题配色
 
 # 1991 国界剪掉沿海段的缓冲半径(度). GADM 的国家面边界沿岸线与 Natural
 # Earth 海岸线是两套数据, 偏差中位约 0.5 km、个别沙嘴可达 8 km; 0.06° 在
@@ -317,6 +329,31 @@ CITIES = [
     (34.102, 44.952, "辛菲罗波尔", False, 0.16, 0.12, "left"),
     (33.522, 44.606, "塞瓦斯托波尔", False, -0.16, 0.10, "right"),
     (24.031, 49.842, "利沃夫", False, 0.16, 0.12, "left"),
+]
+
+# 境外参照城市: 灰点 + 灰字, 与乌克兰境内城市(白底黑边 + 黑色城名)区分.
+# 为什么单独列一张表: 这些城市不在乌克兰境内, 不能并进 CITIES —— 否则读图
+# 会把它们当成乌克兰城市(城市样式在本图里默认"位于乌克兰").
+# (经度, 纬度, 名称, 名称经度偏移, 名称纬度偏移).
+# 顿河畔罗斯托夫(39.72E / 47.23N)是俄南部军区司令部驻地、顿河下游交通枢纽,
+# 在顿巴斯以东约 100 km. 城点取在顿河右岸的城区, 但 NE 10m 的河道线在这个
+# 纬度上几乎穿过城点, 白心灰圈的城点会压住一小段河道线 —— 城市符号盖住河道
+# 是常见画法, 不影响判读. 城名放到城点东南(下、右各让一点)的空旷草原上:
+# 北侧是顿河河道与已经标好的"顿河"河名, 西侧是塔甘罗格湾与顿河三角洲, 只有
+# 东南方向是空白.
+REFERENCE_CITIES = [
+    (39.72, 47.23, "顿河畔罗斯托夫", 0.06, -0.13),
+]
+# 境外参照区域: 名字放不进区域内部时, 用一条细指引线从文字块左缘指回区域内部.
+# 德涅斯特河左岸是摩尔多瓦境内德涅斯特河东岸的狭长地带(俄方军事存在), 紧邻
+# 敖德萨州; 地带宽度只有 0.1~0.5°(最窄约 10 km), 横排地名塞不进去, 硬放会
+# 用白描边把 1991 国界(红线)和德涅斯特河(蓝线)一起盖掉. 所以名字放在地带
+# 东侧敖德萨州的空地上(30.12E / 47.22N), 指引线从文字块左缘(29.72E)水平指向
+# 地带内偏向河岸一侧(29.32E / 47.24N): 47.2°N 处河岸约 29.18E、国界约 29.58E,
+# 终点取 29.32E, 离两侧各留 ~0.1°, 不会看起来像点在国界线或河岸上.
+# (文字经度, 文字纬度, 文字, 字号, 指引线起点经度, 起点纬度, 终点经度, 终点纬度).
+REFERENCE_REGIONS = [
+    (30.12, 47.22, "德涅斯特河\n左岸", 8.4, 29.72, 47.22, 29.32, 47.24),
 ]
 
 # 图标题: 第一行点题, 第二行交代地形、投影与参数.
@@ -868,7 +905,7 @@ def add_labels(ax: plt.Axes, oblasts: gpd.GeoDataFrame) -> None:
     # 2022 宣称边界由南北向折向西南的那一段上, 把整段折线遮掉; 上移后
     # 折角完整露出, 只剩右端"国"字附近与竖直线段的一小段交叠.
     ax.text(
-        36.80, 49.50, "哈尔科夫人民共和国\n（2014年宣布，未实际控制）",
+        36.80, 49.50, "哈尔科夫人民共和国",
         transform=ccrs.PlateCarree(),
         fontsize=9.4, color=COLOR_KHARKIV, style="italic",
         ha="center", va="center", linespacing=1.35, path_effects=HALO, zorder=9.5,
@@ -915,6 +952,60 @@ def add_labels(ax: plt.Axes, oblasts: gpd.GeoDataFrame) -> None:
             fontsize=9.0, color="black",
             ha=align, va="center",
             path_effects=HALO, zorder=9.9,
+        )
+
+
+def add_reference_labels(ax: plt.Axes) -> None:
+    """境外参照标注: 德涅斯特河左岸(狭长地带)与顿河畔罗斯托夫(城市).
+
+    为什么用灰色而不是主题色/黑色:
+        这两处都在乌克兰境外, 也不属于本图任何一种边界口径 —— 红色是 1991
+        国界, 蓝色是 2014 实际控制, 紫色/橙色是宣称, 黑色是乌克兰境内城市.
+        用任何主题色都会把它们读成"控制区/宣称区"; 用黑色会读成乌克兰城市.
+        所以统一用中性灰 #555555, 字号也比城市(9.0)略小, 只作定位参照.
+    为什么城市点/区域名要手工放置:
+        顿河畔罗斯托夫的城点(39.72E/47.23N)在 NE 10m 的顿河河道线上, 城名
+        只能往东南的空白草原让; 德左地带最窄处才 0.1°(图上 <20 px), 横排
+        地名放不进地带内部, 只能在东侧敖德萨州空地写名字再用指引线指回去.
+        具体坐标与理由见 REFERENCE_CITIES / REFERENCE_REGIONS 上方注释.
+    """
+    # --- 境外城市: 灰点 + 灰字 ---
+    for lon, lat, name, dx, dy in REFERENCE_CITIES:
+        ax.plot(
+            lon, lat, marker="o", markersize=3.6,
+            markerfacecolor="white", markeredgecolor=COLOR_REFERENCE, markeredgewidth=1.0,
+            transform=ccrs.PlateCarree(), zorder=9.8,
+        )
+        ax.text(
+            lon + dx, lat + dy, name,
+            transform=ccrs.PlateCarree(),
+            fontsize=8.4, color=COLOR_REFERENCE,
+            ha="left", va="center",
+            path_effects=HALO, zorder=9.5,
+        )
+
+    # --- 境外狭长区域: 名字写在区域外侧, 细指引线从文字块左缘指回区域内部 ---
+    # 指引线不加箭头: 本图没有箭头语汇, 加箭头会像一条"进攻方向"; 终点的小
+    # 圆点已经足够说明指向. zorder 压到州界附近(3.2): 指引线要横穿 1991 国界
+    # 才能指进德左地带, 若画在国界之上会把红线切出一段灰口, 看起来像国界断了;
+    # 压到红线之下后红线连续, 指引线只是从红线后面穿过去, 两侧仍可见.
+    for lon, lat, text, size, x1, y1, x2, y2 in REFERENCE_REGIONS:
+        ax.plot(
+            [x1, x2], [y1, y2],
+            transform=ccrs.PlateCarree(),
+            color=COLOR_REFERENCE, linewidth=0.7,
+            solid_capstyle="round", zorder=3.2,
+        )
+        ax.plot(
+            [x2], [y2], marker="o", markersize=1.8,
+            color=COLOR_REFERENCE, transform=ccrs.PlateCarree(), zorder=3.2,
+        )
+        ax.text(
+            lon, lat, text,
+            transform=ccrs.PlateCarree(),
+            fontsize=size, color=COLOR_REFERENCE,
+            ha="center", va="center", linespacing=1.25,
+            path_effects=HALO, zorder=9.5,
         )
 
 
@@ -1183,6 +1274,7 @@ def main() -> None:
         claimed=claimed,
     )
     add_labels(ax, oblasts)
+    add_reference_labels(ax)
     add_river_labels(ax)
     add_gridlines(ax)
 
