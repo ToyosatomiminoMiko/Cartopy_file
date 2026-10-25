@@ -3,7 +3,7 @@
 """Reusable geometry helpers for de-duplicating coincident boundary lines.
 
 是什么: 剪掉低优先级边界里与高优先级边界重合的段落, 让同一条线在图上只出现一次.
-完整说明(算法、为什么抽出、使用约束)见 ``docs/cartopy_file/overlap.md``.
+完整说明(算法、为什么抽出、使用约束)见 ``docs/reference/overlap.md``.
 """
 
 from __future__ import annotations

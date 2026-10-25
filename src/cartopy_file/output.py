@@ -4,7 +4,7 @@
 """Project-wide figure output: SVG only.
 
 是什么: 所有地图产物统一保存为单个自包含的 SVG(`apply_svg_output` + `save_svg`).
-完整说明(SVG 的理由、用法与警告)见 ``docs/cartopy_file/output.md``.
+完整说明(SVG 的理由、用法与警告)见 ``docs/reference/output.md``.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def apply_svg_output() -> None:
 
     matplotlib.rcParams.update(
         {
-            # 汉字转路径, 阅读器不需要 CJK 字体(理由见 docs/cartopy_file/output.md).
+            # 汉字转路径, 阅读器不需要 CJK 字体(理由见 docs/reference/output.md).
             "svg.fonttype": "path",
             # 晕渲栅格 base64 内嵌, 保证产物只有一个 .svg 文件.
             "svg.image_inline": True,

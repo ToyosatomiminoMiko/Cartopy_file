@@ -6,7 +6,7 @@
 是什么: 下载 GADM 4.1 缅甸一级行政区并从 OpenStreetMap 取内比都联邦区边界,
 经过裁剪、补缝、拓扑检查后输出 data/myanmar_admin1.geojson 供绘图读取.
 完整说明(为什么混用 GADM/OSM、为什么补缝)见
-``docs/Myanmar/prepare_admin_data.md``.
+``docs/maps/myanmar-admin.md``.
 """
 
 from __future__ import annotations

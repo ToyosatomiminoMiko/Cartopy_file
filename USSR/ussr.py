@@ -4,14 +4,13 @@
 
 是什么: 从本地 ETOPO 2022 NetCDF 读取苏联区域高程, 用兰勃特等面积方位投影绘制
 地形图, 并叠加 Natural Earth 的前苏联加盟共和国合并边界.
-完整说明: ``docs/USSR/ussr.md``(投影/图幅内容/数据来源/运行方式).
+完整说明: ``docs/maps/ussr.md``(投影/图幅内容/数据来源/运行方式).
 """
 
 import os  # 读取环境变量,例如 ETOPO_PATH
 from pathlib import Path  # 统一使用 pathlib 处理文件路径
 
-# matplotlib 的缓存目录必须在导入 matplotlib 之前指定; 本机 ~/.config 只读.
-# (见 cartopy_file.data)
+# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
 from cartopy_file.data import configure_cartopy, prepare_matplotlib_env
 
 prepare_matplotlib_env()
@@ -25,17 +24,15 @@ import numpy as np  # 数组运算
 import xarray as xr  # 读取 NetCDF
 from shapely.ops import unary_union  # 合并多个面为单一几何边界
 
-# cartopy 的 Natural Earth 底图缓存统一到仓库 data/cartopy(见 cartopy_file.data);
-# 本机 HOME 只读, 不能再用默认的 ~/.local/share/cartopy, 否则每次换脚本都要重下.
+# cartopy 底图缓存统一到仓库 data/cartopy, 见 docs/reference/data.md.
 configure_cartopy()
 
-# 全局字体: 项目包 cartopy_file 统一设置中英文字体(汉字 Noto Sans Mono CJK SC,
-# 英文/数字 JetBrains Mono Slashed Medium), 本脚本不再单独维护 rcParams.
+# 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
 from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
-# 产物统一为 SVG(见 cartopy_file.output): 文字/边界是矢量, 晕渲栅格内嵌.
+# 产物统一为 SVG, 见 docs/reference/output.md.
 apply_svg_output()
 
 
@@ -238,7 +235,7 @@ ax.set_title(title, fontsize=15, pad=20)
 # 先收紧布局,避免四周留下过多空白.
 plt.tight_layout()
 
-# 输出到脚本同目录: SVG 是唯一交付格式, 300 dpi 只决定内嵌晕渲栅格的像素密度.
+# 输出到脚本同目录, 300 dpi 只影响内嵌晕渲栅格(见 docs/reference/output.md).
 # 只想在窗口里看图时把 save_img 改成 False, 避免每次运行都覆盖成品.
 save_img = True
 if save_img:

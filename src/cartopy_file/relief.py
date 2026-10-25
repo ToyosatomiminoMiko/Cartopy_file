@@ -4,7 +4,7 @@
 """Reusable relief / basemap helpers for the topographic map scripts.
 
 是什么: 定位/读取 ETOPO 2022 高程、合成地形配色与山体晕渲、铺 Natural Earth 海陆底色.
-完整说明(API、为什么上移、MPLCONFIGDIR 警告)见 ``docs/cartopy_file/relief.md``.
+完整说明(API、为什么上移、MPLCONFIGDIR 警告)见 ``docs/reference/relief.md``.
 """
 
 from __future__ import annotations

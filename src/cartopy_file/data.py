@@ -3,7 +3,7 @@
 """Locate the project-wide data directory and cartopy's download cache.
 
 是什么: 统一定位仓库级共享数据目录、matplotlib 可写缓存目录与 cartopy 下载缓存.
-完整说明(API、为什么需要重定向、缓存位置)见 ``docs/cartopy_file/data.md``.
+完整说明(API、为什么需要重定向、缓存位置)见 ``docs/reference/data.md``.
 """
 
 from __future__ import annotations

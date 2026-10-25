@@ -5,7 +5,7 @@
 
 是什么: 缅甸系列地形图的共用绘图工具入口(读取 ETOPO 高程、生成晕渲、读取国界、
 铺海陆底色); 实现已上移到 cartopy_file.relief, 这里只保留导入名与缓存目录设置.
-完整说明(为什么保留这个兼容层)见 ``docs/Myanmar/map_lib.md``.
+完整说明(为什么保留这个兼容层)见 ``docs/reference/relief.md``.
 """
 
 from __future__ import annotations
@@ -13,9 +13,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# matplotlib 的缓存目录必须在导入 matplotlib 之前确定; 本机 ~/.config 不可写.
-# 放在 data/ 下(已被 .gitignore 忽略), 避免每次启动重建字体缓存.
-# 各主脚本也会设置同样的路径; 这里再设一次是为了让本模块可被单独导入.
+# 缓存目录要在导入 matplotlib 之前确定; 主脚本也会设, 这里再设一次是为了本模块可被
+# 单独导入(见 docs/reference/data.md).
 DATA_DIR = Path(__file__).resolve().parent / "data"
 os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 

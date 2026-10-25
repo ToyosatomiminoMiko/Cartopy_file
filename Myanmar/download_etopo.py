@@ -6,7 +6,7 @@
 是什么: 从 NOAA ERDDAP 下载 ETOPO 2022 15 弧秒缅甸区域子集, 并下载/解压
 Natural Earth 10m 国家边界, 缓存到本地供绘图脚本读取.
 完整说明(为什么用 ERDDAP、下载范围、--region/--stride 的含义)见
-``docs/Myanmar/download_etopo.md``.
+``docs/data-preparation.md``.
 """
 
 from __future__ import annotations
@@ -37,12 +37,12 @@ USER_AGENT = (
     "Chrome/124.0 Safari/537.36"
 )
 
-# 区域名 -> (经度范围, 纬度范围). 取值范围要覆盖兰勃特画框四角, 见 docs/Myanmar/download_etopo.md.
+# 区域名 -> (经度范围, 纬度范围). 取值范围要覆盖兰勃特画框四角, 见 docs/data-preparation.md.
 REGIONS = {
     "myanmar": ((85.3, 107.7), (4.9, 31.1)),
     # 掸邦放大图: 画框 95.3~101.5°E / 19.0~24.75°N, 投影后矩形在经纬度上
     # 约对应 95.17~101.63°E / 19.00~24.78°N, 所以下载范围在此基础再留
-    # 约 0.2°(南) 与 0.4°(北/东西) 余量; 南界下探的理由见 docs/Myanmar/download_etopo.md.
+    # 约 0.2°(南) 与 0.4°(北/东西) 余量; 南界下探的理由见 docs/data-preparation.md.
     "northern_shan": ((94.6, 102.1), (18.8, 25.2)),
 }
 

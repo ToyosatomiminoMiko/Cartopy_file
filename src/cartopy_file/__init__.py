@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Shared code for the Cartopy_file project; see ``docs/cartopy_file/index.md``."""
+"""Shared code for the Cartopy_file project; see ``docs/overview.md``."""
 
 from __future__ import annotations
 

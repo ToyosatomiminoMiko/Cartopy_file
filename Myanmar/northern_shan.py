@@ -6,7 +6,7 @@
 是什么: 以掸邦为中心绘制缅甸联邦第一特区、德昂邦、佤邦、掸邦东部第四特区及
 周边的地形图, 并在第一特区内标出其前身"原果敢自治区"的范围.
 完整说明(范围、南界取值理由、投影、果敢关系、国界处理)见
-``docs/Myanmar/northern_shan.md``.
+``docs/maps/northern-shan.md``.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ BOUNDARY_DIR = DATA_DIR / "ne_10m_admin_0_countries"
 REGION_GEOJSON = DATA_DIR / "regions" / "shan_north_boundaries.geojson"
 BORDER_GEOJSON = DATA_DIR / "regions" / "osm_country_borders.geojson"
 
-# 缓存目录必须在导入 matplotlib/cartopy 之前指定(与 myanmar.py 同理).
+# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
 os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
 import cartopy.crs as ccrs  # 地图投影
@@ -39,9 +39,7 @@ from shapely.ops import unary_union  # 合并同类边界
 
 import map_lib  # 与本目录共用的 ETOPO/晕渲/边界工具
 
-# cartopy 的 Natural Earth 底图缓存统一定位到仓库 data/cartopy(见
-# cartopy_file.data): 本机 HOME 只读, 默认的 ~/.local/share/cartopy 不可写;
-# 统一后各脚本共用同一份底图, 已下载过的要素不会重复下载.
+# cartopy 底图缓存统一到仓库 data/cartopy, 见 docs/reference/data.md.
 from cartopy_file.data import configure_cartopy
 
 # 区域/省界描边与国界重合时只保留国界: 用共享剪枝工具裁掉国界走廊.
@@ -49,14 +47,12 @@ from cartopy_file.overlap import cut
 
 configure_cartopy()
 
-# 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
-# 英文/数字用 JetBrains Mono Slashed Medium, 逐字符回退; 本脚本不再单独配字体.
+# 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
 from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
-# 产物统一为 SVG(见 cartopy_file.output): 边界/填色/斜线是矢量,
-# 只有底下的地形晕渲是内嵌栅格.
+# 产物统一为 SVG, 见 docs/reference/output.md.
 apply_svg_output()
 # 斜线填充的线宽: 默认 1.0 在成品尺寸下偏粗, 会把特区填充压成深色块.
 plt.rcParams["hatch.linewidth"] = 0.45
@@ -65,7 +61,7 @@ plt.rcParams["hatch.linewidth"] = 0.45
 # ============================
 # 配置
 # ============================
-# 画框: [min_lon, max_lon, min_lat, max_lat]; 取值理由见 docs/Myanmar/northern_shan.md.
+# 画框: [min_lon, max_lon, min_lat, max_lat]; 取值理由见 docs/maps/northern-shan.md.
 EXTENT = [95.3, 101.5, 19.0, 24.75]
 
 # 投影参数: 中央经线取掸邦中部, 标准纬线夹住画框南北界.
@@ -136,7 +132,7 @@ BORDER_ZONE_DEG = 0.001
 
 # 原果敢自治区(第一特区前身): 与第一特区同色系、明显加深的填充, 用嵌套色块
 # 表示"含于第一特区辖区". 只填色、不描内边界, 以免粗线压住区内的河流;
-# 不加第二种底纹的原因见 docs/Myanmar/northern_shan.md.
+# 不加第二种底纹的原因见 docs/maps/northern-shan.md.
 KOKANG_SAZ_FILL = "#54278f"
 KOKANG_SAZ_ALPHA = 0.32
 

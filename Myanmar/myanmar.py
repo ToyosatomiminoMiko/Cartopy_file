@@ -5,7 +5,7 @@
 
 是什么: 读取本地 NOAA ETOPO 2022 缅甸区域高程, 用兰勃特等角圆锥投影绘制全国
 地形图, 叠加 Natural Earth 10m 海岸线与国界, 并标注邻国、城市和海域.
-完整说明(投影选择、数据来源、运行方式)见 ``docs/Myanmar/myanmar.md``.
+完整说明(投影选择、数据来源、运行方式)见 ``docs/maps/myanmar.md``.
 """
 
 from __future__ import annotations
@@ -14,9 +14,7 @@ import argparse
 import os
 from pathlib import Path
 
-# plt.rcParams 只能在导入 matplotlib 之后设置, 但缓存目录必须在导入前指定.
-# 原因: 本机 ~/.config/matplotlib 不可写, 不设置 MPLCONFIGDIR 时每次启动都会
-# 在临时目录重建字体缓存并打印警告, 出图变慢; 这里默认指向 data/ 下被忽略的目录.
+# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
@@ -32,20 +30,17 @@ from shapely.ops import unary_union  # 合并多块几何, 得到缅甸整体轮
 
 import map_lib  # 与本目录共用的 ETOPO/晕渲/边界工具
 
-# cartopy 的 Natural Earth 底图缓存统一定位到仓库 data/cartopy(见
-# cartopy_file.data): 本机 HOME 只读, 默认的 ~/.local/share/cartopy 不可写;
-# 统一后各脚本共用同一份底图, 已下载过的要素不会重复下载.
+# cartopy 底图缓存统一到仓库 data/cartopy, 见 docs/reference/data.md.
 from cartopy_file.data import configure_cartopy
 
 configure_cartopy()
 
-# 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
-# 英文/数字用 JetBrains Mono Slashed Medium, 逐字符回退; 本脚本不再单独配字体.
+# 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
 from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
-# 产物统一为 SVG(见 cartopy_file.output): 文字/边界是矢量, 晕渲栅格内嵌.
+# 产物统一为 SVG, 见 docs/reference/output.md.
 apply_svg_output()
 
 
@@ -64,7 +59,7 @@ BOUNDARY_DIR = DATA_DIR / "ne_10m_admin_0_countries"
 EXTENT = [87.0, 106.0, 5.0, 31.0]
 
 # 投影参数: 兰勃特等角圆锥投影(Lambert Conformal Conic).
-# 选择理由见 docs/Myanmar/myanmar.md; 中央经线取缅甸中部 96.5°E, 标准纬线取 10°N 与 27°N,
+# 选择理由见 docs/maps/myanmar.md; 中央经线取缅甸中部 96.5°E, 标准纬线取 10°N 与 27°N,
 # 使全国范围的比例误差最小(标准纬线上比例因子恰为 1).
 PROJECTION = ccrs.LambertConformal(
     central_longitude=96.5,
@@ -120,7 +115,7 @@ TITLE = (
     "NOAA ETOPO 2022 | 兰勃特等角圆锥投影"
     "(中央经线 96.5°E, 标准纬线 10°N / 27°N)"
 )
-# 输出路径(脚本同目录). SVG 是唯一交付格式, 打印/排版由矢量保证清晰度.
+# 输出路径(脚本同目录), 见 docs/reference/output.md.
 OUT_SVG = ROOT / "myanmar_topography_etopo2022_lambert_conformal.svg"
 
 

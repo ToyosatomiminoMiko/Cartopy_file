@@ -4,7 +4,7 @@
 """Temporary script: download the Myanmar stride-1 ETOPO subset in 8 bands and merge it.
 
 是什么: 分 8 个纬度带并行下载 ERDDAP 子集, 用 xarray 沿纬度拼接成单个 NetCDF, 并做自检.
-完整说明(为什么分块、用法与自检内容)见 ``docs/stride1_chunked.md``.
+完整说明(为什么分块、用法与自检内容)见 ``docs/data-preparation.md``.
 """
 
 from __future__ import annotations

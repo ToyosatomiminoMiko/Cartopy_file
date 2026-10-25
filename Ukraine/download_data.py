@@ -5,7 +5,7 @@
 
 是什么: 下载并加工乌克兰全图所需的全部本地数据(ETOPO/GADM/OCHA/OSM), 派生出
 1991/2014/2022 边界、德左参照面与河流水库的 GeoJSON, 供 ``ukraine.py`` 离线读取.
-完整说明: ``docs/Ukraine/download_data.md``(数据源选择/输出文件/运行方式).
+完整说明: ``docs/maps/ukraine.md``(数据源选择/输出文件/运行方式).
 """
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ DNIEPER_WATER_PATH = DATA_DIR / "dnieper_water_osm.geojson"
 # ---- 德涅斯特河(OSM) 与德左参照面 ----
 # 德涅斯特河干流 relation(waterway=river): 214 段 main_stream 成员 way.
 # NE 10m 的德涅斯特河在德左一带平均约 1 km 一个顶点, 与"沿河"的德左西缘
-# 放不到一起(数据源选择理由见 docs/Ukraine/download_data.md 第 7 条); 德左填色的西缘要用这条高精度线裁出来,
+# 放不到一起(数据源选择理由见 docs/maps/ukraine.md 第 7 条); 德左填色的西缘要用这条高精度线裁出来,
 # 绘制时也改用同一条线, 两者才能严格重合.
 DNIESTER_RIVER_RELATION = 2474595
 DNIESTER_RIVER_CACHE = DATA_DIR / "osm_dniester_river.json"

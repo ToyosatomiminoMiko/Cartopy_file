@@ -4,7 +4,7 @@
 """Prefetch the shared cartopy basemap data and check the project data inventory.
 
 是什么: 预取全项目共用的 Natural Earth 底图; ``--check`` 只检查数据清单是否就位(不联网).
-完整说明(为什么集中预取、缓存位置与退出码)见 ``docs/download_data.md``.
+完整说明(为什么集中预取、缓存位置与退出码)见 ``docs/data-preparation.md``.
 """
 
 from __future__ import annotations

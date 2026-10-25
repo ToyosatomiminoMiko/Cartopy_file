@@ -5,7 +5,7 @@
 
 是什么: 下载掸邦各特区/自治区域的 OpenStreetMap 行政边界关系与画框附近国界
 (admin_level=2), 拼装成多边形/折线后缓存为 GeoJSON, 供 northern_shan.py 绘图.
-完整说明(数据来源、拼装原理、ODbL 许可)见 ``docs/Myanmar/download_regions.md``.
+完整说明(数据来源、拼装原理、ODbL 许可)见 ``docs/maps/northern-shan.md``.
 """
 
 from __future__ import annotations

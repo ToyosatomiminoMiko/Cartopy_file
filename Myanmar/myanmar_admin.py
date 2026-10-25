@@ -5,7 +5,7 @@
 
 是什么: 绘制缅甸省/邦级行政区划图, 七邦冷色、七省暖色、内比都联邦区中性色加
 斜线, 行政区名与行政中心中英双语标注, 并叠加河流与 ETOPO 2022 地形晕渲.
-完整说明(配色、投影、数据来源、运行方式)见 ``docs/Myanmar/myanmar_admin.md``.
+完整说明(配色、投影、数据来源、运行方式)见 ``docs/maps/myanmar-admin.md``.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import json
 import os
 from pathlib import Path
 
-# matplotlib 的缓存目录必须在导入 matplotlib 之前指定; 本机 ~/.config 不可写.
+# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
@@ -33,22 +33,17 @@ from shapely.geometry import shape  # GeoJSON -> Shapely
 
 import map_lib  # 复用 ETOPO 读取、晕渲、海陆底色工具
 
-# cartopy 的 Natural Earth 底图缓存统一定位到仓库 data/cartopy(见
-# cartopy_file.data): 本机 HOME 只读, 默认的 ~/.local/share/cartopy 不可写;
-# 统一后各脚本共用同一份底图, 已下载过的要素不会重复下载.
+# cartopy 底图缓存统一到仓库 data/cartopy, 见 docs/reference/data.md.
 from cartopy_file.data import configure_cartopy
 
 configure_cartopy()
 
-# 全局字体: 项目包 cartopy_file 统一设置. 汉字用 Noto Sans Mono CJK SC,
-# 英文/数字用 JetBrains Mono Slashed Medium; 中英混排由逐字符回退自动选字体,
-# 所以下面的文字调用不再逐个指定 fontfamily.
+# 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
 from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
-# 产物统一为 SVG(见 cartopy_file.output): 文字/边界/斜线填色是矢量,
-# 只有底下的地形晕渲是内嵌栅格.
+# 产物统一为 SVG, 见 docs/reference/output.md.
 apply_svg_output()
 # 斜线填充过密会在成品尺寸下糊成深色块, 这里保持项目里一致的细线.
 plt.rcParams["hatch.linewidth"] = 0.5

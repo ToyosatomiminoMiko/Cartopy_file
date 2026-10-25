@@ -5,7 +5,7 @@
 
 是什么: 以 ETOPO 2022 地形晕渲为底图绘制乌克兰全图, 叠加 1991/2014/2022 三种边界口径、
 第聂伯河梯级水库水面与邻国地貌/水系参照.
-完整说明: ``docs/Ukraine/ukraine.md``(设计要点/数据来源/运行方式).
+完整说明: ``docs/maps/ukraine.md``(设计要点/数据来源/运行方式).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import os
 import sys
 from pathlib import Path
 
-# matplotlib 的缓存目录必须在导入 matplotlib 之前指定; 本机 ~/.config 不可写.
+# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
@@ -36,21 +36,20 @@ from shapely.ops import unary_union  # 合并几何
 # 共享的 ETOPO/晕渲/底图工具(实现见 src/cartopy_file/relief.py).
 from cartopy_file.relief import add_base_map, find_etopo, load_countries, load_elevation, make_relief
 
-# 重合边界只画一条: 剪掉低优先级线里与高优先级线重合的段落(见 overlap.py).
+# 重合边界只画一条: 剪掉低优先级线里与高优先级线重合的段落(见 docs/reference/overlap.md).
 from cartopy_file.overlap import cut, overlap_mask
 
-# cartopy 的 Natural Earth 缓存统一到仓库 data/cartopy(见 cartopy_file.data).
+# cartopy 底图缓存统一到仓库 data/cartopy, 见 docs/reference/data.md.
 from cartopy_file.data import configure_cartopy, natural_earth_paths
 
 configure_cartopy()
 
-# 全局字体: 汉字 Noto Sans Mono CJK SC, 英文/数字 JetBrains Mono Slashed Medium.
+# 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
 from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
-# 产物统一为 SVG(见 cartopy_file.output): 边界/河流/文字是矢量,
-# 只有地形晕渲是内嵌栅格.
+# 产物统一为 SVG, 见 docs/reference/output.md.
 apply_svg_output()
 
 
@@ -89,7 +88,7 @@ def make_relief_cmap(vmin: float, vmax: float) -> mcolors.LinearSegmentedColorma
 
     返回的色带配合 Normalize(vmin, vmax) 使用(色标横轴保持线性, 只是中点
     处色带不连续); N=2048 是为了让 0 m 处的水/陆跳变只占一个色阶宽度.
-    图上不画海岸线(设计理由见 docs/Ukraine/ukraine.md 的设计要点 9), 这条跳变本身就是岸线, 所以要够
+    图上不画海岸线(设计理由见 docs/maps/ukraine.md 的设计要点 9), 这条跳变本身就是岸线, 所以要够
     显眼: 水面从 -100 m 到 -1 m 逐渐变浅、变饱和, 陆地从 +1 m 起是偏黄
     的浅绿, 0 m 两侧的 L* 差约 7、色相差约 135° —— 原先那对近白色的
     #b5dcf2 / #d2e5b2 只差 3 和 119°, 没有海岸线时岸边会糊成一片.
@@ -475,7 +474,7 @@ def clip_coast_segments(line, coastline):
 
     为什么必须剪: GADM 的州级面和国家面都是沿海岸线闭合的, 直接画出来会在
     黑海/亚速海岸上多出一圈灰色州界线和一条红色国界线. 图上又不画海岸线
-    (设计理由见 docs/Ukraine/ukraine.md 的设计要点 9), 所以岸边的线一律剪掉, 岸线只由地形配色在 0 m 处的
+    (设计理由见 docs/maps/ukraine.md 的设计要点 9), 所以岸边的线一律剪掉, 岸线只由地形配色在 0 m 处的
     跳变表达.
 
     缓冲半径 COAST_CLIP_DEG 用来吸收 GADM 岸线与 NE 海岸线的偏差(中位约
@@ -722,15 +721,9 @@ def draw_borders(
     add_fill_layer(ax, list(ngca_units.geometry), color=COLOR_2014_FILL, alpha=0.24, zorder=2.2)
 
     # --- 2014 年宣布的哈尔科夫人民共和国: 只有宣称、没有实际控制, 用橙色虚线 ---
-    # 这里画的是哈尔科夫州界, 其中两段与别的线重合, 都要剪掉:
-    #   - 南段 = 2022 年宣称四州的外边界(紫点划线). 两条虚线叠在一起时, 后画
-    #     紫线的点划间隙里会露出橙线及其白描边, 看起来像两条线在同时表达
-    #     一个口径; 所以重合段只画紫线;
-    #   - 东北段 = 乌克兰与俄罗斯的 1991 国界(红色半透明线). 橙线若留在
-    #     红线下面会透出橙色, 重合段变成红橙混色; 所以重合段只画 1991 红线.
-    # 剪剩的是哈尔科夫州与苏梅/波尔塔瓦/第聂伯罗/卢甘斯克/顿涅茨克相邻的
-    # 州内段. 差集切出的碎段由 cartopy_file.overlap.cut 拼回连续折线(否则
-    # 虚线节距会乱); 若数据变化导致州界被剪空, 则直接跳过橙线图层.
+    # 哈尔科夫州界的南段/东北段分别与 2022 宣称边界、1991 国界重合, 只画优先级更高的
+    # 那条; 差集碎段由 overlap.cut 拼回连续折线, 剪空时跳过图层(理由见
+    # docs/maps/ukraine.md 设计要点 6).
     kharkiv = oblasts[oblasts["name"] == "Kharkiv"]
     if not kharkiv.empty:
         kharkiv_boundary = unary_union(list(kharkiv.geometry)).boundary
@@ -750,13 +743,9 @@ def draw_borders(
             )
 
     # --- 2022 年俄方宣称的四州全境: 四州合并后的外边界, 紫色点划线 ---
-    # 先把与 1991 国界重合的段落剪掉: 顿巴斯东缘的俄乌边界、赫尔松/扎波罗热/
-    # 顿涅茨克南部的海岸线, 这几段上 2022 宣称边界与 1991 边界是同一条线.
-    # 顿巴斯东缘是陆上段, 只保留红色 1991 线; 南部沿海段既不能画紫线(与
-    # 半透明红线混色), 也不能靠红线代替(红线本身不画沿海段), 所以那里
-    # 什么都不画, 海陆界线由地形配色表达. 剪剩的紫线才是 2022 口径独有的
-    # 段落; 与 2014 控制线重合的克里米亚地峡一段例外, 紫线先画, 由后画的
-    # 不透明蓝线盖住, 不存在混色问题.
+    # 2022 宣称四州的外边界: 与 1991 国界/海岸线重合的段落按优先级剪掉, 只保留紫线
+    # 独有的段落; 与 2014 控制线重合的克里米亚地峡段先画紫线, 由后画的不透明蓝线盖住
+    # (理由见 docs/maps/ukraine.md 设计要点 6).
     claimed_only = cut(
         claimed_union.boundary,
         overlap_mask([border_1991], 0.003),
@@ -775,14 +764,9 @@ def draw_borders(
         )
 
     # --- 1991 年国际承认边界: 最外层、最粗、红色半透明实线 ---
-    # 用户要求改成红色半透明: 红色 alpha 叠在地形上, 地形纹理能透出来; 不再加
-    # 白色描边——白描边会把半透明红线衬成发白的"粉带", 反而看不出是半透明红.
-    # 线宽保持最粗, 1991 口径仍是这张图的主线; 紫/橙线的重合段已在前面剪掉,
-    # 所以红线下面不会再透出它们的颜色.
-    # 只画陆上段: 沿海段在 main 里按海岸线缓冲带剪掉, 且不补画海岸线 ——
-    # 标准地形图的岸边不画线, 海陆界线由配色在 0 m 处的跳变表达(见
-    # make_relief_cmap), 这样也不会有一条与国界平行的海岸线抢层级.
-    # border_land 为空(数据缺失)时退回完整国界, 保证图不残.
+    # 1991 年边界: 最外层、最粗、红色半透明实线, 不加白描边; 只画陆上段, 海陆界线
+    # 由地形配色表达, border_land 为空时退回完整国界(理由见 docs/maps/ukraine.md
+    # 设计要点 5 与 9).
     if border_land is not None:
         add_line_layer(
             ax,

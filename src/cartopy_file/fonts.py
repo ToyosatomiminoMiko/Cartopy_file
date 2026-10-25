@@ -5,7 +5,7 @@
 
 是什么: 设置全项目字体(拉丁/数字 JetBrains Mono Slashed Medium, 汉字 Noto Sans Mono CJK SC).
 完整说明(字体名对应、逐字符回退原理、font.sans-serif 的坑、安装与用法)见
-``docs/cartopy_file/fonts.md``.
+``docs/reference/fonts.md``.
 """
 
 from __future__ import annotations

@@ -1,5 +1,4 @@
-# 缓存目录必须在导入 matplotlib 之前指定; 本机 ~/.config 只读, 不能写默认位置.
-# (见 cartopy_file.data)
+# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
 from cartopy_file.data import configure_cartopy, prepare_matplotlib_env
 
 prepare_matplotlib_env()
@@ -11,7 +10,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
-# cartopy 的 Natural Earth 底图缓存统一到仓库 data/cartopy(见 cartopy_file.data).
+# cartopy 底图缓存统一到仓库 data/cartopy(见 docs/reference/data.md).
 configure_cartopy()
 
 # 全局字体: 由项目包 cartopy_file 统一提供, 与其他绘图脚本一致.
