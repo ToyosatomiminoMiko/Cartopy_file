@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
+# (copyright) Kawaii Femboy Technology Co., Ltd.
 """Download the ETOPO 2022 15-arc-second USSR subset and Natural Earth boundaries.
 
-Instead of opening ~66 NOAA OPeNDAP tile URLs in xarray, this script downloads a
-single regional NetCDF file from the NOAA ERDDAP endpoint and caches it locally.
-The default stride is 8 (2 arc-minutes), which is still fine for the
-300-dpi map output needs and keeps the download to about 0.6 GB.  Use
-``--stride 1`` if you really want the full 15-arc-second grid.
+是什么: 从 NOAA ERDDAP 一次下载苏联区域 ETOPO 高程子集(默认 stride=8, 约 0.6 GB)
+与 Natural Earth 国界, 缓存到 ``USSR/data/`` 供 ``ussr.py`` 读取.
+完整说明: ``docs/USSR/download_etopo.md``(数据来源/下载方式/注意事项).
 """
 
 from __future__ import annotations

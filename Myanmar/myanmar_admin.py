@@ -1,36 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# ============================================================
-# myanmar_admin.py
-# 绘制缅甸联邦共和国省/邦级行政区划图:
-#   - 七邦用冷色, 七省用暖色, 内比都联邦区用中性浅色 + 斜线;
-#   - 邦/省名与行政中心均为中文 + English 双语标注;
-#   - 叠加伊洛瓦底江、萨尔温江, 以及 ETOPO 2022 地形晕渲;
-#   - 输出 SVG(内嵌 300 dpi 晕渲栅格), 适合打印与排版.
-# 运行前先执行:
-#   python prepare_admin_data.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
 """Bilingual administrative-division map of Myanmar.
 
-设计要点:
-    1. 颜色编码: 7 个邦(State)统一用冷色系, 7 个省(Region)统一用暖色系,
-       内比都联邦区既非邦也非省, 用中性浅色 + 斜线填充, 避免被误读.
-    2. 投影: 缅甸南北约 19°, 东西约 9°, 用兰勃特等角圆锥投影
-       (Lambert Conformal Conic), 标准纬线取 10°N / 27°N, 使全国比例误差
-       最小; 等经纬度投影会把高纬的克钦邦横向拉宽, 不适合这种狭长国土.
-    3. 地形: ETOPO 2022 只作为低透明度底纹, 不抢行政区颜色的视觉层级;
-       河流单独加深, 让伊洛瓦底江和萨尔温江在彩色块上仍然清楚.
-    4. 文字: 行政区名用大号中文 + 小号英文, 行政中心用小号中文 + 英文;
-       所有文字加白色描边, 保证压在深色地形或彩色块上仍可读.
-
-数据:
-    data/myanmar_admin1.geojson  由 prepare_admin_data.py 生成
-    data/ne_10m_admin_0_countries  Natural Earth 10m 国界
-    data/ne_10m_rivers_lake_centerlines  Natural Earth 10m 河流
-    data/ETOPO_2022_v1_15s_myanmar_stride2.nc  NOAA ETOPO 2022 地形
-作者: Haojiren Galactic
-时间: 2026-10-24
+是什么: 绘制缅甸省/邦级行政区划图, 七邦冷色、七省暖色、内比都联邦区中性色加
+斜线, 行政区名与行政中心中英双语标注, 并叠加河流与 ETOPO 2022 地形晕渲.
+完整说明(配色、投影、数据来源、运行方式)见 ``docs/Myanmar/myanmar_admin.md``.
 """
 
 from __future__ import annotations

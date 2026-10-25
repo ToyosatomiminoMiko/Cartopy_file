@@ -1,40 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# ============================================================
-# output.py
-# 项目统一的出图格式: 所有地图产物都保存为 SVG, 不再输出 PNG.
-# 属于可安装的项目包 cartopy_file, 是所有绘图脚本唯一的出图入口.
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
 """Project-wide figure output: SVG only.
 
-是什么:
-    - ``apply_svg_output()``: 在导入 matplotlib 之后调用一次, 把 SVG 相关的
-      rcParams 固定成本项目要求的取值;
-    - ``save_svg()``: 把 Figure 保存成单个 ``.svg`` 文件, 并强制后缀为
-      ``.svg``(防止某个脚本漏改路径又生成 PNG).
-
-为什么统一用 SVG:
-    1. 地图上的文字、国界/州界、河流、填色、经纬网都是矢量. PNG 在 300 dpi
-       下放大会糊, 而 SVG 任意缩放都清晰, 排版时也不会因为再采样丢细节;
-       文字宽度用 pt 定义, 与 dpi 无关, 换输出尺寸不用重调字号.
-    2. 唯一无法矢量化的是山体晕渲: ``relief.make_relief`` 用高程数组算出
-       RGB 栅格, 它本来就没有边界可描. matplotlib 会把它编码成 PNG 并以
-       base64 内嵌进 SVG(``svg.image_inline=True``), 所以产物仍然只有一个
-       自包含的 ``.svg`` 文件, 不会在旁边再掉一个 ``_1.png``.
-       ``--dpi`` 参数因此只影响这块内嵌栅格的分辨率, 矢量部分与它无关.
-    3. ``svg.fonttype="path"``: 汉字转成字形路径轮廓. 这样阅读器(浏览器、
-       Inkscape、Word)不需要装 Noto Sans Mono CJK SC 也能正确显示, 不会出现
-       方框/替换字体; 代价是 SVG 里的文字不能选中和检索. 本项目要的是
-       "换台机器打开也一模一样"的成品图, 所以取前者.
-    4. ``metadata={"Date": None}`` + 固定 ``svg.hashsalt``: 同一份数据重复出图
-       得到相同内容(SVG 里不再写生成时间, 内部 id 也不再随机), 提交到 git
-       不会每次刷新时间戳和 id 而造成无意义改动.
-
-警告:
-    本模块不设置 ``MPLCONFIGDIR``. 调用方仍必须在导入 matplotlib 之前调用
-    ``cartopy_file.data.prepare_matplotlib_env()``, 否则本机只读的
-    ``~/.config`` 会让 matplotlib 每次重建字体缓存.
+是什么: 所有地图产物统一保存为单个自包含的 SVG(`apply_svg_output` + `save_svg`).
+完整说明(SVG 的理由、用法与警告)见 ``docs/cartopy_file/output.md``.
 """
 
 from __future__ import annotations
@@ -61,7 +31,7 @@ def apply_svg_output() -> None:
 
     matplotlib.rcParams.update(
         {
-            # 汉字转路径, 阅读器不需要 CJK 字体(见模块说明第 3 条).
+            # 汉字转路径, 阅读器不需要 CJK 字体(理由见 docs/cartopy_file/output.md).
             "svg.fonttype": "path",
             # 晕渲栅格 base64 内嵌, 保证产物只有一个 .svg 文件.
             "svg.image_inline": True,

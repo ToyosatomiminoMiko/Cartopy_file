@@ -1,18 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# ============================================================
-# map_lib.py
-# 缅甸系列地形图共用的绘图工具入口: 读取 ETOPO 高程、生成晕渲配色、
-# 读取 Natural Earth 国家边界、铺海陆底色.
-# 实际实现已上移到项目共享包 cartopy_file.relief(乌克兰图也要用同一套算法),
-# 本模块只保留缅甸脚本使用的导入名, 以及导入 matplotlib 前的缓存目录设置.
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
-"""Compatibility shim: Myanmar scripts import the shared helpers from here.
+"""Compatibility shim: Myanmar scripts import the shared relief helpers from here.
 
-为什么保留这个文件: myanmar.py / northern_shan.py 里写的是 ``import map_lib``,
-函数名保持不变可以避免大范围改脚本; 具体实现见
-``src/cartopy_file/relief.py``, 两个图种共用同一份代码.
+是什么: 缅甸系列地形图的共用绘图工具入口(读取 ETOPO 高程、生成晕渲、读取国界、
+铺海陆底色); 实现已上移到 cartopy_file.relief, 这里只保留导入名与缓存目录设置.
+完整说明(为什么保留这个兼容层)见 ``docs/Myanmar/map_lib.md``.
 """
 
 from __future__ import annotations

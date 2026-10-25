@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-# ============================================================
-# ussr.py
-# 从本地 ETOPO 2022 NetCDF 读取苏联区域地形数据,
-# 使用 Cartopy 绘制兰勃特等面积方位投影地形图,
-# 并叠加 Natural Earth 前苏联加盟共和国合并边界.
-# 运行前需确保 data/ 下存在高程 NetCDF 与边界 shapefile.
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
+"""USSR topography map: ETOPO 2022 relief with merged ex-USSR borders.
+
+是什么: 从本地 ETOPO 2022 NetCDF 读取苏联区域高程, 用兰勃特等面积方位投影绘制
+地形图, 并叠加 Natural Earth 的前苏联加盟共和国合并边界.
+完整说明: ``docs/USSR/ussr.md``(投影/图幅内容/数据来源/运行方式).
+"""
+
 import os  # 读取环境变量,例如 ETOPO_PATH
 from pathlib import Path  # 统一使用 pathlib 处理文件路径
 

@@ -1,101 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# ============================================================
-# download_data.py
-# 准备乌克兰全图所需的全部本地数据:
-#   1) NOAA ETOPO 2022 乌克兰区域高程子集(NetCDF);
-#   2) Natural Earth 10m 国家边界(邻国底色/国界/标注用);
-#   3) GADM 4.1 乌克兰一级行政区(州/克里米亚/塞瓦斯托波尔, 法理口径);
-#   4) OCHA HDX 2021 HNO GCA/NGCA 分区(顿巴斯接触线与分离武装控制区);
-#   5) OpenStreetMap 第聂伯河干流与梯级水库(Overpass API, 精细水系);
-#   6) OpenStreetMap 德涅斯特河干流与德左(PMR)边界(Overpass API);
-#   7) OpenStreetMap 南布格河/顿河下游补段(NE 10m 在河口前收笔, 见下);
-# 再把它们加工成绘图脚本直接读取的 GeoJSON:
-#   1991 年国际承认边界、各州边界、2014 年克里米亚陆上控制线、
-#   2014 年顿巴斯控制区/接触线、2022 年俄方宣称的四州全境、
-#   德涅斯特河沿岸摩尔达维亚共和国(德左)区域面(按德涅斯特河与 1991 国界裁切)、
-#   第聂伯河干流中心线与梯级水库水面、德涅斯特河中心线、
-#   南布格河/顿河中心线(NE + OSM 拼接).
-# 所有下载都是"文件已存在就跳过", 重复执行不会重新联网.
-# 运行: python Ukraine/download_data.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
 """Prepare all local data for the Ukraine overview map.
 
-为什么用这些数据源:
-    1. 地形: NOAA NCEI ETOPO 2022(15 弧秒全球地形/水深), 与项目里缅甸、
-       苏联图一致; 这里向 NOAA ERDDAP 请求已经裁剪/重采样好的区域子集,
-       只下一个文件, 绘图时完全离线.
-    2. 1991 年国际承认边界: 用 GADM 4.1 的乌克兰一级行政区合并得到.
-       选择 GADM 而不是 Natural Earth 的原因见下面 ``load_gadm`` 的注释:
-       Natural Earth 的 admin_0 把克里米亚划给俄罗斯(事实控制口径), 无法
-       表达"1991 年边界含克里米亚"这一法理口径; GADM 4.1 的 UKR 单元把
-       克里米亚和塞瓦斯托波尔都算作乌克兰, 合并后即得法理国界.
-    3. 2014 年实际控制线:
-       - 克里米亚: 其与赫尔松州的行政边界就是 2014 年 3 月以后的陆上
-         实际控制线(彼列科普地峡/锡瓦什湖一带);
-       - 顿巴斯: OCHA/HDX 的 2021 HNO GCA/NGCA 分区给出了政府控制区
-         (GCA)与非政府控制区(NGCA)两套面; 两者之间的分界线即接触线.
-         这条线是明斯克协议(2015-02)之后的线, 2015-2022 基本稳定, 作为
-         "2014 年接触线"的近似(项目需求明确允许大致范围).
-    4. 2022 年边界: 俄方 2022-09 单方面宣称赫尔松州、扎波罗热州、顿涅茨克
-       人民共和国、卢甘斯克人民共和国"全境", 实际并未全部控制; 因此这里
-       只取四州完整的行政区边界(GADM 州界), 明确标注为"宣称"而非控制线.
-    5. 第聂伯河: Natural Earth 10m 的河道中心线只有 ~600 个顶点, 干流在
-       乌克兰境内几乎全是梯级水库, 叠在 1:330 万的图上是一条几乎看不见的
-       细线, 位置也与实际河道相差中位数约 0.8 km(个别水库段可差 10 km 以上).
-       改用 OSM 的 waterway=river relation: 干流在乌克兰段有上万个顶点,
-       位置精度到几十米; 五个梯级水库另有独立的 natural=water 多边形, 按
-       实际水面填充, 这才看得出"第聂伯河在乌克兰是一串水库".
-       卡霍夫卡水库 2023-06 溃坝后被放空, OSM 已删除其水面多边形; 本图讲的
-       是 2022 年, 所以这一座用 Natural Earth 10m 的溃坝前水库面补上.
-    6. 南布格河/顿河下游: Natural Earth 10m 河网在这两条河入海前提前收笔 ——
-       南布格河止于 (31.75, 47.26), 河口(米科拉伊夫一带的利曼)以上约 35 km;
-       顿河止于 (39.38, 47.11), 还在顿河三角洲里, 离亚速海约 10 km. 图上表现
-       为"河线断了": 南布格河只剩一串 ETOPO 水面像元, 顿河在三角洲里收笔.
-       这两处改用 OSM waterway=river 的下游一小段补上, 并把 NE 上段与 OSM 下段
-       在两条线的交点附近拼成一条连续中心线输出(做法见
-       ``build_river_extension``).
-    7. 德涅斯特河沿岸摩尔达维亚共和国(德左): 图幅西南角的摩尔多瓦境内.
-       数据用 OSM 的 PMR relation(admin_level=3, 见 ``TRANSNISTRIA_RELATION``),
-       再按两条"图上已经画出来的线"裁切: 西缘 = 德涅斯特河中心线(OSM), 东缘 =
-       1991 年乌克兰国界(GADM). 这样填色边缘与蓝河/红线是同一条几何, 不会再
-       出现"灰区和河流对不上".
-       为什么换掉 GADM 4.1 摩尔多瓦一级单元(原先的做法): 它的 Transnistria
-       单元只有 546 个顶点(平均 1.3 km 一个), 西缘与德涅斯特河河心线相差中位
-       5.6 km、最远约 30 km, 在图上是一圈大锯齿; 与 NE 10m 的河线各画各的,
-       同一个"沿河"边界出现两条对不上的线. OSM 的 PMR 边界与 OSM 河网是同一套
-       数字化(沿河段的顶点直接共用河线顶点), 精度到几十米.
-       为什么还要裁切而不是直接用 PMR 面: PMR 面包含 Bender(宾杰里, 河右岸)
-       与部分右岸村庄, 直接填会跨过德涅斯特河; 本图只表达"河东岸那条地带",
-       所以用河中心线把右岸部分裁掉. 东缘再与 1991 国界求差, 保证灰区不越过
-       红色国界线(OSM 国界与 GADM 国界有 ~0.3~0.6 km 的数字化差异, 不裁的话
-       北端/河口会有小尖角戳出红线).
-       为什么把 PMR 关系里的内环一起填上: 那个内环是摩尔多瓦控制的左岸村庄
-       (杜伯萨里区飞地), 改前的 GADM 单元同样没有把它挖掉; 本图填色只作
-       位置参照, 不区分实际控制, 保持一条连续的地带(详见 ``build_transnistria``).
-
-输出(都在 ``Ukraine/data/`` 下, 已在 .gitignore 里):
-    ETOPO_2022_v1_15s_ukraine_stride2.nc      ETOPO 高程
-    ne_10m_admin_0_countries/                 NE 10m 国界
-    gadm41_UKR/gadm41_UKR_1.json              GADM 乌克兰一级行政区
-    ocha_gca_ngca/                            OCHA GCA/NGCA shapefile
-    osm_dniester_river.json                   OSM 德涅斯特河干流原始关系(缓存)
-    osm_transnistria_boundary.json            OSM 德左(PMR)边界原始关系(缓存)
-    ukraine_oblasts.geojson                   27 个一级行政区(含克里米亚/塞瓦斯托波尔)
-    ukraine_1991.geojson                      1991 年国际承认边界(含克里米亚)
-    crimea_2014_line.geojson                  2014 年克里米亚陆上控制线
-    occupied_2014.geojson                     2014 年顿巴斯分离武装控制区(顿/卢两州)
-    contact_line_2014.geojson                 2014 年顿巴斯接触线(近似)
-    claimed_2022.geojson                      2022 年俄方宣称的四州全境(面)
-    transnistria.geojson                      德左区域面(OSM PMR 按河心线/1991 国界裁切)
-    dnieper_river_osm.geojson                 第聂伯河干流中心线(OSM)
-    dnieper_water_osm.geojson                 第聂伯河梯级水库水面(OSM + NE 卡霍夫卡)
-    dniester_river_osm.geojson                德涅斯特河干流中心线(OSM)
-    southern_bug_river_osm.geojson            南布格河中心线(NE 上段 + OSM 下段)
-    don_river_osm.geojson                     顿河中心线(NE 上段 + OSM 下段)
-
-数据许可: OpenStreetMap 贡献者, ODbL 1.0.
+是什么: 下载并加工乌克兰全图所需的全部本地数据(ETOPO/GADM/OCHA/OSM), 派生出
+1991/2014/2022 边界、德左参照面与河流水库的 GeoJSON, 供 ``ukraine.py`` 离线读取.
+完整说明: ``docs/Ukraine/download_data.md``(数据源选择/输出文件/运行方式).
 """
 
 from __future__ import annotations
@@ -191,7 +101,7 @@ DNIEPER_WATER_PATH = DATA_DIR / "dnieper_water_osm.geojson"
 # ---- 德涅斯特河(OSM) 与德左参照面 ----
 # 德涅斯特河干流 relation(waterway=river): 214 段 main_stream 成员 way.
 # NE 10m 的德涅斯特河在德左一带平均约 1 km 一个顶点, 与"沿河"的德左西缘
-# 放不到一起(见模块说明第 7 条); 德左填色的西缘要用这条高精度线裁出来,
+# 放不到一起(数据源选择理由见 docs/Ukraine/download_data.md 第 7 条); 德左填色的西缘要用这条高精度线裁出来,
 # 绘制时也改用同一条线, 两者才能严格重合.
 DNIESTER_RIVER_RELATION = 2474595
 DNIESTER_RIVER_CACHE = DATA_DIR / "osm_dniester_river.json"

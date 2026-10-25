@@ -31,10 +31,7 @@ points = [
 
 fig = plt.figure(figsize=(10, 7.5))
 ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-# 东,西,,
-# ax.set_extent([-180, 0, 10, 80], crs=ccrs.PlateCarree())
 ax.stock_img()
-# ax.set_global()
 
 ax.add_feature(cfeature.LAND)
 ax.add_feature(cfeature.OCEAN)
@@ -43,17 +40,8 @@ ax.add_feature(cfeature.BORDERS, linestyle=":")
 ax.add_feature(cfeature.LAKES, alpha=0.5)
 ax.add_feature(cfeature.RIVERS)
 
-"""
-E:东经+
-W:西经-
-N:北纬+
-S:南纬-
-"""
-# ax.plot([-0.08, 132], [51.53, 43.17], transform=ccrs.PlateCarree())
-# ax.plot([-0.08, 132], [51.53, 43.17], transform=ccrs.Geodetic())
-# ax.plot(-116.14816944444445,34.295252777777776 , '.', transform=ccrs.PlateCarree())
-
-for name, lon, lat in points:
+# 经纬度符号约定: E 东经为正, W 西经为负, N 北纬为正, S 南纬为负.
+for _, lon, lat in points:
     ax.plot(lon, lat, "+", transform=ccrs.PlateCarree())
 
 plt.show()

@@ -1,41 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# ============================================================
-# download_regions.py
-# 下载掸邦各武装/自治区域的 OpenStreetMap 行政边界关系以及画框附近的
-# 国界(admin_level=2), 拼装成多边形/折线后缓存为 GeoJSON,
-# 供 northern_shan.py 绘图使用.
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
-"""下载并缓存掸邦各特区/自治区域边界与国界 GeoJSON。
+"""Download and cache OSM boundaries for Shan State special regions and borders.
 
-为什么用 OpenStreetMap 而不是自己手工描点:
-    缅甸各特区没有官方测绘成果可下载, 但 OSM 社区已经把 2024 年以后
-    缅甸联邦第一特区(1 市 4 县)、佤邦(5 县 1 特区)、掸邦东部第四特区
-    (3 县)、德昂邦(德昂民族解放军控制区)的行政边界按关系(relation)
-    逐段绘出, 其范围与各特区自己公布的行政区划图基本一致.
-    直接取这些关系比手工描点精确得多.
-
-为什么国界也从 OSM 取, 而不是用 Natural Earth:
-    Natural Earth 10m 国界在画框内只有几百个顶点(同范围 OSM 国界约两万
-    个), 与 OSM 区域边界沿国界那一段平均偏差约 1.5 km、最大约 5 km.
-    若把两套数据叠在一起画, 国界和区域边界会各走各的, 同一条线画成两条.
-    改用 OSM 的 admin_level=2 关系后, 国界与区域边界本来就共享同一批
-    way/节点, 两者严丝合缝; 绘图时再把重合段直接按国界样式画.
-
-为什么在本地拼装而不是直接下载现成 GeoJSON:
-    Overpass API 只按 OSM 数据模型返回 relation + 成员 way, 一个多边形
-    往往由几十段 way 首尾相接组成; 这里用 shapely 把所有 way 拼成线段后
-    做 polygonize, 再按成员角色 outer/inner 挖洞, 得到标准 GeoJSON 多边形.
-    国界不需要多边形, 按 way 直接缓存成 MultiLineString 即可.
-
-为什么把边界和绘图分开:
-    渲染时不应该依赖网络. 本脚本只负责"取数 + 拼装 + 缓存",
-    northern_shan.py 只读本地 GeoJSON; 缓存过期时重新运行本脚本即可.
-
-数据许可: OpenStreetMap 贡献者, ODbL 1.0.
-作者: Haojiren Galactic
-时间: 2026-10-24
+是什么: 下载掸邦各特区/自治区域的 OpenStreetMap 行政边界关系与画框附近国界
+(admin_level=2), 拼装成多边形/折线后缓存为 GeoJSON, 供 northern_shan.py 绘图.
+完整说明(数据来源、拼装原理、ODbL 许可)见 ``docs/Myanmar/download_regions.md``.
 """
 
 from __future__ import annotations

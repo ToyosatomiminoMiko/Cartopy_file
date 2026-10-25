@@ -1,25 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# ============================================================
-# myanmar.py
-# 读取本地 NOAA ETOPO 2022 缅甸区域高程 NetCDF,
-# 用兰勃特等角圆锥投影绘制缅甸联邦共和国全境地形图,
-# 叠加 Natural Earth 10m 海岸线与国界,并标注邻国、城市和海域.
-# 运行前先执行: python download_etopo.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
 """Draw a full-territory topographic map of the Republic of the Union of Myanmar.
 
-Data: NOAA NCEI ETOPO 2022 15-arc-second global relief (NOAA ERDDAP subset,
-downloaded by ``download_etopo.py``) + Natural Earth 10m boundaries.
-
-Projection: Lambert Conformal Conic centred on 96.5E / 19.5N with standard
-parallels 10N and 27N.  Myanmar is strongly elongated north-south
-(about 9.8N-28.5N, 92.2E-101.2E), so a conformal conic is preferred over
-Mercator (which over-inflates area at 28N) and over azimuthal projections
-(which suit round regions rather than narrow north-south strips).  With the
-standard parallels close to the country's latitude limits the scale error
-across Myanmar stays well under 1%.
+是什么: 读取本地 NOAA ETOPO 2022 缅甸区域高程, 用兰勃特等角圆锥投影绘制全国
+地形图, 叠加 Natural Earth 10m 海岸线与国界, 并标注邻国、城市和海域.
+完整说明(投影选择、数据来源、运行方式)见 ``docs/Myanmar/myanmar.md``.
 """
 
 from __future__ import annotations
@@ -66,7 +52,7 @@ apply_svg_output()
 # ============================
 # 配置
 # ============================
-# 本地数据目录 DATA_DIR 见文件顶部(必须在导入 matplotlib 之前定义).
+# 本地数据目录, 必须在导入 matplotlib 之前定义.
 # Natural Earth 10m 国家边界目录(由 download_etopo.py 解压得到).
 BOUNDARY_DIR = DATA_DIR / "ne_10m_admin_0_countries"
 
@@ -78,7 +64,7 @@ BOUNDARY_DIR = DATA_DIR / "ne_10m_admin_0_countries"
 EXTENT = [87.0, 106.0, 5.0, 31.0]
 
 # 投影参数: 兰勃特等角圆锥投影(Lambert Conformal Conic).
-# 选择理由见文件顶部说明; 中央经线取缅甸中部 96.5°E, 标准纬线取 10°N 与 27°N,
+# 选择理由见 docs/Myanmar/myanmar.md; 中央经线取缅甸中部 96.5°E, 标准纬线取 10°N 与 27°N,
 # 使全国范围的比例误差最小(标准纬线上比例因子恰为 1).
 PROJECTION = ccrs.LambertConformal(
     central_longitude=96.5,

@@ -1,34 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# ============================================================
-# prepare_admin_data.py
-# 准备缅甸省/邦级行政区划绘图数据: 下载 GADM 4.1 缅甸一级行政区、
-# 从 OpenStreetMap 取内比都联邦区边界, 再做裁剪、补缝、拓扑检查,
-# 输出 data/myanmar_admin1.geojson 供 myanmar_admin.py 直接读取.
-# 运行: python prepare_admin_data.py
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
 """Prepare the 15 first-order administrative units of Myanmar for mapping.
 
-为什么混用 GADM 和 OSM:
-    GADM 4.1 的缅甸一级行政区只有 15 个单元中的 14 个正确绘出,
-    其 "Naypyitaw Unionterritory" 只是一个约 1300 km² 的城市小块,
-    而官方联邦区面积约 7000 km². 因此这里用 GADM 的 14 个邦/省,
-    再用 OSM relation 5996482 的内比都联邦区边界替换它, 并从相邻的
-    曼德勒省等单元中精确扣除, 避免重叠.
-
-为什么需要补缝:
-    GADM 的边界与 Natural Earth 10m 国界来自不同测绘成果, 直接按国界
-    裁剪会在边境留下零碎空隙或探出国界的小块. 这里以 Natural Earth
-    国界为最终范围, 把裁掉的越界部分去掉, 再把空隙按"距离最近"并入
-    相邻行政区, 保证 15 个单元无重叠、无缝隙地铺满缅甸国土.
-
-数据:
-    GADM 4.1 (https://gadm.org)  一级行政区
-    OpenStreetMap ODbL 1.0      内比都联邦区 (relation 5996482)
-    Natural Earth 10m           国界 (NE admin_0_countries)
-作者: Haojiren Galactic
-时间: 2026-10-24
+是什么: 下载 GADM 4.1 缅甸一级行政区并从 OpenStreetMap 取内比都联邦区边界,
+经过裁剪、补缝、拓扑检查后输出 data/myanmar_admin1.geojson 供绘图读取.
+完整说明(为什么混用 GADM/OSM、为什么补缝)见
+``docs/Myanmar/prepare_admin_data.md``.
 """
 
 from __future__ import annotations

@@ -16,6 +16,15 @@ uv pip install -e .
 
 调试用的 ipykernel / debugpy 放在 `dev` 依赖组里，`uv sync` 默认会一并安装。
 
+## 文档
+
+本文件只讲安装、数据准备、出图和字体的总流程。每个脚本/模块的设计取舍、投影参数、
+数据来源、坑和运行前置条件见 [`docs/`](docs/README.md)(一个源码文件一页)：
+
+- 地图: [缅甸全境地形](docs/Myanmar/myanmar.md) · [缅甸行政区划](docs/Myanmar/myanmar_admin.md) · [掸邦/特区](docs/Myanmar/northern_shan.md) · [苏联](docs/USSR/ussr.md) · [乌克兰](docs/Ukraine/ukraine.md)
+- 共享包: [cartopy_file 总览](docs/cartopy_file/index.md) · [数据与缓存](docs/cartopy_file/data.md) · [字体](docs/cartopy_file/fonts.md) · [SVG 出图](docs/cartopy_file/output.md) · [边界剪枝](docs/cartopy_file/overlap.md) · [地形工具](docs/cartopy_file/relief.md)
+- 数据准备: [共用 Natural Earth 底图](docs/download_data.md) · [缅甸高程](docs/Myanmar/download_etopo.md) · [掸邦特区边界](docs/Myanmar/download_regions.md) · [缅甸行政区](docs/Myanmar/prepare_admin_data.md) · [苏联高程](docs/USSR/download_etopo.md) · [乌克兰数据](docs/Ukraine/download_data.md) · [缅甸 stride1 分块下载](docs/stride1_chunked.md)
+
 ## 数据与缓存
 
 绘图脚本**不会**在出图时联网下载：所有数据都在首次准备时下载一次，之后就只读本地文件。
@@ -49,7 +58,8 @@ python download_data.py --check
 ```
 
 只有换机器或重新 clone 时才需要重跑上面的命令；同一份数据反复出图不会再下载。
-需要把共用缓存放到别的可写磁盘时，设置环境变量 `CARTOPY_FILE_DATA=/path/to/data`。
+需要把共用缓存放到别的可写磁盘时，设置环境变量 `CARTOPY_FILE_DATA=/path/to/data`
+（定位逻辑见 [docs/cartopy_file/data.md](docs/cartopy_file/data.md)）。
 
 ## 出图
 
@@ -63,19 +73,12 @@ python download_data.py --check
 | `USSR/ussr.py` | `ussr_topography_etopo2022_lambert_azimuthal.svg` |
 | `Ukraine/ukraine.py` | `ukraine_borders_1991_2014_2022_lambert_conformal.svg` |
 
-统一的出图入口是 [src/cartopy_file/output.py](src/cartopy_file/output.py), 各脚本
-在 `apply_matplotlib_fonts()` 之后调用 `apply_svg_output()`, 保存时用
-`save_svg()` 而不是 `fig.savefig()`:
-
-- 文字、国界/州界、河流、填色、经纬网都是矢量, 放大不会糊; 汉字以字形路径
-  写入(`svg.fonttype="path"`), 换台机器打开不会缺字体或变方块, 代价是 SVG 里
-  的文字不能选中/检索;
-- 唯一无法矢量化的是山体晕渲: 它是由 ETOPO 高程算出的 RGB 栅格, 以 base64
-  内嵌进同一个 `.svg` 文件, 所以产物始终只有一个自包含文件, 不会在旁边再生成
-  `_1.png` 之类的附件;
-- 因此 `--dpi` 只影响内嵌晕渲栅格的像素密度, 矢量部分与 dpi 无关(默认 300);
-- 出图不写生成时间、内部 id 固定, 同一份数据重复运行得到相同内容, 提交 git
-  时不会因为时间戳/随机 id 产生无意义改动.
+统一入口是 [src/cartopy_file/output.py](src/cartopy_file/output.py): 各脚本在
+`apply_matplotlib_fonts()` 之后调用 `apply_svg_output()`, 保存时用 `save_svg()` 而不是
+`fig.savefig()`。文字、边界、河流、填色都是矢量, 汉字以字形路径写入, 换台机器打开不会缺
+字体; 唯一的栅格是山体晕渲, 以 base64 内嵌在同一个 `.svg` 里, 所以产物始终是单个自包含
+文件(`--dpi` 只影响晕渲像素密度, 默认 300)。出图不写时间戳、内部 id 固定, 同一份数据
+重复运行得到相同内容。实现与理由见 [docs/cartopy_file/output.md](docs/cartopy_file/output.md)。
 
 `AmericaArmy/` 下的两张 PNG 是早期手工上传的底图素材, 不由任何脚本生成
 (`AmericaArmy/main.py` 只画图不落盘), 因此没有对应的 SVG 产物.
@@ -89,4 +92,4 @@ python download_data.py --check
 - 英文/数字: JetBrainsMonoSlashed-Medium (matplotlib 字体名 `JetBrains Mono Slashed Medium`)
 
 在导入 matplotlib 之后调用 `apply_matplotlib_fonts()` 即可；中英文如何按字符自动
-切换、为什么不能用 `font.sans-serif` 等细节见该文件顶部说明。
+切换、为什么不能用 `font.sans-serif` 等细节见 [docs/cartopy_file/fonts.md](docs/cartopy_file/fonts.md)。

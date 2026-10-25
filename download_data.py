@@ -1,28 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# ============================================================
-# download_data.py
-# 预取全项目共用的 cartopy Natural Earth 底图; --check 则列出全项目
-# 绘图数据清单并检查是否就位(不联网).
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
 """Prefetch the shared cartopy basemap data and check the project data inventory.
 
-是什么:
-    - 默认: 把各绘图脚本会用到的 Natural Earth 要素下载到仓库
-      ``data/cartopy``; 只要某个要素已经存在(包括旧的
-      ``~/.local/share/cartopy`` 缓存)就跳过, 不联网;
-    - ``--check``: 只检查所有图种需要的本地数据是否就位, 不联网; 有缺失时
-      返回退出码 1.
-
-为什么:
-    绘图脚本本身不负责下载, 它只是"读缓存": 要素缺失时 cartopy 会在渲染
-    过程中临时联网下载. 本机 HOME 是只读挂载, 默认缓存目录不可写, 于是要么
-    下载失败, 要么每次运行都去重试同一份底图. 把共用底图集中预取一次后,
-    出图流程完全离线.
-    各图种自己的数据(ETOPO 高程、OSM 边界、行政区 GeoJSON)仍由各自的
-    ``download_*.py`` / ``prepare_*.py`` 负责, 那些脚本同样是"文件已存在就
-    跳过", 重复执行不会重新下载.
+是什么: 预取全项目共用的 Natural Earth 底图; ``--check`` 只检查数据清单是否就位(不联网).
+完整说明(为什么集中预取、缓存位置与退出码)见 ``docs/download_data.md``.
 """
 
 from __future__ import annotations

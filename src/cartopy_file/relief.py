@@ -1,36 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# ============================================================
-# relief.py
-# 地形图共用工具: 定位并读取 ETOPO 2022 NetCDF 高程、合成高程配色
-# 与山体晕渲、读取 Natural Earth 国界、铺海陆底色.
-# 原先这些函数只存在于 Myanmar/map_lib.py; 乌克兰图同样需要, 因此上移到
-# 项目共享包里, 由各图种脚本统一导入, 避免同一套算法维护多份.
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
 """Reusable relief / basemap helpers for the topographic map scripts.
 
-是什么:
-    - ``find_etopo``: 按区域名(如 ``myanmar`` / ``ukraine``)和采样步长
-      定位本地 ETOPO 2022 NetCDF 文件;
-    - ``load_elevation``: 读取高程数组与一维经纬度, 纬度统一翻成南->北,
-      方便直接交给 ``imshow(origin="lower")``;
-    - ``make_relief``: 把高程色带与 ``LightSource`` 山体晕渲合成 RGB;
-    - ``load_countries`` / ``add_base_map``: 读取 Natural Earth 国家边界,
-      在画地形前铺一层真实海陆底色.
-    - ``clip_to_axes``: 把面几何裁到当前坐标范围, 避免把画面外的底图顶点写进
-      SVG(PNG 时无所谓, 矢量输出时画面外顶点同样占字节).
-
-为什么要把它们放进共享包:
-    这些逻辑与具体国家无关, 只是"读高程 + 画地形"的公共部分. Myanmar 系列
-    与 Ukraine 图都要用; 放在 ``src/cartopy_file`` 后, 普通 ``import`` 即可,
-    不必再用 ``sys.path.insert`` 去引用别的图种目录. 各脚本仍自己决定
-    MPLCONFIGDIR(必须在导入 matplotlib 之前设置), 本模块不做全局副作用.
-
-警告:
-    本模块会导入 matplotlib/cartopy, 调用方必须保证在 ``import`` 本模块之前
-    已经设置好 ``MPLCONFIGDIR``(见 ``cartopy_file.data.prepare_matplotlib_env``),
-    否则本机只读的 ``~/.config`` 会让 matplotlib 每次重建字体缓存.
+是什么: 定位/读取 ETOPO 2022 高程、合成地形配色与山体晕渲、铺 Natural Earth 海陆底色.
+完整说明(API、为什么上移、MPLCONFIGDIR 警告)见 ``docs/cartopy_file/relief.md``.
 """
 
 from __future__ import annotations

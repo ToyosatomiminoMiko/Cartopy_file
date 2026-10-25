@@ -1,34 +1,9 @@
 # -*- coding: utf-8 -*-
-# ============================================================
-# data.py
-# 项目共享数据目录与 cartopy 底图缓存的统一定位.
-# 属于可安装的项目包 cartopy_file, 是所有绘图脚本唯一的缓存配置来源.
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-# ============================================================
 """Locate the project-wide data directory and cartopy's download cache.
 
-是什么:
-    - ``shared_data_dir()``: 仓库级共享数据目录, 缺省为 ``<repo>/data``,
-      可用环境变量 ``CARTOPY_FILE_DATA`` 覆盖;
-    - ``prepare_matplotlib_env()``: 在导入 matplotlib 之前把 ``MPLCONFIGDIR``
-      指到共享目录下可写的 ``.mplcache``;
-    - ``configure_cartopy()``: 把 cartopy 的下载缓存重定向到共享目录下的
-      ``cartopy/``, 并把已有缓存登记为 ``pre_existing_data_dir``(只读复用);
-    - ``natural_earth_paths()``: 查某个 Natural Earth 要素已经落在哪个缓存
-      里、下载会落到哪里, 不联网.
-
-为什么:
-    1. cartopy 默认把下载的 Natural Earth 数据放在 ``~/.local/share/cartopy``,
-       matplotlib 默认把配置放在 ``~/.config/matplotlib``. 本机 ``/home`` 是
-       只读挂载(btrfs ro), 这两个目录都不可写: 只要某个要素没有缓存(换机器、
-       清缓存、升级 cartopy), 渲染时就会尝试下载并失败, 或者每次运行都重复
-       下载同一份底图.
-    2. 各脚本原先各管一段: ``northern_shan.py`` 自己把缓存改到
-       ``Myanmar/data/cartopy``, 其余脚本仍用用户 HOME, 同一份底图可能在两处
-       各下载一次.
-    3. 缓存统一到仓库内 ``data/cartopy`` 后: 可写、随仓库走、只下载一次. 旧的
-       HOME 缓存通过 ``pre_existing_data_dir`` 继续复用, 已经下载过的文件不会
-       再下一遍; 新下载的则落在仓库里, 下次换脚本也能直接用.
+是什么: 统一定位仓库级共享数据目录、matplotlib 可写缓存目录与 cartopy 下载缓存.
+完整说明(API、为什么需要重定向、缓存位置)见 ``docs/cartopy_file/data.md``.
 """
 
 from __future__ import annotations

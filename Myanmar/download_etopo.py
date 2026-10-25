@@ -1,27 +1,12 @@
 #!/usr/bin/env python3
-"""下载 ETOPO 2022 15 弧秒缅甸区域子集与 Natural Earth 10m 国家边界。
+# -*- coding: utf-8 -*-
+# (copyright) Kawaii Femboy Technology Co., Ltd.
+"""Download the Myanmar ETOPO 2022 subset and Natural Earth 10m country boundaries.
 
-为什么不直接用 xarray 打开 NOAA OPeNDAP 的几十个瓦片: 那样需要在经度上跨瓦片拼接,
-还要同时处理 0°/360° 与 -180°/180° 两套经度约定; 这里改为向 NOAA ERDDAP 请求一次
-已经裁剪并重采样好的区域 NetCDF, 缓存到本地, 绘图时只读一个文件.
-
-区域: 经度 85.3°E~107.7°E, 纬度 4.9°N~31.1°N. 比地图画框 (87~106°E, 5~31°N) 略大,
-是因为兰勃特等角圆锥投影的矩形画框在北部会向两侧张开: 画框顶边对应约 85.4~107.6°E,
-如果只下载 87~106°E, 画框四角会露出没有高程数据的空白区域.
-ERDDAP 的经度约定是 0~360°, 而该区域整体落在 0~360° 之内, 不存在跨 0°/360° 的
-环绕问题, 因此不需要像 USSR 脚本那样把负经度 +360 处理.
-
-除了缅甸全境, 本脚本也用 --region northern_shan 下载掸邦放大图所需的
-更高分辨率子集 (经度 94.6°E~102.1°E, 纬度 18.8°N~25.2°N, stride=1 约 11 MB).
-南界从原来的 20.9°N 下探到 18.8°N: 佤邦南部(南佤)一直延伸到 19.67°N,
-原范围会把佤邦拦腰截断. 画框南界定为 19.0°N, 这里再留 0.2° 余量,
-覆盖兰勃特投影矩形南缘的数值误差.
-
-默认 stride=2 (30 弧秒), 缅甸全境出图足够, 文件约 34 MB;
-确实需要完整 15 弧秒网格时用 --stride 1 (约 135 MB).
-
-作者: Haojiren Galactic
-时间: 2026-10-24
+是什么: 从 NOAA ERDDAP 下载 ETOPO 2022 15 弧秒缅甸区域子集, 并下载/解压
+Natural Earth 10m 国家边界, 缓存到本地供绘图脚本读取.
+完整说明(为什么用 ERDDAP、下载范围、--region/--stride 的含义)见
+``docs/Myanmar/download_etopo.md``.
 """
 
 from __future__ import annotations
@@ -52,12 +37,12 @@ USER_AGENT = (
     "Chrome/124.0 Safari/537.36"
 )
 
-# 区域名 -> (经度范围, 纬度范围). 取值范围要覆盖兰勃特画框四角, 见模块说明.
+# 区域名 -> (经度范围, 纬度范围). 取值范围要覆盖兰勃特画框四角, 见 docs/Myanmar/download_etopo.md.
 REGIONS = {
     "myanmar": ((85.3, 107.7), (4.9, 31.1)),
     # 掸邦放大图: 画框 95.3~101.5°E / 19.0~24.75°N, 投影后矩形在经纬度上
     # 约对应 95.17~101.63°E / 19.00~24.78°N, 所以下载范围在此基础再留
-    # 约 0.2°(南) 与 0.4°(北/东西) 余量; 南界下探的理由见模块说明.
+    # 约 0.2°(南) 与 0.4°(北/东西) 余量; 南界下探的理由见 docs/Myanmar/download_etopo.md.
     "northern_shan": ((94.6, 102.1), (18.8, 25.2)),
 }
 

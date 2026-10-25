@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""临时脚本: 分块并行下载缅甸 15 弧秒(stride=1) ETOPO 子集并合并成单个 NetCDF.
+# (copyright) Kawaii Femboy Technology Co., Ltd.
+"""Temporary script: download the Myanmar stride-1 ETOPO subset in 8 bands and merge it.
 
-为什么要分块: ERDDAP 对一次性 130 MB 的动态子集响应极慢(实测单连接约 20 KiB/s,
-约 2 小时), 而且不支持 Range 续传(重连续传会退回 200 从头开始). 拆成 8 个纬度带
-(每块约 16 MB)并行请求, 单块失败可单独重试, 不会因为断线丢掉全部进度; 下载完成后
-用 xarray 沿纬度拼接成与原 download_etopo.py 完全一致的文件.
-
-用法: .venv/bin/python _stride1_chunked.py
-完成后自检: 形状/范围、有无 NaN、与 stride2 在若干采样点上的高程差异.
+是什么: 分 8 个纬度带并行下载 ERDDAP 子集, 用 xarray 沿纬度拼接成单个 NetCDF, 并做自检.
+完整说明(为什么分块、用法与自检内容)见 ``docs/stride1_chunked.md``.
 """
 
 from __future__ import annotations
@@ -122,7 +118,6 @@ def merge_bands(paths: list[Path]) -> None:
 
 def self_check() -> None:
     """检查最终文件的范围/形状, 并按几个采样点与 stride2 文件对比高程."""
-    import numpy as np
     import xarray as xr
 
     ds1 = xr.open_dataset(OUT_PATH, decode_times=False, engine="netcdf4")
