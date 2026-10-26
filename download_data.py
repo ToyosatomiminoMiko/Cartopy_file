@@ -29,8 +29,9 @@ NE_FEATURES = [
     # 缅甸系列(myanmar.py / northern_shan.py)显式使用 10m.
     ("10m", "physical", "coastline", "myanmar.py 海岸线 / ukraine.py 剪国界岸段"),
     ("10m", "cultural", "admin_0_boundary_lines_land", "myanmar.py / ukraine.py 国界"),
-    ("10m", "physical", "rivers_lake_centerlines", "northern_shan.py / ukraine.py 河流"),
-    ("10m", "physical", "lakes", "northern_shan.py 湖泊"),
+    ("10m", "physical", "rivers_lake_centerlines", "northern_shan.py / ukraine.py / volga.py 河流"),
+    ("10m", "physical", "lakes", "northern_shan.py / volga.py 湖泊"),
+    ("10m", "physical", "ocean", "volga.py 判识里海低地(负高程陆地)与水域"),
     # 全球/苏联图按范围自动选 110m(cartopy 的 AdaptiveScaler 默认比例尺).
     ("110m", "physical", "land", "AmericaArmy/main.py 陆地底色"),
     ("110m", "physical", "ocean", "AmericaArmy/main.py 海洋底色"),
@@ -80,6 +81,18 @@ LOCAL_DATA = [
      "python Ukraine/download_data.py"),
     ("乌克兰", "2022 年俄方宣称四州边界", "Ukraine/data/claimed_2022.geojson",
      "python Ukraine/download_data.py"),
+    ("伏尔加", "ETOPO 2022 伏尔加区域高程", "Volga/data/ETOPO_2022_v1_15s_volga_stride*.nc",
+     "python Volga/download_data.py"),
+    ("伏尔加", "GADM 4.1 俄罗斯一级行政区", "Volga/data/gadm41_RUS_1.json",
+     "python Volga/download_data.py"),
+    ("伏尔加", "HydroBASINS 5 级欧洲流域", "Volga/data/hybas_eu_lev05_v1c/*.shp",
+     "python Volga/download_data.py"),
+    ("伏尔加", "流域面 GeoJSON", "Volga/data/volga_basin.geojson",
+     "python Volga/download_data.py"),
+    ("伏尔加", "一级行政区 GeoJSON", "Volga/data/volga_subjects.geojson",
+     "python Volga/download_data.py"),
+    ("伏尔加", "俄罗斯国界 GeoJSON", "Volga/data/russia_border.geojson",
+     "python Volga/download_data.py"),
     ("美军基地", "基地点位 GeoJSON", "AmericaArmy/data.geojson", "(仓库自带, 无需下载)"),
 ]
 

@@ -1,6 +1,6 @@
 # Cartopy_file
 
-三组地图(缅甸、苏联、乌克兰)的 cartopy 绘图脚本, 共用一套可安装的 `cartopy_file` 包. 产物统一
+四组地图(缅甸、苏联、乌克兰、伏尔加河流域)的 cartopy 绘图脚本, 共用一套可安装的 `cartopy_file` 包. 产物统一
 为单个自包含 SVG.
 
 ## 安装
@@ -36,6 +36,7 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 | `Myanmar/northern_shan.py` | `northern_shan_topography_etopo2022_lambert_conformal.svg` |
 | `USSR/ussr.py` | `ussr_topography_etopo2022_lambert_azimuthal.svg` |
 | `Ukraine/ukraine.py` | `ukraine_borders_1991_2014_2022_lambert_conformal.svg` |
+| `Volga/volga.py` | `volga_basin_republics_topography_etopo2022_lambert_conformal.svg` |
 
 每张图的前置数据、`--stride` / `--dpi` / `--show` 选项和设计取舍见
 [docs/index.md](docs/index.md) 里的图种页.

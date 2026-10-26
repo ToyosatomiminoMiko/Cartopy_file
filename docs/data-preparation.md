@@ -7,10 +7,11 @@
 
 | 位置 | 内容 | 谁维护 |
 | --- | --- | --- |
-| `data/cartopy/` | cartopy 内置 Natural Earth 底图, 全项目共用(海岸线、国界、河流、湖泊) | 根目录 `download_data.py` |
+| `data/cartopy/` | cartopy 内置 Natural Earth 底图, 全项目共用(海岸线、国界、河流、湖泊、海洋) | 根目录 `download_data.py` |
 | `Myanmar/data/` | ETOPO 缅甸高程、Natural Earth 10m 国界/河流、行政区 GeoJSON、OSM 特区边界 | `Myanmar/download_etopo.py`、`download_regions.py`、`prepare_admin_data.py` |
 | `USSR/data/` | ETOPO 苏联高程、Natural Earth 110m 国界 | `USSR/download_etopo.py` |
 | `Ukraine/data/` | ETOPO 乌克兰高程、Natural Earth 10m 国界、GADM 4.1、OCHA 2021 GCA/NGCA、OSM 河流与德左边界、派生 GeoJSON | `Ukraine/download_data.py` |
+| `Volga/data/` | ETOPO 伏尔加河流域高程、GADM 4.1 俄罗斯一级行政区、HydroBASINS 5 级流域、派生 GeoJSON | `Volga/download_data.py` |
 | `AmericaArmy/data.geojson` | 基地点位, 仓库自带 | — |
 
 `**/data` 在 `.gitignore` 里, 数据不随仓库提交; 换机器或重新 clone 后重跑准备命令即可恢复.
@@ -26,9 +27,10 @@
 | --- | --- | --- |
 | Natural Earth(10m / 110m) | 海岸线、国界、河流、湖泊、陆地、海洋 | public domain |
 | NOAA ETOPO 2022(15 弧秒) | 地形高程 | 美国联邦政府作品, public domain |
-| GADM 4.1 | 缅甸/乌克兰一级行政区 | 学术与非商业用途免费, 商用需授权 |
+| GADM 4.1 | 缅甸/乌克兰/俄罗斯一级行政区 | 学术与非商业用途免费, 商用需授权 |
 | OpenStreetMap | 特区边界、乌克兰河流/水库、德左边界 | ODbL 1.0 |
 | OCHA HDX 2021 HNO GCA/NGCA | 乌克兰顿巴斯接触线 | 按其发布页面的许可与署名要求 |
+| HydroSHEDS(HydroBASINS) | 伏尔加河流域边界 | 免费, 需按发布页署名 |
 
 引用产物时请按上表署名数据来源.
 
@@ -46,6 +48,7 @@
 | `python Myanmar/prepare_admin_data.py` | `Myanmar/data/myanmar_admin1.geojson` 等 | 缅甸行政区图 |
 | `python USSR/download_etopo.py` | 苏联 ETOPO(默认 stride=8)+ 110m 国界 | 苏联图 |
 | `python Ukraine/download_data.py` | 乌克兰全部原始数据与派生 GeoJSON | 乌克兰图 |
+| `python Volga/download_data.py` | 伏尔加河流域原始数据与派生 GeoJSON | 伏尔加河流域图 |
 
 想确认数据是否齐全(不联网、不下载):
 
@@ -59,7 +62,7 @@ python download_data.py --check   # 全部就位退出码 0, 有缺失退出码 
 
 ## ETOPO 下载
 
-三组图都用同一套 NOAA ERDDAP 下载方式(实现分别在各图的数据准备脚本里):
+各图种都用同一套 NOAA ERDDAP 下载方式(实现分别在各图的数据准备脚本里):
 
 - 不直接打开 NOAA OPeNDAP 的几十个瓦片(要在经度上跨瓦片拼接, 还要处理 0°/360° 与
   -180°/180° 两套经度约定), 改为向 ERDDAP 请求一次已裁剪、重采样好的区域 NetCDF,

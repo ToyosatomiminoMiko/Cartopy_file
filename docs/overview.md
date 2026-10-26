@@ -1,6 +1,6 @@
 # 项目总览
 
-这个仓库把三组地图(缅甸、苏联、乌克兰)放在一起, 共用一套 cartopy 绘图工具. 每个图种一个
+这个仓库把四组地图(缅甸、苏联、乌克兰、伏尔加河流域)放在一起, 共用一套 cartopy 绘图工具. 每个图种一个
 目录, 重复的代码集中到可安装的共享包 `src/cartopy_file/`.
 
 ## 目录结构
@@ -16,6 +16,7 @@ Cartopy_file/
 ├── Myanmar/                缅甸图种: 3 张图 + 数据准备脚本 + data/
 ├── USSR/                   苏联图种
 ├── Ukraine/                乌克兰图种
+├── Volga/                  伏尔加河流域图种: 流域 + 周边联邦主体共和国 + 数据准备脚本 + data/
 ├── AmericaArmy/            早期演示脚本与手工底图, 不在维护范围
 ├── global.py               一次性演示脚本
 └── _stride1_chunked.py     一次性临时脚本(见 maps/northern-shan.md)
@@ -25,7 +26,7 @@ Cartopy_file/
 
 1. **图种层**([`maps/`](maps)): 每个图种一个目录, 内含绘图脚本、数据准备脚本和私有数据目录
    `<图种>/data/`; 产物写到脚本同目录; 各图种之间不互相 import.
-2. **共享层**([`src/cartopy_file/`](../src/cartopy_file)): 可安装的包, 放三组图共用的数据
+2. **共享层**([`src/cartopy_file/`](../src/cartopy_file)): 可安装的包, 放四组图共用的数据
    定位、字体、SVG 出图、地形与几何工具.
 3. **数据层**([`data-preparation.md`](data-preparation.md)): 仓库 `data/cartopy/` 是全项目
    共用的 cartopy 底图缓存; 各图种自己的数据放在各自 `data/` 下.
