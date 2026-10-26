@@ -196,7 +196,7 @@ AREA_LABELS = [
 # 也避开了城市点、特区名和邻国名(见 CITIES / REGION_LABELS / AREA_LABELS).
 MAIN_RIVERS = ("Irrawaddy", "Salween")
 RIVER_LABELS = [
-    (96.45, 22.90, "伊洛瓦底江"),
+    (95.75, 22.90, "伊洛瓦底江"),
     (98.33, 21.55, "萨尔温江"),
 ]
 
