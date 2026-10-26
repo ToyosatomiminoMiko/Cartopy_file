@@ -41,10 +41,10 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 [docs/index.md](docs/index.md) 里的图种页.
 
 产物统一由 [src/cartopy_file/output.py](src/cartopy_file/output.py) 保存: 文字、边界、河流、填色
-都是矢量, 汉字以字形路径写入, 换台机器打开不缺字体; 唯一的栅格是山体晕渲, 以 base64 内嵌在
-同一个 `.svg` 里, 所以产物始终是单个自包含文件(`--dpi` 只影响晕渲像素密度, 默认 300). 出图不写
-时间戳、内部 id 固定, 同一份数据重复运行得到相同内容. 实现与理由见
-[docs/reference/output.md](docs/reference/output.md).
+都是矢量, 汉字以真 `<text>` 写入并把用到的字形裁成字体子集内嵌, 换台机器打开不缺字体、文字
+还能选中/复制/检索; 唯一的栅格是山体晕渲, 以 base64 内嵌在同一个 `.svg` 里, 所以产物始终是
+单个自包含文件(`--dpi` 只影响晕渲像素密度, 默认 300). 出图不写时间戳、内部 id 固定, 同一份
+数据重复运行得到相同内容. 实现与理由见 [docs/reference/output.md](docs/reference/output.md).
 
 `AmericaArmy/` 下的两张 PNG 是早期手工上传的底图素材, 不由任何脚本生成
 (`AmericaArmy/main.py` 只画图不落盘), 因此没有对应的 SVG 产物.

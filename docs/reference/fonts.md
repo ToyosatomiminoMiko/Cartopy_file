@@ -51,4 +51,9 @@ ax.set_title("缅甸地形")
 
 - 必须在导入 matplotlib 之后调用; 缓存目录(`MPLCONFIGDIR`)要在导入 matplotlib 之前设好,
   见 [`data.md`](data.md) 的 `prepare_matplotlib_env()`;
-- SVG 产物里文字会转成字形路径(见 [`output.md`](output.md)), 阅读器不需要装这两套字体.
+- SVG 产物里文字写成真 `<text>`, 并把本图用到的字形从这两套字体裁成 WOFF 子集内嵌
+  (`@font-face`), 所以不装字体的机器也能正常显示(见 [`output.md`](output.md));
+- 内嵌只对认 `@font-face` 的查看器有效(浏览器 / Inkscape 1.x); 不认的会回退系统字体,
+  本机又没装字体时显示方框, 此时用 `save_svg(..., embed_text=False)` 回到字形路径写法;
+- 子集从 `matplotlib.font_manager` 实际解析到的字体文件裁剪, TTC 按字体名匹配面序号
+  (Noto Sans Mono CJK 的五个面里取 SC); 缺字体时跳过内嵌, matplotlib 本身也会回退字体.

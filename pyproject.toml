@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "cartopy[plotting]>=0.25.0",
+    "fonttools>=4.63.0",
     "geopandas>=1.1.4",
     "matplotlib>=3.11.1",
     "netcdf4>=1.7.4",
