@@ -197,10 +197,13 @@ def _subset_woff(face: _Face, chars: str) -> bytes:
     from fontTools import subset
     from fontTools.ttLib import TTFont
 
+    # recalcTimestamp=False: TTFont 保存时默认把 head.modified 改成"现在", 会让同一份
+    # 数据的产物每次出图都不同(WOFF 的 base64 变了). 保留源字体自带的时间戳, 重复
+    # 出图才字节级一致(项目约定见 docs/reference/output.md).
     font = (
-        TTFont(str(face.path), fontNumber=face.index)
+        TTFont(str(face.path), fontNumber=face.index, recalcTimestamp=False)
         if face.index is not None
-        else TTFont(str(face.path))
+        else TTFont(str(face.path), recalcTimestamp=False)
     )
     keep = "".join(char for char in chars if ord(char) in face.cmap)
     if not keep:

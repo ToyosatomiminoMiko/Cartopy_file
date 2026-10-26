@@ -95,3 +95,5 @@ python Myanmar/northern_shan.py                                      # 出图
 - Overpass 公共实例常满负荷(502): 脚本分批请求(佤邦整体单独一组, 否则与 5 个县关系合在一
   起容易 504), 并在多个镜像间轮换重试;
 - 国界线与区域边界必须同源(都来自 OSM), 换成 NE 国界会重新出现双线问题.
+- 图上标注可用 `python tools/label_editor.py <产物>.svg` 在浏览器里拖位置、加文字, 布局存到
+  产物旁边的 `.labels.json`, 重跑脚本时自动施加(见 [label-editing.md](../label-editing.md)).

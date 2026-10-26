@@ -32,6 +32,9 @@ apply_svg_output()
 OUT_SVG = ROOT / "<product>.svg"
 ```
 
+- 地图上的文字标注要给稳定 id: `ax.text(..., gid=label_id(kind, name[, index]))`, 名称用数据里
+  的键或图上的名字, 同一名字多次出现才加序号; 标题/图例/色标/经纬网刻度/比例尺/资料来源这类
+  版式文字不加. 标签编辑器靠它认标签, 见 [`reference/labels.md`](reference/labels.md);
 - `main()` 用 argparse 提供 `--stride` / `--dpi` / `--show`(与现有图种一致), 高程文件路径
   支持 `<NAME>_ETOPO_PATH` 环境变量, 最后 `save_svg(fig, OUT_SVG, dpi=args.dpi)`;
 - 地形/晕渲/海陆底色不要复制: 用 [`reference/relief.md`](reference/relief.md) 的函数;
@@ -68,6 +71,7 @@ OUT_SVG = ROOT / "<product>.svg"
 python download_data.py --check   # 新数据已进清单且能检查到
 python <Name>/<name>.py           # 出图
 python <Name>/<name>.py           # 再跑一次, 产物应字节级不变(理由见 reference/output.md)
+python tools/label_editor.py <产物>.svg   # 标签能拖、保存后重跑仍生效
 python tools/check_docs.py        # 文档链接/模板/索引全绿
 ```
 

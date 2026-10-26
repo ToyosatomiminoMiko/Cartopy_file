@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>地图标签编辑器</title>
+<!-- 空 data URI 图标: 避免浏览器请求 /favicon.ico 在控制台留下 404(服务器只服务白名单路径). -->
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/editor.css">
+</head>
+<body>
+<header class="toolbar">
+  <div class="toolbar-brand">
+    <span class="brand-mark" aria-hidden="true">▦</span>
+    <span class="brand-title">标签编辑器</span>
+    <span class="figure-name" id="figure-name">载入中…</span>
+  </div>
+  <div class="toolbar-tools">
+    <button id="btn-fit" class="btn" title="适应窗口(双击空白处)">适应窗口</button>
+    <button id="btn-zoom-100" class="btn" title="缩放到 100%">100%</button>
+    <button id="btn-zoom-in" class="btn icon" title="放大">+</button>
+    <button id="btn-zoom-out" class="btn icon" title="缩小">−</button>
+    <span class="sep" aria-hidden="true"></span>
+    <label class="field" title="方向键每次移动的 pt 数">步长
+      <input id="step" type="number" value="1.0" min="0.01" step="0.1" inputmode="decimal">
+    </label>
+    <label class="field" title="新增标注的样式来源">样式
+      <select id="style-source"><option value="">跟随选中</option></select>
+    </label>
+    <span class="sep" aria-hidden="true"></span>
+    <button id="btn-add" class="btn primary" title="新增标注 (N)">＋ 新增标注</button>
+    <button id="btn-save" class="btn" title="保存 (Ctrl+S)">保存</button>
+    <button id="btn-reset-all" class="btn danger-ghost" title="清除所有位移与新增标注">全部重置</button>
+  </div>
+  <div class="toolbar-toggles">
+    <label class="check" title="在标签外围画虚线框"><input type="checkbox" id="toggle-outline"> 标签外框</label>
+    <label class="check" title="让标签更容易看清"><input type="checkbox" id="toggle-highlight"> 突出标签</label>
+  </div>
+</header>
+
+<div class="statusbar">
+  <span class="status-item" id="status-figure">-</span>
+  <span class="status-item" id="status-moved">已移动 0</span>
+  <span class="status-item" id="status-added">新增 0</span>
+  <span class="status-item" id="status-zoom">缩放 100%</span>
+  <span class="status-item status-save" id="status-save">正在载入…</span>
+</div>
+
+<div class="banner hidden" id="banner"></div>
+
+<main class="workspace">
+  <section class="viewport" id="viewport" tabindex="-1">
+    <div class="canvas" id="canvas"></div>
+    <div class="hint hidden" id="hint"></div>
+  </section>
+
+  <aside class="sidebar" id="sidebar">
+    <section class="panel selection-panel hidden" id="selection-panel">
+      <div class="panel-head">
+        <span>选中标签</span>
+        <span class="badge" id="sel-status">默认</span>
+      </div>
+      <div class="panel-text" id="sel-text"></div>
+      <dl class="panel-meta">
+        <dt>偏移</dt>
+        <dd id="sel-offset">+0.00, +0.00 pt</dd>
+        <dt class="hidden" id="sel-pos-label">锚点</dt>
+        <dd class="hidden" id="sel-pos"></dd>
+      </dl>
+      <div class="panel-actions">
+        <button id="btn-reset-one" class="btn small">重置</button>
+        <button id="btn-delete-one" class="btn small danger hidden">删除</button>
+      </div>
+    </section>
+
+    <div class="list-head">
+      <span>标签</span>
+      <span class="muted" id="label-count">0</span>
+    </div>
+    <ul class="label-list" id="label-list"></ul>
+
+    <footer class="sidebar-foot">
+      <div>拖动标签微调; 空白处拖动平移, 滚轮缩放, 双击空白适应窗口.</div>
+      <div>方向键移动选中标签; Shift ×10, Alt ×0.1; N 新增; Delete 删除新增; Ctrl+S 保存.</div>
+    </footer>
+  </aside>
+</main>
+
+<script src="/static/editor.js"></script>
+</body>
+</html>

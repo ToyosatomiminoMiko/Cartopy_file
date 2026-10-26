@@ -49,6 +49,7 @@ configure_cartopy()
 
 # 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
+from cartopy_file.labels import label_id
 from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
@@ -56,6 +57,18 @@ apply_matplotlib_fonts()
 apply_svg_output()
 # 斜线填充的线宽: 默认 1.0 在成品尺寸下偏粗, 会把特区填充压成深色块.
 plt.rcParams["hatch.linewidth"] = 0.45
+
+
+# ============================
+# 标签
+# ============================
+def label_slug(text: str) -> str:
+    """把图上的区域名变成标签 id 里的净名: 去掉空白与括号.
+
+    为什么需要: 数据里的区域名带 "(南)"、"(TNLA 控制)" 之类注记, 而 id 会进布局文件
+    与 DOM 选择器, 不适合带空格或括号(理由见 docs/reference/labels.md).
+    """
+    return "".join(ch for ch in text if not ch.isspace() and ch not in "()")
 
 
 # ============================
@@ -446,6 +459,7 @@ def add_text_labels(ax: plt.Axes) -> None:
             lon,
             lat,
             text,
+            gid=label_id("area", label_slug(text)),
             transform=ccrs.PlateCarree(),
             fontsize=size,
             color=color,
@@ -461,6 +475,7 @@ def add_text_labels(ax: plt.Axes) -> None:
             lon,
             lat,
             text,
+            gid=label_id("river", text),
             transform=ccrs.PlateCarree(),
             fontsize=10.5,
             color="#1565c0",
@@ -477,6 +492,7 @@ def add_text_labels(ax: plt.Axes) -> None:
             lon,
             lat,
             text,
+            gid=label_id("region", label_slug(text)),
             transform=ccrs.PlateCarree(),
             fontsize=size,
             color=color,
@@ -527,6 +543,7 @@ def add_text_labels(ax: plt.Axes) -> None:
             lon + dx,
             lat + dy,
             name,
+            gid=label_id("city", name),
             transform=ccrs.PlateCarree(),
             fontsize=9 if kind == "town" else 10.5,
             color="black",

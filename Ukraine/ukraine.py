@@ -46,6 +46,7 @@ configure_cartopy()
 
 # 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
+from cartopy_file.labels import label_id
 from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
@@ -808,6 +809,7 @@ def add_labels(ax: plt.Axes) -> None:
     for lon, lat, text in COUNTRY_LABELS:
         ax.text(
             lon, lat, text,
+            gid=label_id("country", text),
             transform=ccrs.PlateCarree(),
             fontsize=12.5, color="#3a3a3a",
             ha="center", va="center", path_effects=HALO, zorder=9,
@@ -815,6 +817,7 @@ def add_labels(ax: plt.Axes) -> None:
     for lon, lat, text in SEA_LABELS:
         ax.text(
             lon, lat, text,
+            gid=label_id("sea", text),
             transform=ccrs.PlateCarree(),
             fontsize=11.5, color="#1f4e79", style="italic",
             ha="center", va="center", path_effects=HALO, zorder=9,
@@ -824,6 +827,7 @@ def add_labels(ax: plt.Axes) -> None:
     for lon, lat, text, lon1, lat1, lon2, lat2 in MOUNTAIN_LABELS:
         ax.text(
             lon, lat, text,
+            gid=label_id("highland", text),
             transform=ccrs.PlateCarree(),
             fontsize=11.0, color=COLOR_MOUNTAIN, style="italic",
             rotation=projected_angle(lon1, lat1, lon2, lat2),
@@ -845,12 +849,14 @@ def add_labels(ax: plt.Axes) -> None:
     #     (约 67 km)——这是不遮接触线、不遮城点、不遮州界的最小让步.
     ax.text(
         39.03, 49.02, "卢甘斯克\n人民共和国",
+        gid=label_id("republic", "卢甘斯克人民共和国"),
         transform=ccrs.PlateCarree(),
         fontsize=8.8, color="#0d47a1",
         ha="center", va="center", linespacing=1.3, path_effects=HALO, zorder=9.5,
     )
     ax.text(
         37.70, 48.65, "顿涅茨克\n人民共和国",
+        gid=label_id("republic", "顿涅茨克人民共和国"),
         transform=ccrs.PlateCarree(),
         fontsize=8.8, color="#0d47a1",
         ha="center", va="center", linespacing=1.3, path_effects=HALO, zorder=9.5,
@@ -860,6 +866,7 @@ def add_labels(ax: plt.Axes) -> None:
     # 折角完整露出, 只剩右端"国"字附近与竖直线段的一小段交叠.
     ax.text(
         36.80, 49.50, "哈尔科夫人民共和国",
+        gid=label_id("republic", "哈尔科夫人民共和国"),
         transform=ccrs.PlateCarree(),
         fontsize=9.4, color=COLOR_KHARKIV, style="italic",
         ha="center", va="center", linespacing=1.35, path_effects=HALO, zorder=9.5,
@@ -869,18 +876,21 @@ def add_labels(ax: plt.Axes) -> None:
     # 赫尔松州在锡瓦什以北的左岸草原, 避免文字压住河宽变化的重点区域.
     ax.text(
         34.11, 46.52, "赫尔松州\n（俄宣称全境）",
+        gid=label_id("region", "赫尔松州"),
         transform=ccrs.PlateCarree(),
         fontsize=9.4, color=COLOR_2022,
         ha="center", va="center", linespacing=1.35, path_effects=HALO, zorder=9.5,
     )
     ax.text(
         35.65, 47.08, "扎波罗热州\n（俄宣称全境）",
+        gid=label_id("region", "扎波罗热州"),
         transform=ccrs.PlateCarree(),
         fontsize=9.4, color=COLOR_2022,
         ha="center", va="center", linespacing=1.35, path_effects=HALO, zorder=9.5,
     )
     ax.text(
         34.55, 45.40, "克里米亚\n（2014年俄实际控制）",
+        gid=label_id("region", "克里米亚"),
         transform=ccrs.PlateCarree(),
         fontsize=9.6, color="#0d47a1",
         ha="center", va="center", linespacing=1.35, path_effects=HALO, zorder=9.5,
@@ -902,6 +912,7 @@ def add_labels(ax: plt.Axes) -> None:
             )
         ax.text(
             lon + dx, lat + dy, name,
+            gid=label_id("city", name),
             transform=ccrs.PlateCarree(),
             fontsize=9.0, color="black",
             ha=align, va="center",
@@ -932,6 +943,7 @@ def add_reference_labels(ax: plt.Axes) -> None:
         )
         ax.text(
             lon + dx, lat + dy, name,
+            gid=label_id("city", name),
             transform=ccrs.PlateCarree(),
             fontsize=8.4, color=COLOR_REFERENCE,
             ha="left", va="center",
@@ -956,6 +968,7 @@ def add_reference_labels(ax: plt.Axes) -> None:
         )
         ax.text(
             lon, lat, text,
+            gid=label_id("region", "".join(text.split())),
             transform=ccrs.PlateCarree(),
             fontsize=size, color=COLOR_REFERENCE,
             ha="center", va="center", linespacing=1.25,
@@ -974,6 +987,7 @@ def add_river_labels(ax: plt.Axes) -> None:
     for lon, lat, text, lon1, lat1, lon2, lat2 in RIVER_LABELS:
         ax.text(
             lon, lat, text,
+            gid=label_id("river", text),
             transform=ccrs.PlateCarree(),
             fontsize=10.5, color=COLOR_RIVER_MAIN, style="italic",
             rotation=projected_angle(lon1, lat1, lon2, lat2),

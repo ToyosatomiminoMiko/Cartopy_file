@@ -50,6 +50,21 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 `AmericaArmy/` 下的两张 PNG 是早期手工上传的底图素材, 不由任何脚本生成
 (`AmericaArmy/main.py` 只画图不落盘), 因此没有对应的 SVG 产物.
 
+## 调整标签位置
+
+地图上的文字标注写死在绘图脚本里, 挪几个数字就要重跑整张图. 标签位置可以改用鼠标调:
+
+```bash
+python Volga/volga.py                    # 1. 先出图(慢, 一次就够)
+python tools/label_editor.py Volga/volga_basin_topography_etopo2022_lambert_conformal.svg
+                                         # 2. 浏览器里拖标签/加标注, Ctrl+S 存布局(快)
+python Volga/volga.py                    # 3. 再跑一次, 产物带上手工位置
+```
+
+布局存成产物旁边的 `<产物>.labels.json`(与产物一起入库), 出图时自动施加, 所以重跑不会丢手工
+调整. 坐标系、字段与实现见 [docs/reference/labels.md](docs/reference/labels.md), 编辑器用法与
+常见问题见 [docs/label-editing.md](docs/label-editing.md).
+
 ## 字体
 
 字体由 [src/cartopy_file/fonts.py](src/cartopy_file/fonts.py) 统一提供, 各绘图脚本不再单独设

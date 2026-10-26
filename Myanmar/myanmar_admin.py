@@ -42,6 +42,7 @@ configure_cartopy()
 
 # 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
+from cartopy_file.labels import label_id
 from cartopy_file.output import apply_svg_output, save_svg
 
 # 国界/海岸线吻合处只画一条线: 用共享剪枝工具, 见 docs/reference/overlap.md.
@@ -429,6 +430,8 @@ def add_bilingual(
     color: str = "#171717",
     halo: float = 3.0,
     zorder: float = 12,
+    gid_zh: str | None = None,
+    gid_en: str | None = None,
 ) -> None:
     """在指定经纬度处写中文 + 英文两行标签.
 
@@ -465,6 +468,7 @@ def add_bilingual(
         color=color,
         path_effects=halo_effects,
         zorder=zorder,
+        gid=gid_zh,
     )
     ax.annotate(
         en,
@@ -478,6 +482,7 @@ def add_bilingual(
         color="#303030",
         path_effects=[pe.withStroke(linewidth=halo * 0.8, foreground="white")],
         zorder=zorder,
+        gid=gid_en,
     )
 
 
@@ -497,6 +502,8 @@ def add_admin_labels(ax: plt.Axes, units) -> None:
             lat,
             unit["name_zh"],
             display_en,
+            gid_zh=label_id(unit["kind"], key),
+            gid_en=label_id(unit["kind"], key + "-en"),
             size_zh=8.8 if is_union else (10.3 if small else (10.8 if unit["kind"] == "state" else 10.5)),
             size_en=6.4 if is_union else (6.9 if small else 7.8),
             dy_zh=4.2,
@@ -548,6 +555,8 @@ def add_admin_labels(ax: plt.Axes, units) -> None:
             lat,
             unit["capital_zh"],
             unit["capital_en"],
+            gid_zh=label_id("city", unit["capital_zh"]),
+            gid_en=label_id("city", unit["capital_zh"] + "-en"),
             size_zh=8.0,
             size_en=6.5,
             dx=dx,
@@ -569,6 +578,8 @@ def add_place_labels(ax: plt.Axes) -> None:
             lat,
             zh,
             en,
+            gid_zh=label_id("country", zh),
+            gid_en=label_id("country", zh + "-en"),
             size_zh=12.0,
             size_en=8.4,
             dy_zh=4.0,
@@ -584,6 +595,8 @@ def add_place_labels(ax: plt.Axes) -> None:
             lat,
             zh,
             en,
+            gid_zh=label_id("sea", zh),
+            gid_en=label_id("sea", zh + "-en"),
             size_zh=11.5,
             size_en=8.0,
             dy_zh=3.5,
@@ -600,6 +613,8 @@ def add_place_labels(ax: plt.Axes) -> None:
         18.45,
         "伊洛瓦底江",
         "Irrawaddy River",
+        gid_zh=label_id("river", "伊洛瓦底江"),
+        gid_en=label_id("river", "伊洛瓦底江-en"),
         size_zh=9.0,
         size_en=6.8,
         dy_zh=3.5,
@@ -614,6 +629,8 @@ def add_place_labels(ax: plt.Axes) -> None:
         20.55,
         "萨尔温江",
         "Salween River",
+        gid_zh=label_id("river", "萨尔温江"),
+        gid_en=label_id("river", "萨尔温江-en"),
         size_zh=9.0,
         size_en=6.8,
         dy_zh=3.5,

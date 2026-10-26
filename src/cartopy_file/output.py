@@ -54,6 +54,7 @@ def save_svg(
     *,
     dpi: float | None = None,
     embed_text: bool = True,
+    placements: str | Path | None = "auto",
     **kwargs,
 ) -> Path:
     """把 Figure 保存为单个自包含的 SVG 文件, 返回写入的路径.
@@ -66,17 +67,22 @@ def save_svg(
         产物里的文字可以选中/复制/检索, 也能在 Inkscape 里按内容直接改坐标;
         False 回到地把文字转成字形路径的老行为(任何查看器都不依赖字体, 但不
         能检索).
+    placements: 手工标签布局文件. 缺省 ``"auto"``: 产物旁边存在同名的
+        ``<name>.labels.json`` 就自动读取并施加, 不存在则照常出图(见
+        ``docs/reference/labels.md``); 传路径则强制读取, 文件缺失直接报错;
+        传 None 则忽略布局, 出纯默认位置.
     kwargs: 原样转给 ``Figure.savefig``, 例如 ``bbox_inches="tight"``.
     """
     import matplotlib
 
-    from . import svgtext
+    from . import labels, svgtext
 
     path = Path(path)
     if path.suffix.lower() != SVG_SUFFIX:
         raise ValueError(
             f"项目只输出 SVG 产物, 不接受后缀 {path.suffix!r}: {path}"
         )
+    document = _apply_label_placements(fig, path, placements, kwargs)
 
     # Date=None 让 matplotlib 不写 <dc:date>; 否则每次出图内容都不同.
     kwargs.setdefault("format", "svg")
@@ -86,6 +92,7 @@ def save_svg(
 
     if not embed_text:
         fig.savefig(path, **kwargs)
+        _write_layout_marker(path, document)
         return path
 
     # 文字外置: 摘掉白色的 path effect → 用 fonttype="none" 写出 <text> →
@@ -102,8 +109,63 @@ def save_svg(
         svgtext.restore_text(state)
         matplotlib.rcParams["svg.fonttype"] = "path"
         fig.savefig(path, **kwargs)
+        _write_layout_marker(path, document)
         return path
     finally:
         matplotlib.rcParams["svg.fonttype"] = previous
         svgtext.restore_text(state)
+    _write_layout_marker(path, document)
     return path
+
+
+def _apply_label_placements(
+    fig, path: Path, placements: str | Path | None, kwargs: dict
+):
+    """读取并施加手工标签布局, 返回被施加的 Placements(没有布局时返回 None).
+
+    为什么放在 save_svg 里而不是让每个脚本自己调用: 布局是"产物的属性"而不是
+    "绘图的步骤", 六个脚本共用一套行为才不会有人忘; 关闭方式也统一(传 None).
+    """
+    from . import labels
+
+    if placements is None:
+        return None
+    if placements == "auto":
+        source = labels.placement_path(path)
+        if not source.is_file():
+            return None
+    else:
+        source = Path(placements)
+        if not source.is_file():
+            raise FileNotFoundError(f"指定的标签布局文件不存在: {source}")
+
+    document = labels.load(source)
+    if document.figure and document.figure != path.name:
+        print(
+            f"警告: 标签布局记录的产物是 {document.figure!r}, "
+            f"当前产物是 {path.name!r}; 请确认没有读错布局文件"
+        )
+    if not document:
+        return None
+    # 新增标注按"SVG 画布 = Figure 画布"定位; bbox_inches="tight" 会改变画布尺寸,
+    # 坐标会整体错位. 这里直接拒绝, 不悄悄画歪.
+    if document.added and kwargs.get("bbox_inches") not in (None, "none"):
+        raise ValueError(
+            "布局文件里有新增标注, 其坐标以整张 Figure 为基准, "
+            "不支持 bbox_inches='tight'"
+        )
+    labels.apply(fig, document)
+    return document
+
+
+def _write_layout_marker(path: Path, document) -> None:
+    """把"这张图实际施加了哪份布局"记进 SVG 注释.
+
+    编辑器靠它区分"布局已经烤进图里"和"布局比 SVG 新", 才不会把同一段位移叠加
+    两遍; 标记本身只是注释, 对查看器没有任何影响(见 ``docs/reference/labels.md``).
+    """
+    if document is None:
+        return
+    from . import labels
+
+    labels.write_marker(path, document)

@@ -7,6 +7,8 @@
 俄罗斯一级行政区、Natural Earth 10m 河网与梯级水库水面, 一次生成两张自包含
 SVG: 只画流域的流域图, 与画框收窄、保留六个周边共和国的共和区图.
 完整说明: 见 ``docs/maps/volga.md``(两份画框、行政区取舍、河网分级、配色与标注避让).
+
+ --port 5173 --host 0.0.0.0 ./_.svg
 """
 
 from __future__ import annotations
@@ -50,6 +52,9 @@ from cartopy_file.relief import find_etopo, load_elevation, load_ne_layer, make_
 
 # 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
+
+# 标注 id: 编辑器按键/按 id 记录手工位移, 见 docs/reference/labels.md.
+from cartopy_file.labels import label_id
 from cartopy_file.output import apply_svg_output, save_svg
 
 apply_matplotlib_fonts()
@@ -867,6 +872,7 @@ def add_text_labels(ax: plt.Axes, spec: MapSpec, basin_area_km2: float) -> None:
             42.55,
             51.95,
             area_text,
+            gid=label_id("area", "流域"),
             transform=ccrs.PlateCarree(),
             fontsize=15,
             color=COLOR_BASIN_EDGE,
@@ -888,6 +894,7 @@ def add_text_labels(ax: plt.Axes, spec: MapSpec, basin_area_km2: float) -> None:
             lon,
             lat,
             text,
+            gid=label_id("republic", name),
             transform=ccrs.PlateCarree(),
             fontsize=size,
             color=COLOR_REPUBLIC_EDGE,
@@ -899,7 +906,14 @@ def add_text_labels(ax: plt.Axes, spec: MapSpec, basin_area_km2: float) -> None:
         )
 
     # 河名: 与干流同色, 沿河道方向旋转; 额外旋转按 spec 逐条覆盖.
+    # 同一条河可能标两段(伏尔加河上游/下游), 这时 id 加 1 起算的序号; 只标一次的
+    # 不加序号, 免得布局文件里出现"卡马河-3"这种看不出所以然的名字.
+    river_counts: dict[str, int] = {}
+    for _, _, text, *_ in RIVER_LABELS:
+        river_counts[text] = river_counts.get(text, 0) + 1
+    river_seen: dict[str, int] = {}
     for lon, lat, text, lon1, lat1, lon2, lat2 in RIVER_LABELS:
+        river_seen[text] = river_seen.get(text, 0) + 1
         if not in_extent(lon, lat, extent):
             continue
         rotation = projected_angle(lon1, lat1, lon2, lat2) + float(
@@ -909,6 +923,11 @@ def add_text_labels(ax: plt.Axes, spec: MapSpec, basin_area_km2: float) -> None:
             lon,
             lat,
             text,
+            gid=label_id(
+                "river",
+                text,
+                river_seen[text] if river_counts[text] > 1 else None,
+            ),
             transform=ccrs.PlateCarree(),
             fontsize=9.8,
             color=COLOR_RIVER_TRUNK,
@@ -929,6 +948,7 @@ def add_text_labels(ax: plt.Axes, spec: MapSpec, basin_area_km2: float) -> None:
             lon,
             lat,
             text,
+            gid=label_id("country", text),
             transform=ccrs.PlateCarree(),
             fontsize=12.0,
             color=COLOR_COUNTRY,
@@ -944,6 +964,7 @@ def add_text_labels(ax: plt.Axes, spec: MapSpec, basin_area_km2: float) -> None:
             lon,
             lat,
             text,
+            gid=label_id("sea", text),
             transform=ccrs.PlateCarree(),
             fontsize=11.0,
             color=COLOR_SEA,
@@ -962,6 +983,7 @@ def add_text_labels(ax: plt.Axes, spec: MapSpec, basin_area_km2: float) -> None:
             lon,
             lat,
             text,
+            gid=label_id("highland", text),
             transform=ccrs.PlateCarree(),
             fontsize=10.0,
             color=COLOR_HIGHLAND,
@@ -1021,6 +1043,7 @@ def add_text_labels(ax: plt.Axes, spec: MapSpec, basin_area_km2: float) -> None:
             lon + dx,
             lat + dy,
             name,
+            gid=label_id("city", name),
             transform=ccrs.PlateCarree(),
             fontsize=fontsize,
             color="black",
@@ -1187,6 +1210,7 @@ def add_area_label(fig: plt.Figure, layout: Layout, basin_area_km2: float) -> No
         layout.panel_left,
         layout.area_label_y,
         area_text,
+        gid=label_id("area", "流域"),
         ha="left",
         va="top",
         fontsize=15,

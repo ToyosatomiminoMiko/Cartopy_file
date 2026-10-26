@@ -17,6 +17,7 @@ Cartopy_file/
 ├── USSR/                   苏联图种
 ├── Ukraine/                乌克兰图种
 ├── Volga/                  伏尔加河流域图种: 流域图 + 周边六个共和国图 + 数据准备脚本 + data/
+├── tools/                  仓库工具: check_docs.py 文档检查, label_editor.py 标签编辑器
 ├── AmericaArmy/            早期演示脚本与手工底图, 不在维护范围
 ├── global.py               一次性演示脚本
 └── _stride1_chunked.py     一次性临时脚本(见 maps/northern-shan.md)
@@ -52,6 +53,7 @@ download_data.py ──► data/cartopy/ ─┐
 | `data` | 数据目录与 cartopy/matplotlib 缓存定位 | [`reference/data.md`](reference/data.md) |
 | `fonts` | 全局字体(中英文逐字符回退) | [`reference/fonts.md`](reference/fonts.md) |
 | `output` | 唯一的 SVG 出图入口 | [`reference/output.md`](reference/output.md) |
+| `labels` | 手工标签布局文件(位移 + 新增标注)的读写与施加 | [`reference/labels.md`](reference/labels.md) |
 | `relief` | 高程读取、配色与山体晕渲、海陆底色 | [`reference/relief.md`](reference/relief.md) |
 | `overlap` | 边界重合剪枝(按子模块导入) | [`reference/overlap.md`](reference/overlap.md) |
 

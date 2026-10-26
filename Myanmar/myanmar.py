@@ -38,6 +38,7 @@ configure_cartopy()
 
 # 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
 from cartopy_file.fonts import apply_matplotlib_fonts
+from cartopy_file.labels import label_id
 from cartopy_file.output import apply_svg_output, save_svg
 
 # 国界与海岸线重合时只保留国界: 用共享剪枝工具裁掉沿海段, 见 docs/reference/overlap.md.
@@ -272,6 +273,7 @@ def add_labels(ax: plt.Axes) -> None:
             lon,
             lat,
             text,
+            gid=label_id("country", text),
             transform=ccrs.PlateCarree(),
             fontsize=13,
             color="#333333",
@@ -285,6 +287,7 @@ def add_labels(ax: plt.Axes) -> None:
             lon,
             lat,
             text,
+            gid=label_id("sea", text),
             transform=ccrs.PlateCarree(),
             fontsize=12,
             color="#1f4e79",
@@ -302,6 +305,7 @@ def add_labels(ax: plt.Axes) -> None:
         95.6,
         23.5,
         "缅甸",
+        gid=label_id("country", "缅甸"),
         transform=ccrs.PlateCarree(),
         fontsize=22,
         color="#8b0000",
@@ -339,6 +343,7 @@ def add_labels(ax: plt.Axes) -> None:
             lon + 0.18,
             lat - 0.05,
             name,
+            gid=label_id("city", name),
             transform=ccrs.PlateCarree(),
             fontsize=10,
             color="black",

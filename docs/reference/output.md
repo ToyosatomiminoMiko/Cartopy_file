@@ -32,11 +32,17 @@
    回退系统字体, 缺字体时显示方框 —— 这是路径写法没有的风险. `save_svg(..., embed_text=False)`
    可以回到"文字转字形路径"的老行为; 外置流程任何一步抛异常时也会自动回退并打印警告.
 5. `metadata={"Date": None}` + 固定 `svg.hashsalt`: 同一份数据重复出图内容相同, 提交 git 时
-   不会因为时间戳/随机 id 产生无意义改动.
+   不会因为时间戳/随机 id 产生无意义改动. 内嵌的字体子集也用 `recalcTimestamp=False` 生成:
+   否则 fontTools 保存时会把 WOFF 里的 `head.modified` 改成"现在", 每次出图 base64 都不同.
+6. 手工标签布局: `placements` 参数缺省 `"auto"`, 产物旁边存在同名的 `<name>.labels.json` 时
+   自动读取并施加, 并把"实际施加的布局"写成 `<svg>` 开标签后的一行注释(编辑器据此判断布局
+   是否已经烤进图里); 传 `None` 关闭, 传路径强制读取. 见
+   [reference/labels.md](labels.md).
 
 `apply_svg_output()` 必须在导入 matplotlib 之后、创建 Figure 之前调用; `save_svg(fig, path,
-*, dpi=None, embed_text=True, **kwargs)` 的 `path` 必须是 `.svg` 结尾, `dpi` 只影响内嵌晕渲
-栅格, 缺省用 Figure 自身的 dpi(各脚本统一显式传 `--dpi`, 默认 300), `kwargs` 原样转给
+*, dpi=None, embed_text=True, placements="auto", **kwargs)` 的 `path` 必须是 `.svg` 结尾,
+`dpi` 只影响内嵌晕渲栅格, 缺省用 Figure 自身的 dpi(各脚本统一显式传 `--dpi`, 默认 300),
+`placements` 控制是否施加手工标签布局(见 `reference/labels.md`), `kwargs` 原样转给
 `Figure.savefig`, 例如 `bbox_inches="tight"`.
 
 ## 用法
