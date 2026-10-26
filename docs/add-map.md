@@ -72,7 +72,7 @@ python download_data.py --check   # 新数据已进清单且能检查到
 python <Name>/<name>.py           # 出图
 python <Name>/<name>.py           # 再跑一次, 产物应字节级不变(理由见 reference/output.md)
 # 先改 tools/label_editor.toml 的 svg 指向新产物
-python tools/label_editor.py      # 标签能拖、保存后重跑仍生效
+python tools/label_editor.py      # 标签能拖/旋转、保存后重跑仍生效
 python tools/check_docs.py        # 文档链接/模板/索引全绿
 ```
 

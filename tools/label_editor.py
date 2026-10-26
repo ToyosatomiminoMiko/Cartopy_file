@@ -5,8 +5,8 @@
 
 是什么: 起一个只监听本机回环(127.0.0.1)的标准库 HTTP 服务器, 把 ``tools/label_editor.toml``
 指向的 SVG 与它旁边的布局文件(``<name>.labels.json``)交给 ``tools/label_editor/`` 里的浏览器
-画布编辑器; 拖动、方向键微调、新增标注都只改编辑器内存, 保存时原子写回布局文件, 用户重跑绘图
-脚本才生成最终 SVG. 因此微调一轮不再需要重跑几分钟的出图.
+画布编辑器; 拖动、方向键微调、旋转、新增标注都只改编辑器内存, 保存时原子写回布局文件,
+用户重跑绘图脚本才生成最终 SVG. 因此微调一轮不再需要重跑几分钟的出图.
 没有命令行参数: 目标图、端口、是否自动打开浏览器全部读 TOML, 监听地址固定 127.0.0.1.
 完整说明(配置项、端点、状态模型、键盘、验证方法)见 ``docs/label-editing.md``.
 """
@@ -432,9 +432,15 @@ class LabelEditorHandler(BaseHTTPRequestHandler):
             )
             return
 
+        # 与 labels.dump 的舍入口径一致: 写盘时 0.0004 会被舍成 0 而不写 rotation.
+        rotated = sum(
+            1
+            for record in placements.moved.values()
+            if abs(round(float(record.get("rotation") or 0.0), 3)) >= 1e-9
+        )
         print(
             f"已保存布局: {written} (位移 {len(placements.moved)}, "
-            f"新增 {len(placements.added)})",
+            f"旋转 {rotated}, 新增 {len(placements.added)})",
             flush=True,
         )
         self._send_json(

@@ -70,7 +70,8 @@ def save_svg(
     placements: 手工标签布局文件. 缺省 ``"auto"``: 产物旁边存在同名的
         ``<name>.labels.json`` 就自动读取并施加, 不存在则照常出图(见
         ``docs/reference/labels.md``); 传路径则强制读取, 文件缺失直接报错;
-        传 None 则忽略布局, 出纯默认位置.
+        传 None 则忽略布局, 出纯默认位置. 已有标签的位移/旋转以标签组
+        ``transform`` 的形式写进 SVG, 与编辑器预览使用同一段变换.
     kwargs: 原样转给 ``Figure.savefig``, 例如 ``bbox_inches="tight"``.
     """
     import matplotlib
@@ -82,7 +83,14 @@ def save_svg(
         raise ValueError(
             f"项目只输出 SVG 产物, 不接受后缀 {path.suffix!r}: {path}"
         )
-    document = _apply_label_placements(fig, path, placements, kwargs)
+    # 同一 Figure 第二次保存时, Figure 上已经带着上一次的布局变换(apply 的幂等标记
+    # 会挡住重复施加); 这时不能再往 SVG 上叠一遍, 否则角度/位移会翻倍.
+    already_applied = bool(getattr(fig, "_cartopy_file_labels_applied", False))
+    # 文字外置成 <text> 时, 已有标签的变换在 savefig 之后补进 SVG(见 _apply_label_svg);
+    # 老的字形路径写法没有 <text> 可改, 仍在 Figure 上施加(精度略差, 是降级路径).
+    document = _apply_label_placements(
+        fig, path, placements, kwargs, moved=not embed_text
+    )
 
     # Date=None 让 matplotlib 不写 <dc:date>; 否则每次出图内容都不同.
     kwargs.setdefault("format", "svg")
@@ -91,6 +99,8 @@ def save_svg(
         kwargs.setdefault("dpi", dpi)
 
     if not embed_text:
+        # 字形路径没有 <text> 可补变换; 布局已经由 _apply_label_placements 写在
+        # Figure 上(moved=True), 直接保存即可.
         fig.savefig(path, **kwargs)
         _write_layout_marker(path, document)
         return path
@@ -108,18 +118,24 @@ def save_svg(
         print(f"警告: 文字外置失败({exc}); 回退为字形路径: {path}")
         svgtext.restore_text(state)
         matplotlib.rcParams["svg.fonttype"] = "path"
+        # 回退成字形路径后没有 <text> 可补变换, 只能改 Figure(精度略差).
+        if document is not None and not already_applied:
+            labels.apply_moved(fig, document)
         fig.savefig(path, **kwargs)
         _write_layout_marker(path, document)
         return path
     finally:
         matplotlib.rcParams["svg.fonttype"] = previous
         svgtext.restore_text(state)
-    _write_layout_marker(path, document)
+    applied = None
+    if not already_applied:
+        applied = _apply_label_svg(fig, path, document)
+    _write_layout_marker(path, document, applied=applied)
     return path
 
 
 def _apply_label_placements(
-    fig, path: Path, placements: str | Path | None, kwargs: dict
+    fig, path: Path, placements: str | Path | None, kwargs: dict, *, moved: bool
 ):
     """读取并施加手工标签布局, 返回被施加的 Placements(没有布局时返回 None).
 
@@ -154,18 +170,70 @@ def _apply_label_placements(
             "布局文件里有新增标注, 其坐标以整张 Figure 为基准, "
             "不支持 bbox_inches='tight'"
         )
-    labels.apply(fig, document)
+    # 文字外置路径(moved=False): 已有标签的位移/旋转不在 Figure 上施加, 而在 savefig
+    # 之后直接补进 SVG 的标签组(见 _apply_label_svg) —— matplotlib 的 Text.set_rotation
+    # 会按 rotation_mode 重排文字, 与编辑器预览绕固定锚点转的结果差几 pt.
+    labels.apply(fig, document, moved=moved)
     return document
 
 
-def _write_layout_marker(path: Path, document) -> None:
+def _apply_label_svg(fig, path: Path, document) -> list[str] | None:
+    """把布局里"已有标签"的位移/旋转补进已写出的 SVG, 并同步回 Figure.
+
+    为什么分两步: 文件里的变换必须在 savefig 之后改(否则被重新生成覆盖), 而 Figure
+    上的变换只给 ``--show`` 的交互窗口看; 产物本身只读 SVG. 新增标注不经过这里,
+    它们由 ``labels._add_custom`` 按 figure 坐标补画.
+
+    返回实际写进 SVG 的标签 id; 少数标签(没有 <text>, 例如带不支持 path effect 被
+    画成字形路径)可能一个都没写成, 调用方据此收窄 marker, 免得编辑器误以为它们
+    已经烤进图里.
+    """
+    if document is None:
+        return None
+    from . import labels
+
+    applied = labels.apply_svg_transforms(path, document)
+    # SVG 侧已经打印过"缺失/不支持"的汇总警告, 这里不重复.
+    labels.apply_moved(fig, document, warn=False)
+    return applied
+
+
+def _write_layout_marker(path: Path, document, *, applied: list[str] | None = None) -> None:
     """把"这张图实际施加了哪份布局"记进 SVG 注释.
 
     编辑器靠它区分"布局已经烤进图里"和"布局比 SVG 新", 才不会把同一段位移叠加
     两遍; 标记本身只是注释, 对查看器没有任何影响(见 ``docs/reference/labels.md``).
+    applied: 实际写进 SVG 的 moved id; 传了就只把这些记录进 marker, 没写进去的
+    标签留给编辑器当成"未烤入", 而不是谎报已施加.
     """
     if document is None:
         return
     from . import labels
 
+    if applied is not None:
+        applied_set = set(applied)
+        dropped = [
+            gid
+            for gid, record in document.moved.items()
+            if gid not in applied_set
+            and any(
+                abs(float(record.get(name) or 0.0)) > 1e-9
+                for name in ("dx", "dy", "rotation")
+            )
+        ]
+        if dropped:
+            shown = ", ".join(dropped[:5]) + ("" if len(dropped) <= 5 else ", ...")
+            print(
+                f"警告: {len(dropped)} 个标签的位移/旋转没能写进 SVG, "
+                f"布局标记里只记录已施加的部分: {shown}"
+            )
+            document = labels.Placements(
+                moved={
+                    gid: record
+                    for gid, record in document.moved.items()
+                    if gid not in set(dropped)
+                },
+                added=document.added,
+                figure=document.figure,
+            )
     labels.write_marker(path, document)

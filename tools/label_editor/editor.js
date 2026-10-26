@@ -17,6 +17,10 @@
   const FIT_FILL = 0.9; // 四周各留 5% 边距
   const TEXT_TRUNCATE = 24;
   const PICK_PROMPT = '新增标注文字:';
+  // 旋转手柄离标签屏幕外框顶部的距离(px); 按屏幕像素而不是 SVG 单位, 缩放后手感一致.
+  const ROTATE_HANDLE_OFFSET = 26;
+  // 拖手柄时按住 Shift 的吸附间隔(度).
+  const ROTATE_SNAP = 15;
 
   // 与 cartopy_file.labels 的默认样式保持一致; 从图上抄不到样式时用它兜底.
   const STYLE_DEFAULTS = {
@@ -62,6 +66,7 @@
     readyAt: 0,
     drag: null,
     panDrag: null,
+    rotateDrag: null,
   };
 
   const els = {};
@@ -93,6 +98,7 @@
     bindFocusBlur();
     bindToolbar();
     bindViewport();
+    bindRotateHandle();
     bindKeyboard();
     bindUnload();
     load().catch(showFatal);
@@ -141,7 +147,12 @@
       statusZoom: $('status-zoom'),
       statusSave: $('status-save'),
       step: $('step'),
+      rotateStep: $('rotate-step'),
       styleSource: $('style-source'),
+      rotateHandle: $('rotate-handle'),
+      selRotation: $('sel-rotation'),
+      btnRotateCcw: $('btn-rotate-ccw'),
+      btnRotateCw: $('btn-rotate-cw'),
       btnAdd: $('btn-add'),
       btnSave: $('btn-save'),
       toggleHighlight: $('toggle-highlight'),
@@ -253,8 +264,11 @@
   }
 
   function makeLabel(el, textEl, options) {
+    // 旋转要绕文字锚点进行: 先把文字自身(及标签组)的 transform 折算成锚点,
+    // 后面往包装层上叠加 rotate 时就有中心可用, 不会绕画布原点转飞.
+    const anchor = readLabelAnchor(el, textEl);
     // matplotlib 的标签组一般没有 transform; 若元素自带 transform(旋转等),
-    // 在它外面套一层新的 <g>, 把编辑器位移加在包装层, 不覆盖原属性.
+    // 在它外面套一层新的 <g>, 把编辑器位移与旋转加在包装层, 不覆盖原属性.
     let node = el;
     let baseTransform = el.getAttribute('transform');
     if (baseTransform !== null) {
@@ -269,6 +283,7 @@
       node,
       textEl,
       baseTransform,
+      anchor,
       added: !!options.added,
       hidden: false,
       domX: options.domX,
@@ -399,15 +414,38 @@
       }
       const baseX = label.domX === undefined ? record.x : label.domX;
       const baseY = label.domY === undefined ? record.y : label.domY;
-      setTranslate(label, round3(record.x - baseX), round3(record.y - baseY));
+      setLabelTransform(label, round3(record.x - baseX), round3(record.y - baseY), 0);
+      applyAddedRotation(label, record);
       return;
     }
     const offset = currentOffset(label.id);
-    setTranslate(label, offset.dx, offset.dy);
+    setLabelTransform(label, offset.dx, offset.dy, currentRotation(label.id));
   }
 
-  function setTranslate(label, dx, dy) {
-    label.node.setAttribute('transform', `translate(${fmt(dx)} ${fmt(dy)})`);
+  function setLabelTransform(label, dx, dy, rotation) {
+    const parts = [`translate(${fmt(dx)} ${fmt(dy)})`];
+    if (rotation) {
+      // 旋转中心是文字锚点: 与 matplotlib 写出的 rotate(角度 x y) 是同一点.
+      // 锚点用 6 位小数(SVG 坐标本身就是 6 位), 别在矩阵里丢精度.
+      parts.push(
+        `rotate(${fmt(rotation)} ${fmt6(label.anchor.x)} ${fmt6(label.anchor.y)})`
+      );
+    }
+    label.node.setAttribute('transform', parts.join(' '));
+  }
+
+  // 新增标注存的是绝对角度, 直接改文字自己的 rotate; 已有标签的角度是相对增量,
+  // 加在包装层上(见 setLabelTransform), 这样重跑脚本后会自动跟脚本的新角度走.
+  function applyAddedRotation(label, record) {
+    const rotation = Number(record.rotation) || 0;
+    if (rotation) {
+      label.textEl.setAttribute(
+        'transform',
+        `rotate(${fmt(rotation)} ${fmt6(label.anchor.x)} ${fmt6(label.anchor.y)})`
+      );
+    } else {
+      label.textEl.removeAttribute('transform');
+    }
   }
 
   function hideLabel(label) {
@@ -416,6 +454,7 @@
     label.el.classList.remove('is-hover', 'is-selected');
     const item = S.items.get(label.id);
     if (item) item.classList.remove('is-hover', 'is-selected');
+    updateRotateHandle();
   }
 
   function currentOffset(id) {
@@ -442,6 +481,48 @@
     };
   }
 
+  function currentRotation(id) {
+    const record = S.moved[id];
+    const baked = S.bakedMoved[id] || {};
+    return round3(
+      normalizeAngle(
+        (record ? Number(record.rotation) || 0 : 0) - Number(baked.rotation || 0)
+      )
+    );
+  }
+
+  function writeExistingRotation(id, rotation) {
+    const baked = S.bakedMoved[id] || {};
+    const previous = S.moved[id] || {};
+    // dx/dy 缺省记 0: 显示平移的公式是 current - baked, 新建记录时只有记 0 才不会
+    // 把"还没有施加的位移"变成施加过的.
+    S.moved[id] = {
+      ...previous,
+      dx: round3(Number(previous.dx || 0)),
+      dy: round3(Number(previous.dy || 0)),
+      rotation: round3(Number(baked.rotation || 0) + rotation),
+    };
+  }
+
+  // 拖回原地/转回原角度时清掉没有必要的记录, 保持布局文件干净;
+  // baked 非 0 时不能删, 否则显示位置会跳回脚本默认位置.
+  function pruneMoved(id) {
+    const record = S.moved[id];
+    if (!record || record.text) return;
+    const baked = S.bakedMoved[id] || {};
+    const zero = (value) => Math.abs(Number(value || 0)) < 5e-4;
+    if (
+      zero(record.dx) &&
+      zero(record.dy) &&
+      zero(record.rotation) &&
+      zero(baked.dx) &&
+      zero(baked.dy) &&
+      zero(baked.rotation)
+    ) {
+      delete S.moved[id];
+    }
+  }
+
   // ── 视图(平移/缩放) ─────────────────────────────────────────
 
   function fitView() {
@@ -465,6 +546,7 @@
     S.svgRoot.style.transform =
       `translate(${fmt(S.panX)}px, ${fmt(S.panY)}px) scale(${fmt(S.scale)})`;
     els.statusZoom.textContent = `缩放 ${Math.round(S.scale * 100)}%`;
+    updateRotateHandle();
   }
 
   function zoomAt(screenX, screenY, factor) {
@@ -557,7 +639,13 @@
     if (label.added) return 'added';
     if (S.moved[label.id]) return 'moved';
     const offset = currentOffset(label.id);
-    if (Math.abs(offset.dx) > 1e-9 || Math.abs(offset.dy) > 1e-9) return 'moved';
+    if (
+      Math.abs(offset.dx) > 1e-9 ||
+      Math.abs(offset.dy) > 1e-9 ||
+      Math.abs(currentRotation(label.id)) > 1e-9
+    ) {
+      return 'moved';
+    }
     return 'default';
   }
 
@@ -670,6 +758,7 @@
     const label = id ? S.labels.get(id) : null;
     if (!label || label.hidden) {
       els.selectionPanel.classList.add('hidden');
+      updateRotateHandle();
       return;
     }
     els.selectionPanel.classList.remove('hidden');
@@ -700,6 +789,14 @@
       els.btnResetOne.classList.remove('hidden');
       els.btnDeleteOne.classList.add('hidden');
     }
+    const rotation = label.added
+      ? Number((S.addedIndex.get(id) || {}).rotation) || 0
+      : currentRotation(id);
+    els.selRotation.textContent = `${signed(rotation)}°`;
+    els.selRotation.title = label.added
+      ? '绝对角度(SVG 约定, 正值顺时针)'
+      : '相对脚本默认角度的增量(SVG 约定, 正值顺时针)';
+    updateRotateHandle();
   }
 
   // ── 拖动 / 平移 / 缩放 ──────────────────────────────────────
@@ -719,6 +816,8 @@
       if (S.pickMode) event.preventDefault();
     });
     els.viewport.addEventListener('dragstart', (event) => event.preventDefault());
+    // 窗口尺寸变化会挪动标签的屏幕外框, 旋转手柄要跟着重新定位.
+    window.addEventListener('resize', updateRotateHandle);
   }
 
   function onPointerDown(event) {
@@ -841,19 +940,9 @@
       const label = S.labels.get(drag.id);
       if (label) {
         label.el.classList.remove('is-dragging');
-        // 拖回原地时清掉没有必要的 {0,0} 记录, 保持布局文件干净;
-        // baked 非 0 时不能删, 否则显示位置会跳回脚本默认位置.
         if (!drag.added) {
-          const baked = S.bakedMoved[drag.id] || { dx: 0, dy: 0 };
-          const offset = currentOffset(drag.id);
-          const atZero = Math.abs(offset.dx) < 5e-4 && Math.abs(offset.dy) < 5e-4;
-          const bakedZero =
-            Math.abs(Number(baked.dx || 0)) < 5e-4 &&
-            Math.abs(Number(baked.dy || 0)) < 5e-4;
-          if (atZero && bakedZero && !(S.moved[drag.id] || {}).text) {
-            delete S.moved[drag.id];
-            refreshLabelTransform(label);
-          }
+          pruneMoved(drag.id);
+          refreshLabelTransform(label);
         }
       }
       if (drag.moved) markDirty();
@@ -885,6 +974,141 @@
     fitView();
   }
 
+  // ── 旋转手柄 ───────────────────────────────────────────────
+
+  function bindRotateHandle() {
+    const handle = els.rotateHandle;
+    if (!handle) return;
+    handle.addEventListener('pointerdown', onRotateHandleDown);
+    handle.addEventListener('dragstart', (event) => event.preventDefault());
+    // 拖拽过程统一挂在 window 上: 指针捕获一旦失效(窗口失焦、元素被隐藏、某些
+    // 输入环境下第一帧就跳到元素外), 事件会落到别的元素上, 但照样冒泡到 window.
+    // 这样既不会丢旋转, 也不会残留 S.rotateDrag 让之后划过手柄时继续乱转.
+    window.addEventListener('pointermove', onRotateHandleMove);
+    window.addEventListener('pointerup', onRotateHandleUp);
+    window.addEventListener('pointercancel', onRotateHandleUp);
+    window.addEventListener('blur', () => {
+      if (S.rotateDrag) finishRotateDrag();
+    });
+  }
+
+  function updateRotateHandle() {
+    const handle = els.rotateHandle;
+    if (!handle) return;
+    const label = S.selectedId ? S.labels.get(S.selectedId) : null;
+    if (!S.editing || S.pickMode || !label || label.hidden) {
+      handle.classList.add('hidden');
+      return;
+    }
+    const rect = label.el.getBoundingClientRect();
+    const viewportRect = els.viewport.getBoundingClientRect();
+    if (!rect.width && !rect.height) {
+      handle.classList.add('hidden');
+      return;
+    }
+    // 标签贴边时手柄会跑出画布(viewport 有 overflow: hidden), 夹回可视区里,
+    // 免得选中的标签在角落就完全没法拖旋转.
+    const left = clamp(
+      rect.left + rect.width / 2 - viewportRect.left,
+      12,
+      els.viewport.clientWidth - 12
+    );
+    const top = clamp(
+      rect.top - ROTATE_HANDLE_OFFSET - viewportRect.top,
+      12,
+      els.viewport.clientHeight - 12
+    );
+    handle.style.left = `${left}px`;
+    handle.style.top = `${top}px`;
+    handle.classList.remove('hidden');
+  }
+
+  // 锚点的屏幕坐标: 已有标签是"文字锚点 + 当前位移", 新增标注是记录里的绝对锚点.
+  // 旋转绕锚点进行, 锚点本身在旋转过程中不动, 所以拖拽时只需要算一次.
+  function anchorScreenOf(label) {
+    if (label.added) {
+      const record = S.addedIndex.get(label.id);
+      if (record) return userToClient(Number(record.x), Number(record.y));
+    } else {
+      const offset = currentOffset(label.id);
+      return userToClient(label.anchor.x + offset.dx, label.anchor.y + offset.dy);
+    }
+    return userToClient(label.anchor.x, label.anchor.y);
+  }
+
+  function pointerAngle(origin, clientX, clientY) {
+    // 屏幕坐标 y 轴向下, atan2 增大的方向正好是 SVG 的顺时针方向.
+    return (Math.atan2(clientY - origin.y, clientX - origin.x) * 180) / Math.PI;
+  }
+
+  function onRotateHandleDown(event) {
+    if (!S.editing || event.button !== 0) return;
+    const id = S.selectedId;
+    const label = id ? S.labels.get(id) : null;
+    if (!label || label.hidden) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const anchor = anchorScreenOf(label);
+    S.rotateDrag = {
+      pointerId: event.pointerId,
+      id,
+      anchor,
+      startAngle: pointerAngle(anchor, event.clientX, event.clientY),
+      startRotation: rotationDisplayOf(id),
+      moved: false,
+    };
+    els.rotateHandle.setPointerCapture(event.pointerId);
+    els.rotateHandle.classList.add('is-rotating');
+    els.viewport.classList.add('is-rotating');
+    setHover(id, false);
+  }
+
+  function onRotateHandleMove(event) {
+    const drag = S.rotateDrag;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    // 按键已经松开(捕获失效时收不到 pointerup): 当作拖拽结束, 不要再跟着鼠标转.
+    if (event.buttons === 0) {
+      finishRotateDrag();
+      return;
+    }
+    event.preventDefault();
+    const angle = pointerAngle(drag.anchor, event.clientX, event.clientY);
+    const delta = normalizeAngle(angle - drag.startAngle);
+    let target = drag.startRotation + delta;
+    if (event.shiftKey) target = Math.round(target / ROTATE_SNAP) * ROTATE_SNAP;
+    applyRotation(drag.id, target);
+    drag.moved = true;
+  }
+
+  function onRotateHandleUp(event) {
+    const drag = S.rotateDrag;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    finishRotateDrag();
+  }
+
+  function finishRotateDrag() {
+    const drag = S.rotateDrag;
+    if (!drag) return;
+    S.rotateDrag = null;
+    els.rotateHandle.classList.remove('is-rotating');
+    els.viewport.classList.remove('is-rotating');
+    if (els.rotateHandle.hasPointerCapture && els.rotateHandle.hasPointerCapture(drag.pointerId)) {
+      els.rotateHandle.releasePointerCapture(drag.pointerId);
+    }
+    const label = S.labels.get(drag.id);
+    if (drag.moved && label) {
+      if (!label.added) {
+        pruneMoved(drag.id);
+        refreshLabelTransform(label);
+      }
+      updateSelectionPanel();
+      updateItem(drag.id);
+      updateCounts();
+      markDirty();
+    }
+    updateRotateHandle();
+  }
+
   // ── 工具栏 / 键盘 ──────────────────────────────────────────
 
   function bindToolbar() {
@@ -899,6 +1123,12 @@
       const value = parseFloat(els.step.value);
       if (!Number.isFinite(value) || value <= 0) els.step.value = '1.0';
     });
+    els.rotateStep.addEventListener('change', () => {
+      const value = parseFloat(els.rotateStep.value);
+      if (!Number.isFinite(value) || value <= 0) els.rotateStep.value = '1.0';
+    });
+    els.btnRotateCcw.addEventListener('click', () => rotateSelected(-1, false, false));
+    els.btnRotateCw.addEventListener('click', () => rotateSelected(1, false, false));
     els.toggleHighlight.addEventListener('change', () => {
       els.canvas.classList.toggle(
         'highlight-labels',
@@ -954,6 +1184,14 @@
       }
       return;
     }
+    // [ / ] 旋转; Shift+[ 在大写布局里是 {, 两个键位都认.
+    // (Shift 同时是"×10"修饰键, 所以不能用 Shift+字母这类组合.)
+    const rotateKey = { '[': -1, '{': -1, ']': 1, '}': 1 }[key];
+    if (rotateKey && S.selectedId && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      rotateSelected(rotateKey, event.shiftKey, event.altKey);
+      return;
+    }
     const nudgeMap = {
       ArrowLeft: [-1, 0],
       ArrowRight: [1, 0],
@@ -1001,6 +1239,60 @@
     return Number.isFinite(value) && value > 0 ? value : 1;
   }
 
+  function rotateSelected(direction, shift, alt) {
+    const id = S.selectedId;
+    const label = id ? S.labels.get(id) : null;
+    if (!label || label.hidden) return;
+    const amount = rotateStepValue() * (shift ? 10 : 1) * (alt ? 0.1 : 1);
+    applyRotation(id, rotationDisplayOf(id) + direction * amount);
+    if (!label.added) {
+      pruneMoved(id);
+      refreshLabelTransform(label);
+    }
+    updateSelectionPanel();
+    updateItem(id);
+    updateCounts();
+    markDirty();
+  }
+
+  function rotateStepValue() {
+    const value = parseFloat(els.rotateStep.value);
+    return Number.isFinite(value) && value > 0 ? value : 1;
+  }
+
+  function rotationDisplayOf(id) {
+    const label = S.labels.get(id);
+    if (!label) return 0;
+    if (label.added) {
+      const record = S.addedIndex.get(id);
+      return record ? round3(Number(record.rotation) || 0) : 0;
+    }
+    return currentRotation(id);
+  }
+
+  // 统一的"设置显示角度"入口: 已有标签换算成布局文件里的增量, 新增标注直接记绝对角度.
+  function applyRotation(id, value) {
+    const label = S.labels.get(id);
+    if (!label || label.hidden) return;
+    const rotation = round3(normalizeAngle(value));
+    if (label.added) {
+      const record = S.addedIndex.get(id);
+      if (!record) return;
+      record.rotation = rotation;
+    } else {
+      writeExistingRotation(id, rotation);
+    }
+    refreshLabelTransform(label);
+    if (!label.added) {
+      // 转回 0 且没有位移时把空记录清掉, 免得布局文件里留下 {dx:0, dy:0, rotation:0}.
+      pruneMoved(id);
+      refreshLabelTransform(label);
+    }
+    updateSelectionPanel();
+    updateItem(id);
+    updateCounts();
+  }
+
   // ── 新增标注 ────────────────────────────────────────────────
 
   function togglePick() {
@@ -1014,6 +1306,7 @@
     els.btnAdd.classList.add('active');
     els.hint.textContent = '点击地图放置新标注 · Esc 取消';
     els.hint.classList.remove('hidden');
+    updateRotateHandle();
   }
 
   function exitPick() {
@@ -1021,6 +1314,7 @@
     els.viewport.classList.remove('is-picking');
     els.btnAdd.classList.remove('active');
     els.hint.classList.add('hidden');
+    updateRotateHandle();
   }
 
   function placeAnnotation(userX, userY) {
@@ -1079,7 +1373,7 @@
             };
           }
         } else {
-          return styleFromTextElement(source.textEl);
+          return styleFromExistingLabel(source);
         }
       }
     }
@@ -1100,7 +1394,19 @@
     if (!reference) {
       return { style: { ...STYLE_DEFAULTS }, rotation: 0 };
     }
-    return styleFromTextElement(reference.textEl);
+    return styleFromExistingLabel(reference);
+  }
+
+  // 抄样式时旋转要取"当前看到的角度": 文字自己的角度 + 标签组上已烤入的角度 +
+  // 编辑器里另加的增量(current - baked). 出图把布局写在组上之后, 前两项才拆开,
+  // 这样新老产物的可见角度都算得对.
+  function styleFromExistingLabel(label) {
+    const style = styleFromTextElement(label.textEl);
+    const bakedOnGroup = parseRotation(label.el);
+    style.rotation = normalizeAngle(
+      style.rotation + bakedOnGroup + currentRotation(label.id)
+    );
+    return style;
   }
 
   function styleFromTextElement(textEl) {
@@ -1152,6 +1458,7 @@
     updateItem(id);
     updateSelectionPanel();
     updateCounts();
+    updateRotateHandle();
     markDirty();
   }
 
@@ -1168,6 +1475,7 @@
     rebuildList();
     updateSelectionPanel();
     updateCounts();
+    updateRotateHandle();
     markDirty();
   }
 
@@ -1193,6 +1501,7 @@
     rebuildList();
     updateSelectionPanel();
     updateCounts();
+    updateRotateHandle();
     markDirty();
   }
 
@@ -1301,6 +1610,8 @@
     for (const key of Object.keys(moved || {}).sort()) {
       const record = moved[key];
       const entry = { dx: round3(record.dx), dy: round3(record.dy) };
+      const rotation = round3(record.rotation || 0);
+      if (rotation) entry.rotation = rotation;
       if (record.text) entry.text = record.text;
       result[key] = entry;
     }
@@ -1343,6 +1654,7 @@
     updateSaveState();
     updateBanner();
     els.statusZoom.textContent = `缩放 ${Math.round(S.scale * 100)}%`;
+    updateRotateHandle();
   }
 
   function updateCounts() {
@@ -1533,6 +1845,73 @@
     return element;
   }
 
+  // 把 SVG transform 列表作用到一个点上. 列表是"外层在前", 例如
+  // translate(...) rotate(...) 表示先旋转再平移, 所以对点要从右往左算.
+  function applyTransformToPoint(list, point) {
+    const pattern = /(matrix|translate|scale|rotate|skewX|skewY)\s*\(([^)]*)\)/g;
+    const operations = [];
+    let match;
+    while ((match = pattern.exec(list)) !== null) {
+      const args = match[2]
+        .trim()
+        .split(/[\s,]+/)
+        .filter(Boolean)
+        .map(Number);
+      if (args.some((value) => !Number.isFinite(value))) continue;
+      operations.push({ name: match[1], args });
+    }
+    for (let index = operations.length - 1; index >= 0; index -= 1) {
+      const { name, args } = operations[index];
+      const x = point.x;
+      const y = point.y;
+      if (name === 'matrix' && args.length === 6) {
+        point.x = args[0] * x + args[2] * y + args[4];
+        point.y = args[1] * x + args[3] * y + args[5];
+      } else if (name === 'translate') {
+        point.x = x + (args[0] || 0);
+        point.y = y + (args.length > 1 ? args[1] : 0);
+      } else if (name === 'scale') {
+        const sx = args.length > 0 ? args[0] : 1;
+        const sy = args.length > 1 ? args[1] : sx;
+        point.x = x * sx;
+        point.y = y * sy;
+      } else if (name === 'rotate') {
+        const radians = ((args[0] || 0) * Math.PI) / 180;
+        const cos = Math.cos(radians);
+        const sin = Math.sin(radians);
+        const cx = args.length > 2 ? args[1] : 0;
+        const cy = args.length > 2 ? args[2] : 0;
+        const dx = x - cx;
+        const dy = y - cy;
+        point.x = cx + cos * dx - sin * dy;
+        point.y = cy + sin * dx + cos * dy;
+      } else if (name === 'skewX') {
+        point.x = x + Math.tan(((args[0] || 0) * Math.PI) / 180) * y;
+      } else if (name === 'skewY') {
+        point.y = y + Math.tan(((args[0] || 0) * Math.PI) / 180) * x;
+      }
+    }
+    return point;
+  }
+
+  // 计算文字锚点在"标签元素父坐标系"里的位置: 从 <text> 往上逐层应用 transform.
+  // 为什么不用 getCTM: 它会把编辑器自己加的缩放与包装层也算进去, 而旋转中心必须是
+  // SVG 用户坐标里的固定点, 解析属性更稳(matplotlib 只写 translate / rotate).
+  function readLabelAnchor(el, textEl) {
+    const point = {
+      x: readCoord(textEl.getAttribute('x'), 0),
+      y: readCoord(textEl.getAttribute('y'), 0),
+    };
+    let node = textEl;
+    for (;;) {
+      const transform = node.getAttribute && node.getAttribute('transform');
+      if (transform) applyTransformToPoint(transform, point);
+      if (node === el || !node.parentNode) break;
+      node = node.parentNode;
+    }
+    return point;
+  }
+
   function applyMatrix(matrix, x, y) {
     return {
       x: matrix.a * x + matrix.c * y + matrix.e,
@@ -1576,6 +1955,12 @@
 
   function fmt(value) {
     return String(round3(value));
+  }
+
+  // 锚点坐标来自 SVG 属性(6 位小数), 旋转中心别按 3 位取整.
+  function fmt6(value) {
+    const rounded = Math.round(Number(value) * 1000000) / 1000000;
+    return String(Object.is(rounded, -0) ? 0 : rounded);
   }
 
   function signed(value) {
@@ -1634,6 +2019,7 @@
         offset: label.added
           ? addedOffset(S.addedIndex.get(label.id), label)
           : currentOffset(label.id),
+        rotation: rotationDisplayOf(label.id),
         transform: label.node.getAttribute('transform'),
       })),
     labelIds: () => visibleLabels().map((label) => label.id),
@@ -1655,6 +2041,32 @@
     transformOf: (id) => {
       const label = S.labels.get(id);
       return label ? label.node.getAttribute('transform') : null;
+    },
+    currentRotation: (id) => (S.labels.has(id) ? rotationDisplayOf(id) : null),
+    setRotation: (id, degrees) => {
+      applyRotation(id, degrees);
+      return rotationDisplayOf(id);
+    },
+    rotateBy: (id, degrees) => {
+      applyRotation(id, rotationDisplayOf(id) + degrees);
+      return rotationDisplayOf(id);
+    },
+    anchorOf: (id) => {
+      const label = S.labels.get(id);
+      return label ? { ...label.anchor } : null;
+    },
+    rotateStep: () => rotateStepValue(),
+    rotateHandleVisible: () =>
+      !!els.rotateHandle && !els.rotateHandle.classList.contains('hidden'),
+    rotateHandleScreen: () => {
+      if (!els.rotateHandle) return null;
+      const rect = els.rotateHandle.getBoundingClientRect();
+      return {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+        width: rect.width,
+        height: rect.height,
+      };
     },
     moved: () => JSON.parse(JSON.stringify(S.moved)),
     added: () => JSON.parse(JSON.stringify(S.added)),

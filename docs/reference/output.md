@@ -35,8 +35,9 @@
    不会因为时间戳/随机 id 产生无意义改动. 内嵌的字体子集也用 `recalcTimestamp=False` 生成:
    否则 fontTools 保存时会把 WOFF 里的 `head.modified` 改成"现在", 每次出图 base64 都不同.
 6. 手工标签布局: `placements` 参数缺省 `"auto"`, 产物旁边存在同名的 `<name>.labels.json` 时
-   自动读取并施加, 并把"实际施加的布局"写成 `<svg>` 开标签后的一行注释(编辑器据此判断布局
-   是否已经烤进图里); 传 `None` 关闭, 传路径强制读取. 见
+   自动读取并施加 —— 新增标注按 figure 坐标补画, 已有标签的位移/旋转以标签组 `transform`
+   写进 SVG(与编辑器预览同构), 并把"实际施加的布局"写成 `<svg>` 开标签后的一行注释(编辑器
+   据此判断布局是否已经烤进图里); 传 `None` 关闭, 传路径强制读取. 见
    [reference/labels.md](labels.md).
 
 `apply_svg_output()` 必须在导入 matplotlib 之后、创建 Figure 之前调用; `save_svg(fig, path,

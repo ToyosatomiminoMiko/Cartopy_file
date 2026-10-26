@@ -23,7 +23,7 @@
 | [data-preparation.md](data-preparation.md) | 数据放哪、从哪来、许可、准备命令、ETOPO 下载与 `--check` |
 | [add-map.md](add-map.md) | 新增图种/共享模块的步骤与扩展点 |
 | [conventions.md](conventions.md) | 文档模板、命名、路径、文风、注释规则 |
-| [label-editing.md](label-editing.md) | 两步出图: 脚本出底图, 浏览器里用鼠标调标签位置 |
+| [label-editing.md](label-editing.md) | 两步出图: 脚本出底图, 浏览器里用鼠标调标签位置与角度 |
 
 ## 图种
 

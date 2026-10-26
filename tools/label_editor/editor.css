@@ -257,6 +257,31 @@ body {
 .canvas [id^="label-"].is-selected { filter: drop-shadow(0 0 2px rgba(26, 115, 232, .8)); }
 .canvas [id^="label-"].is-dragging { cursor: grabbing; }
 
+/* 选中标签上方的旋转手柄: 位置由 JS 按标签屏幕外框算, 这里只管外观. */
+.rotate-handle {
+  position: absolute;
+  z-index: 5;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow: 0 1px 4px rgba(24, 34, 45, .28);
+}
+
+.rotate-handle:hover { background: var(--accent-soft); }
+.rotate-handle.is-rotating { background: var(--accent-soft); cursor: grabbing; }
+.viewport.is-rotating { cursor: grabbing; }
+
 /* "突出标签": 用醒目的描边盖住原有白边, 让文字在复杂底图上更清楚. */
 .canvas.highlight-labels [id^="label-"] text {
   stroke: #ff9f1c !important;
@@ -330,7 +355,9 @@ body {
   text-align: right;
 }
 
-.panel-actions { display: flex; gap: 6px; }
+.panel-actions { display: flex; align-items: center; gap: 6px; }
+
+.panel-actions .spacer { flex: 1 1 auto; }
 
 .badge {
   font-size: 11px;
