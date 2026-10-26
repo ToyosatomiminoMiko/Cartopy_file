@@ -33,7 +33,7 @@
 | [maps/northern-shan.md](maps/northern-shan.md) | `Myanmar/northern_shan.py` | 掸邦/特区地形图 |
 | [maps/ussr.md](maps/ussr.md) | `USSR/ussr.py` | 苏联地形图 |
 | [maps/ukraine.md](maps/ukraine.md) | `Ukraine/ukraine.py` | 乌克兰全图(1991/2014/2022 边界) |
-| [maps/volga.md](maps/volga.md) | `Volga/volga.py` | 伏尔加河流域与周边联邦主体共和国地形图 |
+| [maps/volga.md](maps/volga.md) | `Volga/volga.py` | 伏尔加河流域地形图 / 流域与周边六个共和国地形图 |
 
 ## 参考
 

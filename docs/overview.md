@@ -16,7 +16,7 @@ Cartopy_file/
 ├── Myanmar/                缅甸图种: 3 张图 + 数据准备脚本 + data/
 ├── USSR/                   苏联图种
 ├── Ukraine/                乌克兰图种
-├── Volga/                  伏尔加河流域图种: 流域 + 周边联邦主体共和国 + 数据准备脚本 + data/
+├── Volga/                  伏尔加河流域图种: 流域图 + 周边六个共和国图 + 数据准备脚本 + data/
 ├── AmericaArmy/            早期演示脚本与手工底图, 不在维护范围
 ├── global.py               一次性演示脚本
 └── _stride1_chunked.py     一次性临时脚本(见 maps/northern-shan.md)
