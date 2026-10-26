@@ -195,5 +195,6 @@ python Ukraine/ukraine.py         # 出图, 产物写到脚本同目录
   (图例下方注 5);
 - 数据许可: OSM 数据为贡献者 ODbL 1.0, 其余来源见
   [`data-preparation.md`](../data-preparation.md).
-- 图上标注可用 `python tools/label_editor.py <产物>.svg` 在浏览器里拖位置、加文字, 布局存到
-  产物旁边的 `.labels.json`, 重跑脚本时自动施加(见 [label-editing.md](../label-editing.md)).
+- 图上标注可用 `python tools/label_editor.py` 在浏览器里拖位置、加文字(先把
+  `tools/label_editor.toml` 的 `svg` 指到这张图的产物), 布局存到产物旁边的 `.labels.json`,
+  重跑脚本时自动施加(见 [label-editing.md](../label-editing.md)).

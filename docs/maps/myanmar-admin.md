@@ -83,5 +83,6 @@ python Myanmar/myanmar_admin.py        # 出图
 - 国界只画陆上段, 海岸线不画; 省/邦界贴着国界/海岸的那一段会被走廊剪掉, 所以图上
   海岸处没有深灰轮廓, 由填色与海洋底色分界;
 - 行政区 GeoJSON 缺失时绘图脚本报错并提示先跑 `prepare_admin_data.py`.
-- 图上标注可用 `python tools/label_editor.py <产物>.svg` 在浏览器里拖位置、加文字, 布局存到
-  产物旁边的 `.labels.json`, 重跑脚本时自动施加(见 [label-editing.md](../label-editing.md)).
+- 图上标注可用 `python tools/label_editor.py` 在浏览器里拖位置、加文字(先把
+  `tools/label_editor.toml` 的 `svg` 指到这张图的产物), 布局存到产物旁边的 `.labels.json`,
+  重跑脚本时自动施加(见 [label-editing.md](../label-editing.md)).

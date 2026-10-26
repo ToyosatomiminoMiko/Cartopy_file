@@ -3,19 +3,21 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Local web editor for hand-tuning label layout on a finished map SVG.
 
-是什么: 起一个只监听本机 loopback 的标准库 HTTP 服务器, 把已生成的 SVG 与它旁边的布局
-文件(``<name>.labels.json``)交给 ``tools/label_editor/`` 里的浏览器画布编辑器; 拖动、方向键
-微调、新增标注都只改编辑器内存, 保存时原子写回布局文件, 用户重跑绘图脚本才生成最终 SVG.
-因此微调一轮不再需要重跑几分钟的出图.
-完整说明(启动方式、端点、状态模型、键盘、验证方法)见 ``docs/label-editing.md``.
+是什么: 起一个只监听本机回环(127.0.0.1)的标准库 HTTP 服务器, 把 ``tools/label_editor.toml``
+指向的 SVG 与它旁边的布局文件(``<name>.labels.json``)交给 ``tools/label_editor/`` 里的浏览器
+画布编辑器; 拖动、方向键微调、新增标注都只改编辑器内存, 保存时原子写回布局文件, 用户重跑绘图
+脚本才生成最终 SVG. 因此微调一轮不再需要重跑几分钟的出图.
+没有命令行参数: 目标图、端口、是否自动打开浏览器全部读 TOML, 监听地址固定 127.0.0.1.
+完整说明(配置项、端点、状态模型、键盘、验证方法)见 ``docs/label-editing.md``.
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
+import tomllib
 import webbrowser
+from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -24,16 +26,23 @@ from urllib.parse import urlparse
 try:
     from cartopy_file import labels
     from cartopy_file.data import project_root
-except ImportError as exc:  # `--help` 与错误提示在没装包的解释器里也要能用
+except ImportError as exc:  # 错误提示在没装包的解释器里也要能用
     labels = None  # type: ignore[assignment]
     project_root = None  # type: ignore[assignment]
     _IMPORT_ERROR: ImportError | None = exc
 else:
     _IMPORT_ERROR = None
 
-# 静态资源按本文件位置定位, 不依赖当前工作目录.
-STATIC_DIR = Path(__file__).resolve().parent / "label_editor"
+# 本文件所在目录: TOML 配置与前端静态文件都按它定位, 不依赖当前工作目录.
+TOOL_DIR = Path(__file__).resolve().parent
+CONFIG_FILE = TOOL_DIR / "label_editor.toml"
+STATIC_DIR = TOOL_DIR / "label_editor"
 INDEX_FILE = STATIC_DIR / "index.html"
+# 监听地址固定回环: 编辑器没有鉴权, 只靠 127.0.0.1 隔离, 所以不提供改地址的配置项.
+HOST = "127.0.0.1"
+# 配置缺省值: 端口 0 = 由系统分配空闲端口, 免得多个编辑器实例抢端口.
+DEFAULT_PORT = 0
+DEFAULT_OPEN_BROWSER = True
 # 白名单: 只放行编辑器自己的两个静态文件, 避免把服务器变成任意文件读取器.
 STATIC_TYPES = {
     "editor.js": "text/javascript; charset=utf-8",
@@ -42,6 +51,89 @@ STATIC_TYPES = {
 # POST /api/save 的体积上限. 正常布局是几 KB; 2MB 足够容纳大量新增标注,
 # 同时挡住误把整张 SVG 当请求体发上来的情况.
 MAX_BODY_BYTES = 2 * 1024 * 1024
+
+# 配置文件缺失时给用户的样例, 与仓库里的 label_editor.toml 保持一致.
+_EXAMPLE_CONFIG = """\
+svg = "Volga/volga_basin_topography_etopo2022_lambert_conformal.svg"
+port = 0
+open_browser = true
+"""
+
+
+class _ConfigError(Exception):
+    """TOML 配置缺失或取值不合法; 消息文案直接面向用户, 由 main 打印后退出."""
+
+
+@dataclass(frozen=True)
+class EditorConfig:
+    """一次编辑会话需要的三项配置: 目标 SVG、监听端口、是否自动打开浏览器."""
+
+    svg: Path
+    port: int
+    open_browser: bool
+
+
+def _repo_root() -> Path:
+    """返回配置里相对路径的解析基准(仓库根目录).
+
+    为什么不在模块顶层直接算: 正常情况用 ``cartopy_file.data.project_root()``, 它支持
+    ``CARTOPY_FILE_ROOT`` 覆盖, 但要求包可导入; 工具脱离包直接跑时退回本文件上两级,
+    这样配置里的 ``Volga/xxx.svg`` 永远按仓库根解释, 与从哪个目录启动无关.
+    """
+    if project_root is not None:
+        try:
+            return project_root()
+        except RuntimeError:
+            pass
+    return TOOL_DIR.parent
+
+
+def _load_config(path: Path = CONFIG_FILE) -> EditorConfig:
+    """读并校验 TOML 配置; 任何问题都转成带配置文件路径的 _ConfigError."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise _ConfigError(
+            f"找不到配置文件: {path}\n请创建它, 内容示例:\n{_EXAMPLE_CONFIG}"
+        ) from None
+    except OSError as exc:
+        raise _ConfigError(f"读取配置文件失败: {path}: {exc}") from exc
+
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise _ConfigError(f"配置文件不是合法 TOML: {path}: {exc}") from exc
+
+    # 拒绝未知键: 拼错键名(如 opne_browser)时不能悄悄按默认值跑.
+    unknown = sorted(set(data) - {"svg", "port", "open_browser"})
+    if unknown:
+        raise _ConfigError(
+            f"配置文件里有不认识的键 {', '.join(unknown)}: {path}"
+            "(只支持 svg / port / open_browser)"
+        )
+
+    svg_value = data.get("svg")
+    if not isinstance(svg_value, str) or not svg_value.strip():
+        raise _ConfigError(f"配置项 svg 必须是非空字符串(路径以仓库根为准): {path}")
+    svg = Path(svg_value.strip()).expanduser()
+    if not svg.is_absolute():
+        svg = _repo_root() / svg
+    svg = svg.resolve()
+    if not svg.is_file():
+        raise _ConfigError(f"svg 指向的文件不存在: {svg}(配置: {path})")
+
+    # bool 是 int 的子类, 必须先排除, 否则 port = true 会被当成 1.
+    port_value = data.get("port", DEFAULT_PORT)
+    if isinstance(port_value, bool) or not isinstance(port_value, int):
+        raise _ConfigError(f"配置项 port 必须是整数(0 表示由系统分配): {path}")
+    if not 0 <= port_value <= 65535:
+        raise _ConfigError(f"配置项 port 超出 0..65535: {port_value}")
+
+    open_value = data.get("open_browser", DEFAULT_OPEN_BROWSER)
+    if not isinstance(open_value, bool):
+        raise _ConfigError(f"配置项 open_browser 必须是 true 或 false: {path}")
+
+    return EditorConfig(svg=svg, port=port_value, open_browser=open_value)
 
 
 def _normalized_document(placements, figure: str):
@@ -355,67 +447,46 @@ class LabelEditorHandler(BaseHTTPRequestHandler):
         )
 
 
-def _print_url(host: str, port: int) -> str:
-    """把监听地址转成能点开的 URL; 通配地址显示成本机回环, 否则浏览器打不开."""
-    display = "127.0.0.1" if host in {"0.0.0.0", "::", ""} else host
-    if ":" in display:  # IPv6 字面量
-        display = f"[{display}]"
-    return f"http://{display}:{port}/"
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="在浏览器里拖动标签, 保存为 <svg>.labels.json, 不重跑绘图脚本",
-    )
-    parser.add_argument("svg", type=Path, help="已生成的地图 SVG")
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=0,
-        help="监听端口, 默认 0(由系统分配空闲端口)",
-    )
-    parser.add_argument(
-        "--host",
-        default="127.0.0.1",
-        help="监听地址, 默认只监听本机回环 127.0.0.1",
-    )
-    parser.add_argument(
-        "--no-open",
-        action="store_true",
-        help="启动后不自动打开浏览器",
-    )
-    args = parser.parse_args(argv)
+def main() -> int:
+    # 故意不接受命令行参数: 参数写死在 TOML 里, 传参数只会让人以为生效了.
+    if len(sys.argv) > 1:
+        print(
+            "错误: 这个工具不接受命令行参数, 目标图/端口写在 "
+            f"{CONFIG_FILE} 里, 直接运行 .venv/bin/python tools/label_editor.py",
+            file=sys.stderr,
+        )
+        return 2
 
     if _IMPORT_ERROR is not None:
         print(
             f"错误: 无法导入 cartopy_file(用项目虚拟环境运行: "
-            f".venv/bin/python tools/label_editor.py ...): {_IMPORT_ERROR}",
+            f".venv/bin/python tools/label_editor.py): {_IMPORT_ERROR}",
             file=sys.stderr,
         )
         return 1
 
-    svg_path = args.svg.expanduser()
-    if not svg_path.is_file():
-        print(f"错误: SVG 文件不存在: {svg_path}", file=sys.stderr)
-        return 2
-    svg_path = svg_path.resolve()
-    if not 0 <= args.port <= 65535:
-        print(f"错误: --port 超出范围: {args.port}", file=sys.stderr)
+    try:
+        config = _load_config()
+    except _ConfigError as exc:
+        print(f"错误: {exc}", file=sys.stderr)
         return 2
 
     try:
         server = LabelEditorServer(
-            (args.host, args.port), LabelEditorHandler, svg_path
+            (HOST, config.port), LabelEditorHandler, config.svg
         )
     except OSError as exc:
-        print(f"错误: 无法监听 {args.host}:{args.port}: {exc}", file=sys.stderr)
+        print(f"错误: 无法监听 {HOST}:{config.port}: {exc}", file=sys.stderr)
         return 1
 
     port = server.server_address[1]
-    url = _print_url(args.host, port)
-    placements_path = labels.placement_path(svg_path)
-    print(f"标签编辑器已就绪: {url} (SVG: {svg_path}; 布局: {placements_path})", flush=True)
-    if not args.no_open:
+    url = f"http://{HOST}:{port}/"
+    placements_path = labels.placement_path(config.svg)
+    print(
+        f"标签编辑器已就绪: {url} (SVG: {config.svg}; 布局: {placements_path})",
+        flush=True,
+    )
+    if config.open_browser:
         try:
             webbrowser.open(url)
         except Exception as exc:  # noqa: BLE001 - 打不开浏览器不该拖垮服务器

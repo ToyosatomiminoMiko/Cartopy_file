@@ -50,14 +50,11 @@
     saveState: '正在载入…',
     saveStateKind: 'busy',
     needsRender: false,
-    outline: false,
     scale: 1,
     panX: 0,
     panY: 0,
     viewBox: { x: 0, y: 0, width: 1, height: 1 },
     svgRoot: null,
-    labelOverlay: null,
-    selectionOverlay: null,
     spaceHeld: false,
     pickMode: false,
     fontFamily: '',
@@ -147,7 +144,6 @@
       styleSource: $('style-source'),
       btnAdd: $('btn-add'),
       btnSave: $('btn-save'),
-      toggleOutline: $('toggle-outline'),
       toggleHighlight: $('toggle-highlight'),
     });
   }
@@ -181,7 +177,6 @@
     }
     importSvg(await response.text());
 
-    initOverlays();
     collectLabels();
     captureFontFamily();
     syncStateToDom();
@@ -246,16 +241,6 @@
     return { x: 0, y: 0, width, height };
   }
 
-  function initOverlays() {
-    S.labelOverlay = createSvg('g', { id: '__label_overlay', 'pointer-events': 'none' });
-    S.selectionOverlay = createSvg('g', {
-      id: '__selection_overlay',
-      'pointer-events': 'none',
-    });
-    S.svgRoot.appendChild(S.labelOverlay);
-    S.svgRoot.appendChild(S.selectionOverlay);
-  }
-
   function collectLabels() {
     const nodes = S.svgRoot.querySelectorAll('[id^="label-"]');
     for (const el of nodes) {
@@ -311,7 +296,7 @@
       );
     }
     group.appendChild(text);
-    S.svgRoot.insertBefore(group, S.labelOverlay);
+    S.svgRoot.appendChild(group);
     const label = makeLabel(group, text, {
       added: true,
       domX: record.x,
@@ -480,7 +465,6 @@
     S.svgRoot.style.transform =
       `translate(${fmt(S.panX)}px, ${fmt(S.panY)}px) scale(${fmt(S.scale)})`;
     els.statusZoom.textContent = `缩放 ${Math.round(S.scale * 100)}%`;
-    if (S.outline) updateOutlines();
   }
 
   function zoomAt(screenX, screenY, factor) {
@@ -518,7 +502,7 @@
   }
 
   // 计算元素在 SVG 用户坐标里的外接矩形. 优先 getBBox+getCTM(含旋转与祖先变换),
-  // 失败时用屏幕矩形反算, 保证叠加框不会因渲染器差异而消失.
+  // 失败时用屏幕矩形反算, 保证居中定位不会因渲染器差异而失效.
   function elementUserRect(el) {
     try {
       if (typeof el.getBBox === 'function') {
@@ -593,7 +577,6 @@
     }
     updateAllItems();
     updateSelectionPanel();
-    updateSelectionOverlay();
     if (options.center) {
       centerOnLabel(id);
       const item = S.items.get(id);
@@ -608,7 +591,6 @@
     }
     updateAllItems();
     updateSelectionPanel();
-    updateSelectionOverlay();
   }
 
   function setHover(id, on) {
@@ -717,45 +699,6 @@
       els.selPos.classList.add('hidden');
       els.btnResetOne.classList.remove('hidden');
       els.btnDeleteOne.classList.add('hidden');
-    }
-  }
-
-  function updateSelectionOverlay() {
-    if (!S.selectionOverlay) return;
-    S.selectionOverlay.replaceChildren();
-    const id = S.selectedId;
-    if (!id) return;
-    const label = S.labels.get(id);
-    if (!label || label.hidden) return;
-    const rect = elementUserRect(label.el);
-    if (!rect) return;
-    const pad = 3;
-    const outline = createSvg('rect', {
-      x: fmt(rect.x - pad),
-      y: fmt(rect.y - pad),
-      width: fmt(rect.width + pad * 2),
-      height: fmt(rect.height + pad * 2),
-      class: 'selection-outline',
-    });
-    S.selectionOverlay.appendChild(outline);
-  }
-
-  function updateOutlines() {
-    if (!S.labelOverlay) return;
-    S.labelOverlay.replaceChildren();
-    if (!S.outline) return;
-    for (const label of visibleLabels()) {
-      const rect = elementUserRect(label.el);
-      if (!rect) continue;
-      S.labelOverlay.appendChild(
-        createSvg('rect', {
-          x: fmt(rect.x),
-          y: fmt(rect.y),
-          width: fmt(rect.width),
-          height: fmt(rect.height),
-          class: 'label-outline',
-        })
-      );
     }
   }
 
@@ -875,7 +818,6 @@
         );
       }
       refreshLabelTransform(label);
-      updateSelectionOverlay();
       updateSelectionPanel();
       updateItem(S.drag.id);
       updateCounts();
@@ -915,7 +857,6 @@
         }
       }
       if (drag.moved) markDirty();
-      updateSelectionOverlay();
       updateSelectionPanel();
       updateItem(drag.id);
       updateCounts();
@@ -957,10 +898,6 @@
     els.step.addEventListener('change', () => {
       const value = parseFloat(els.step.value);
       if (!Number.isFinite(value) || value <= 0) els.step.value = '1.0';
-    });
-    els.toggleOutline.addEventListener('change', () => {
-      S.outline = els.toggleOutline.checked;
-      updateOutlines();
     });
     els.toggleHighlight.addEventListener('change', () => {
       els.canvas.classList.toggle(
@@ -1053,7 +990,6 @@
       writeExistingOffset(id, offset.dx + dx, offset.dy + dy);
     }
     refreshLabelTransform(label);
-    updateSelectionOverlay();
     updateSelectionPanel();
     updateItem(id);
     updateCounts();
@@ -1115,7 +1051,6 @@
     selectLabel(record.key);
     markDirty();
     updateCounts();
-    if (S.outline) updateOutlines();
     return record;
   }
 
@@ -1216,10 +1151,8 @@
     refreshLabelTransform(label);
     updateItem(id);
     updateSelectionPanel();
-    updateSelectionOverlay();
     updateCounts();
     markDirty();
-    if (S.outline) updateOutlines();
   }
 
   function deleteSelectedAdded() {
@@ -1234,10 +1167,8 @@
     for (const item of S.labels.values()) item.el.classList.remove('is-selected');
     rebuildList();
     updateSelectionPanel();
-    updateSelectionOverlay();
     updateCounts();
     markDirty();
-    if (S.outline) updateOutlines();
   }
 
   function resetAll() {
@@ -1261,10 +1192,8 @@
     for (const label of S.labels.values()) label.el.classList.remove('is-selected');
     rebuildList();
     updateSelectionPanel();
-    updateSelectionOverlay();
     updateCounts();
     markDirty();
-    if (S.outline) updateOutlines();
   }
 
   // ── 保存 ────────────────────────────────────────────────────

@@ -56,10 +56,12 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 
 ```bash
 python Volga/volga.py                    # 1. 先出图(慢, 一次就够)
-python tools/label_editor.py Volga/volga_basin_topography_etopo2022_lambert_conformal.svg
-                                         # 2. 浏览器里拖标签/加标注, Ctrl+S 存布局(快)
+python tools/label_editor.py             # 2. 浏览器里拖标签/加标注, Ctrl+S 存布局(快)
 python Volga/volga.py                    # 3. 再跑一次, 产物带上手工位置
 ```
+
+编辑器不带命令行参数: 调哪张图由 `tools/label_editor.toml` 的 `svg` 项决定(默认是伏尔加流域图,
+换图改这一行即可), 监听地址固定 `127.0.0.1`.
 
 布局存成产物旁边的 `<产物>.labels.json`(与产物一起入库), 出图时自动施加, 所以重跑不会丢手工
 调整. 坐标系、字段与实现见 [docs/reference/labels.md](docs/reference/labels.md), 编辑器用法与

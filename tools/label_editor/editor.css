@@ -264,24 +264,6 @@ body {
   paint-order: stroke !important;
 }
 
-/* 编辑器叠加层: 坐标在 SVG 用户空间, 线宽用 non-scaling-stroke 保持 1px. */
-#__label_overlay,
-#__selection_overlay { pointer-events: none; }
-.label-outline {
-  fill: none;
-  stroke: rgba(26, 115, 232, .7);
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-  vector-effect: non-scaling-stroke;
-}
-.selection-outline {
-  fill: none;
-  stroke: #e8710a;
-  stroke-width: 1.5;
-  stroke-dasharray: 5 3;
-  vector-effect: non-scaling-stroke;
-}
-
 .hint {
   position: absolute;
   left: 50%;

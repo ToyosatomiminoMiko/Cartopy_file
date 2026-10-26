@@ -172,5 +172,6 @@ python Volga/volga.py             # 依次出两张图, 产物写到脚本同目
   宽高比自动算.
 - 不用 `tight_layout` / `bbox_inches="tight"`: cartopy 0.25 在非矩形投影上绘制经纬网标签
   时, 提前绘制会触发 gridliner 的 GEOSException, tight bbox 还会裁掉标签(项目已踩过).
-- 图上标注可用 `python tools/label_editor.py <产物>.svg` 在浏览器里拖位置、加文字, 布局存到
-  产物旁边的 `.labels.json`, 重跑脚本时自动施加(见 [label-editing.md](../label-editing.md)).
+- 图上标注可用 `python tools/label_editor.py` 在浏览器里拖位置、加文字(先把
+  `tools/label_editor.toml` 的 `svg` 指到这张图的产物), 布局存到产物旁边的 `.labels.json`,
+  重跑脚本时自动施加(见 [label-editing.md](../label-editing.md)).
