@@ -72,6 +72,4 @@ python Myanmar/myanmar.py          # 出图, 产物写到脚本同目录
 - 海岸线不画, 岸线就是 0 m 处的水/陆色界; 国界也只画陆上段, 海岸与岛屿边缘不出现红线;
 - `--stride 1` 的全分辨率高程约 135 MB, 只在需要放大细节时下载, 全境图用默认 `stride=2`
   足够;
-- 同一份数据重复运行得到内容相同的 SVG(理由见 [`reference/output.md`](../reference/output.md));
-- 本轮只出纯几何地图, 文字与版面(标题/图例/色标/刻度/注/来源)已移除, 等待前端排版接管
-  (见 miko_svg_editor 的 `docs/CARTOPY-MIGRATION.md`).
+- 同一份数据重复运行得到内容相同的 SVG(理由见 [`reference/output.md`](../reference/output.md)).

@@ -58,6 +58,7 @@ save_svg(fig, "map.svg", dpi=300)
 - 本模块不设置 `MPLCONFIGDIR`: 调用方仍必须在导入 matplotlib 之前调用
   [`cartopy_file.data.prepare_matplotlib_env()`](data.md), 否则本机只读的 `~/.config` 会让
   matplotlib 每次重建字体缓存;
+- 产物不入库: `.gitignore` 忽略 `*.svg`, `save_svg()` 只负责写文件, 成品按需生成、不随仓库提交;
 - 产物是纯几何地图是项目约定, 不是本模块自动剥离文字: 脚本不要调用 `ax.text()`, 也不要画
   图例、色标、标题、刻度文字、比例尺或指北针;
 - `save_svg()` 不再接受文字/字体/标签布局相关的参数(如 `embed_text`、`placements`), 这些能力

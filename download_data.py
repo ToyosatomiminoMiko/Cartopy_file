@@ -38,7 +38,7 @@ NE_FEATURES = [
     ("110m", "physical", "coastline", "ussr.py / AmericaArmy/main.py 海岸线"),
     ("110m", "physical", "lakes", "AmericaArmy/main.py 湖泊"),
     ("110m", "physical", "rivers_lake_centerlines", "AmericaArmy/main.py 河流"),
-    ("110m", "cultural", "admin_0_boundary_lines_land", "ussr.py / AmericaArmy/main.py 国界"),
+    ("110m", "cultural", "admin_0_boundary_lines_land", "AmericaArmy/main.py 国界"),
 ]
 
 # 各图种自己的数据: (分组, 说明, 相对仓库根的 glob, 缺失时的准备命令).

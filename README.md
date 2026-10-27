@@ -39,8 +39,7 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 | `Ukraine/ukraine.py` | `ukraine_borders_1991_2014_2022_lambert_conformal.svg` |
 | `Volga/volga.py` | `volga_basin_topography_etopo2022_lambert_conformal.svg`(流域图)<br>`volga_basin_republics_topography_etopo2022_lambert_conformal.svg`(周边共和国图) |
 
-每张图的前置数据、`--stride` / `--dpi` / `--show` 选项和设计取舍见
-[docs/index.md](docs/index.md) 里的图种页.
+每张图的前置数据、可用选项与设计取舍见 [docs/index.md](docs/index.md) 里的图种页.
 
 产物统一由 [src/cartopy_file/output.py](src/cartopy_file/output.py) 保存: 只是一张纯几何地图, 海岸线、
 国界、河流、湖泊与填色都是矢量, 不含文字、图例、色标、标题和刻度文字. 文字与版面(标题/图例/色标/
@@ -49,11 +48,12 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 不写时间戳、内部 id 固定, 同一份数据重复运行得到相同内容. 实现与理由见
 [docs/reference/output.md](docs/reference/output.md).
 
-`AmericaArmy/` 下的两张 PNG 是早期手工上传的底图素材, 不由任何脚本生成
-(`AmericaArmy/main.py` 只画图不落盘), 因此没有对应的 SVG 产物.
+产物不入库: `.gitignore` 忽略 `*.svg` / `*.png`, 仓内不放成品文件, 需要时按上表跑脚本生成.
+脚本已改为只画纯几何, 但改造后还没有重出产物; 产物形态的目标(`base.svg + geo.json`)与前端
+排版的衔接见 `miko_svg_editor` 的 `docs/CARTOPY-MIGRATION.md`.
 
-**本轮只改脚本、未重出产物**: 仓内现有的 7 张 SVG 仍是改造前"带文字/图例/色标/标题"的版本,
-保留给 `miko_svg_editor` 迁移时抽取地名等元数据用; 等前端排版接管后再统一重出纯几何产物.
+`AmericaArmy/` 只剩早期演示脚本 `main.py` 与基地点位 `data.geojson`, 早期手工上传的两张底图
+素材已删除; `main.py` 只画图不落盘, 不在维护范围.
 
 ## 缓存
 

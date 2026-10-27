@@ -34,10 +34,9 @@
 
 | 文件 | 内容 | 生成方式 |
 | --- | --- | --- |
-| `USSR/data/ETOPO_2022_v1_15s_ussr_stride8.nc` | ETOPO 苏联区域高程(默认 2 弧分, 约 0.6 GB) | `python USSR/download_etopo.py` |
-| `USSR/data/ne_110m_admin_0_countries/` | Natural Earth 110m 国界(下载脚本的产物) | 同上 |
-| `data/ne_10m_admin_0_countries/` | Natural Earth 10m 国界(绘图实际读这份) | `python download_data.py` |
-| `data/cartopy/` | cartopy 缓存的海岸线 | 同上 |
+| `USSR/data/ETOPO_2022_v1_15s_ussr_stride8.nc` | ETOPO 苏联区域高程(默认 2 弧分, 约 45 MB) | `python USSR/download_etopo.py` |
+| `USSR/data/ne_10m_admin_0_countries/` | Natural Earth 10m 国界(绘图读取, 合并出红色外轮廓) | `python USSR/download_etopo.py` |
+| `data/cartopy/` | cartopy 缓存的海岸线 | `python download_data.py` |
 
 前苏联 15 国: Russia, Ukraine, Belarus, Moldova, Georgia, Armenia, Azerbaijan, Kazakhstan,
 Uzbekistan, Turkmenistan, Kyrgyzstan, Tajikistan, Lithuania, Latvia, Estonia. 脚本按
@@ -49,8 +48,8 @@ ETOPO 子集范围: 经度 15°E 向东到 165°W(ERDDAP 的经度是 0~360, 脚
 ## 运行
 
 ```bash
-python USSR/download_etopo.py              # 首次: ETOPO 子集(stride=8) + 110m 国界
-python download_data.py                    # 首次: 共用 10m 国界与海岸线
+python USSR/download_etopo.py              # 首次: ETOPO 子集(stride=8) + 10m 国界
+python download_data.py                    # 首次: 共用 Natural Earth 底图(海岸线等)
 python USSR/ussr.py                        # 出图, 产物写到脚本同目录
 ```
 
@@ -62,10 +61,8 @@ python USSR/ussr.py                        # 出图, 产物写到脚本同目录
 
 - 高程文件不存在时脚本抛 `FileNotFoundError` 并给出修复命令;
 - 投影实际参数是 `central_longitude=105`, 不是 90°E(原始代码如此), 引用投影参数时以代码为准;
-- `ussr.py` 读 10m 国界, 而 `download_etopo.py` 下载的是 110m 版本: 图上没有红色边界时先确认
-  `data/ne_10m_admin_0_countries/` 存在(跑 `python download_data.py`);
+- 红色边界读 `USSR/data/ne_10m_admin_0_countries/`(`download_etopo.py` 准备), 海岸线读
+  `data/cartopy/` 缓存(`download_data.py` 预取); 缺任一份都会在终端告警并跳过对应图层;
 - 地形色带直接用 matplotlib 的 `terrain`, 没有像乌克兰图那样为海陆分界定制色带;
 - 下载细节(ERDDAP 范围、断点续传、退出码)见
-  [`data-preparation.md`](../data-preparation.md) 的 ETOPO 一节;
-- 本轮只出纯几何地图, 文字与版面(标题/图例/色标/刻度/注/来源)已移除, 等待前端排版接管
-  (见 miko_svg_editor 的 `docs/CARTOPY-MIGRATION.md`).
+  [`data-preparation.md`](../data-preparation.md) 的 ETOPO 一节.

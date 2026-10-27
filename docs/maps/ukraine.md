@@ -188,5 +188,3 @@ python Ukraine/ukraine.py         # 出图, 产物写到脚本同目录
   位置参照;
 - 数据许可: OSM 数据为贡献者 ODbL 1.0, 其余来源见
   [`data-preparation.md`](../data-preparation.md).
-- 本轮只出纯几何地图, 文字与版面(标题/图例/色标/刻度/注/来源)已移除, 等待前端排版接管
-  (见 miko_svg_editor 的 `docs/CARTOPY-MIGRATION.md`).

@@ -78,6 +78,4 @@ python Myanmar/myanmar_admin.py        # 出图
 - `prepare_admin_data.py` 生成前做拓扑自检: 15 个单元必须无重叠、无缝铺满国界, 否则报错退出;
 - 国界只画陆上段, 海岸线不画; 省/邦界贴着国界/海岸的那一段会被走廊剪掉, 所以图上
   海岸处没有深灰轮廓, 由填色与海洋底色分界;
-- 行政区 GeoJSON 缺失时绘图脚本报错并提示先跑 `prepare_admin_data.py`;
-- 本轮只出纯几何地图, 文字与版面(标题/图例/色标/刻度/注/来源)已移除, 等待前端排版接管
-  (见 miko_svg_editor 的 `docs/CARTOPY-MIGRATION.md`).
+- 行政区 GeoJSON 缺失时绘图脚本报错并提示先跑 `prepare_admin_data.py`.

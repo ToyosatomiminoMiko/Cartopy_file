@@ -2,8 +2,8 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Download the ETOPO 2022 15-arc-second USSR subset and Natural Earth boundaries.
 
-是什么: 从 NOAA ERDDAP 一次下载苏联区域 ETOPO 高程子集(默认 stride=8, 约 0.6 GB)
-与 Natural Earth 国界, 缓存到 ``USSR/data/`` 供 ``ussr.py`` 读取.
+是什么: 从 NOAA ERDDAP 一次下载苏联区域 ETOPO 高程子集(默认 stride=8, 约 45 MB)
+与 Natural Earth 10m 国界, 缓存到 ``USSR/data/`` 供 ``ussr.py`` 读取.
 完整说明: ``docs/data-preparation.md``(数据来源/下载方式/注意事项).
 """
 
@@ -25,9 +25,12 @@ ERDDAP_BASE = (
     "https://oceanwatch.pifsc.noaa.gov/erddap/griddap/"
     "ETOPO_2022_v1_15s.nc"
 )
+# 为什么用 10m 而不是 110m: ussr.py 把 15 个前苏联国家的面合并成一条外轮廓再画,
+# 该轮廓要和图上的 10m 海岸线同尺度才不折线; 旧版这里下的是 110m, 与 ussr.py
+# 实际读取的 USSR/data/ne_10m_admin_0_countries/ 对不上, 新机器上会静默丢掉红色边界.
 NE_URL = (
     "https://naturalearth.s3.amazonaws.com/"
-    "110m_cultural/ne_110m_admin_0_countries.zip"
+    "10m_cultural/ne_10m_admin_0_countries.zip"
 )
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) "
@@ -111,7 +114,7 @@ def download(url: str, dest: Path, description: str, force: bool) -> None:
 
 
 def extract_shapefile(zip_path: Path) -> Path:
-    out_dir = DATA_DIR / "ne_110m_admin_0_countries"
+    out_dir = DATA_DIR / "ne_10m_admin_0_countries"
     out_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(zip_path) as archive:
         archive.extractall(out_dir)
@@ -141,7 +144,7 @@ def main() -> None:
         parser.error("--stride 必须 >= 1")
 
     etopo_path = DATA_DIR / f"ETOPO_2022_v1_15s_ussr_stride{args.stride}.nc"
-    ne_zip_path = DATA_DIR / "ne_110m_admin_0_countries.zip"
+    ne_zip_path = DATA_DIR / "ne_10m_admin_0_countries.zip"
 
     if etopo_path.exists() and not args.force:
         print("提示: 目标文件已存在; 若它是旧的 15~170°E 范围,请加 --force 重新下载.")
@@ -151,7 +154,7 @@ def main() -> None:
     print(url)
     download(url, etopo_path, "ETOPO 高程", args.force)
 
-    print("\n下载 Natural Earth 110m 国家边界")
+    print("\n下载 Natural Earth 10m 国家边界")
     download(NE_URL, ne_zip_path, "Natural Earth 边界", args.force)
     extract_shapefile(ne_zip_path)
 

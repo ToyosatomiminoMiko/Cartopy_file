@@ -58,7 +58,7 @@
 ## 命名规则
 
 - 图种页用图种名而不是脚本名, 小写连字符: `myanmar`、`myanmar-admin`、`northern-shan`、
-  `ussr`、`ukraine`; 同一图种多个脚本共用一页。
+  `ussr`、`ukraine`、`volga`; 同一图种多个脚本共用一页。
 - 参考页用导入模块名: `cartopy_file.relief` → `reference/relief.md`。
 - 一次性脚本、临时脚本、兼容 shim 一律不单独建页: 内容并入所属图种页或
   [data-preparation.md](data-preparation.md), 源码 docstring 指过去即可。

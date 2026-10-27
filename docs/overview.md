@@ -18,15 +18,15 @@ Cartopy_file/
 ├── Ukraine/                乌克兰图种
 ├── Volga/                  伏尔加河流域图种: 流域图 + 周边六个共和国图 + 数据准备脚本 + data/
 ├── tools/                  仓库工具: check_docs.py 文档检查
-├── AmericaArmy/            早期演示脚本与手工底图, 不在维护范围
-├── global.py               一次性演示脚本
-└── _stride1_chunked.py     一次性临时脚本(见 maps/northern-shan.md)
+├── AmericaArmy/            早期演示脚本与基地点位, 不在维护范围
+└── global.py               一次性演示脚本
 ```
 
 ## 三层结构
 
 1. **图种层**([`maps/`](maps)): 每个图种一个目录, 内含绘图脚本、数据准备脚本和私有数据目录
-   `<图种>/data/`; 产物写到脚本同目录; 各图种之间不互相 import.
+   `<图种>/data/`; 产物写到脚本同目录, 但不入库(见 [README](../README.md)); 各图种之间不互相
+   import.
 2. **共享层**([`src/cartopy_file/`](../src/cartopy_file)): 可安装的包, 放四组图共用的数据
    定位、纯几何 SVG 出图、地形与几何工具.
 3. **数据层**([`data-preparation.md`](data-preparation.md)): 仓库 `data/cartopy/` 是全项目
@@ -42,6 +42,9 @@ download_data.py ──► data/cartopy/ ─┐
 绘图脚本不联网: 数据在首次准备时下载一次, 之后出图只读本地文件; 要素缺缓存时 cartopy 会在
 渲染中临时联网, 所以共用底图要用 `download_data.py` 预取. 详见
 [`data-preparation.md`](data-preparation.md).
+
+产物是纯几何 `.svg`, 由脚本按需生成、不提交; 文字与版面迁到 `miko_svg_editor` 的前端排版
+(迁移中), 产物形态的目标见 [README](../README.md).
 
 ## 共享包模块
 

@@ -9,7 +9,7 @@
 | --- | --- | --- |
 | `data/cartopy/` | cartopy 内置 Natural Earth 底图, 全项目共用(海岸线、国界、河流、湖泊、海洋) | 根目录 `download_data.py` |
 | `Myanmar/data/` | ETOPO 缅甸高程、Natural Earth 10m 国界/河流、行政区 GeoJSON、OSM 特区边界 | `Myanmar/download_etopo.py`、`download_regions.py`、`prepare_admin_data.py` |
-| `USSR/data/` | ETOPO 苏联高程、Natural Earth 110m 国界 | `USSR/download_etopo.py` |
+| `USSR/data/` | ETOPO 苏联高程、Natural Earth 10m 国界 | `USSR/download_etopo.py` |
 | `Ukraine/data/` | ETOPO 乌克兰高程、Natural Earth 10m 国界、GADM 4.1、OCHA 2021 GCA/NGCA、OSM 河流与德左边界、派生 GeoJSON | `Ukraine/download_data.py` |
 | `Volga/data/` | ETOPO 伏尔加河流域高程、GADM 4.1 俄罗斯一级行政区、HydroBASINS 5 级流域、派生 GeoJSON | `Volga/download_data.py` |
 | `AmericaArmy/data.geojson` | 基地点位, 仓库自带 | — |
@@ -46,7 +46,7 @@
 | `python Myanmar/download_etopo.py --region northern_shan --stride 1` | 掸邦 15 弧秒高程 | 掸邦/特区图 |
 | `python Myanmar/download_regions.py` | OSM 特区边界与画框附近国界 | 掸邦/特区图 |
 | `python Myanmar/prepare_admin_data.py` | `Myanmar/data/myanmar_admin1.geojson` 等 | 缅甸行政区图 |
-| `python USSR/download_etopo.py` | 苏联 ETOPO(默认 stride=8)+ 110m 国界 | 苏联图 |
+| `python USSR/download_etopo.py` | 苏联 ETOPO(默认 stride=8)+ 10m 国界 | 苏联图 |
 | `python Ukraine/download_data.py` | 乌克兰全部原始数据与派生 GeoJSON | 乌克兰图 |
 | `python Volga/download_data.py` | 伏尔加河流域原始数据与派生 GeoJSON | 伏尔加河流域图 |
 
@@ -71,7 +71,7 @@ python download_data.py --check   # 全部就位退出码 0, 有缺失退出码 
 - 区域范围要覆盖投影后的矩形画框四角, 而不是只按经纬度画框下载, 否则兰勃特投影画框的角上
   会露出没有高程数据的空白;
 - 默认步长按图幅大小选: 缅甸全境 `stride=2`(30 弧秒, 约 34 MB), 掸邦放大图 `stride=1`
-  (15 弧秒), 苏联 `stride=8`(2 弧分, 约 0.6 GB), 乌克兰 `stride=2`;
+  (15 弧秒), 苏联 `stride=8`(2 弧分, 约 45 MB), 乌克兰 `stride=2`;
 - 断点续传: 中断留下 `.part` 文件, 再次运行尝试续传; 若服务器忽略 Range 直接返回完整数据,
   脚本会清空 `.part` 从头写, 避免拼出坏文件;
 - 校验: ERDDAP 在子集过大或参数非法时会返回 HTML 错误页, HTTP 状态码却仍是 200; 脚本检查
@@ -79,10 +79,6 @@ python download_data.py --check   # 全部就位退出码 0, 有缺失退出码 
 - 目标文件已存在且非空时跳过, 刷新加 `--force`.
 
 各区域的下载范围与 `--stride` 取值写在对应图种页的"数据"一节.
-
-`_stride1_chunked.py` 是一次性临时脚本(早期把缅甸 15 弧秒高程分 8 个纬度带下载再拼接),
-现在 `Myanmar/download_etopo.py --region northern_shan --stride 1` 已能一次拿到所需子集,
-日常不需要它.
 
 ## 注意事项
 

@@ -69,10 +69,6 @@ Ukraine 图一致: 下面的地形与区域填色透出来, 与它重合的区�
 | `Myanmar/data/ne_10m_admin_0_countries/` | Natural Earth 10m 国界(邻国参照) | `python Myanmar/download_etopo.py` |
 | `data/cartopy/` | cartopy 缓存的 10m 河流/湖泊/海陆底图 | `python download_data.py` |
 
-`_stride1_chunked.py` 是一次性脚本: 早期用来把缅甸 15 弧秒高程分 8 个纬度带下载再拼接,
-现在 `download_etopo.py --region northern_shan --stride 1` 已能一次拿到所需子集, 日常不再
-需要它.
-
 ETOPO 子集范围 94.6~102.1°E, 18.8~25.2°N: 画框南界是 19.0°N, 子集下探到 18.8°N 并留 0.2°
 余量, 用来覆盖兰勃特投影矩形南缘的数值误差.
 
@@ -93,6 +89,4 @@ python Myanmar/northern_shan.py                                      # 出图
 - 下载都是"文件已存在就跳过", 刷新加 `--force`;
 - Overpass 公共实例常满负荷(502): 脚本分批请求(佤邦整体单独一组, 否则与 5 个县关系合在一
   起容易 504), 并在多个镜像间轮换重试;
-- 国界线与区域边界必须同源(都来自 OSM), 换成 NE 国界会重新出现双线问题;
-- 本轮只出纯几何地图, 文字与版面(标题/图例/色标/刻度/注/来源)已移除, 等待前端排版接管
-  (见 miko_svg_editor 的 `docs/CARTOPY-MIGRATION.md`).
+- 国界线与区域边界必须同源(都来自 OSM), 换成 NE 国界会重新出现双线问题.
