@@ -13,11 +13,6 @@ import cartopy.feature as cfeature
 # cartopy 底图缓存统一到仓库 data/cartopy(见 docs/reference/data.md).
 configure_cartopy()
 
-# 全局字体: 由项目包 cartopy_file 统一提供, 与其他绘图脚本一致.
-from cartopy_file.fonts import apply_matplotlib_fonts
-
-apply_matplotlib_fonts()
-
 with open("./AmericaArmy/data.geojson", "r", encoding="utf-8") as f:
     data = json.load(f)
 

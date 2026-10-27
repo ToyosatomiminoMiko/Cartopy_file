@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Bilingual administrative-division map of Myanmar.
+"""Administrative-division map of Myanmar.
 
 是什么: 绘制缅甸省/邦级行政区划图, 七邦冷色、七省暖色、内比都联邦区中性色加
-斜线, 行政区名与行政中心中英双语标注, 并叠加河流与 ETOPO 2022 地形晕渲;
+斜线, 叠加河流与 ETOPO 2022 地形晕渲, 并画出各行政区中心点;
 国界用半透明红色、只画陆上段, 海岸线不单独绘制.
+只绘制地理要素, 不绘制任何文字/图例/色标/标题/比例尺/指北针.
 完整说明(配色、投影、数据来源、运行方式)见 ``docs/maps/myanmar-admin.md``.
 """
 
@@ -24,12 +25,9 @@ os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 import cartopy.crs as ccrs  # 地图投影
 import geopandas as gpd  # 读取 Natural Earth shapefile
 import matplotlib.colors as mcolors  # 颜色与色带
-import matplotlib.patheffects as pe  # 文字描边
 import matplotlib.pyplot as plt  # 绘图
-import matplotlib.ticker as mticker  # 经纬网刻度
+import matplotlib.ticker as mticker  # 经纬网线位置定位
 import numpy as np  # 数组运算
-from cartopy.mpl.gridliner import LATITUDE_FORMATTER, LONGITUDE_FORMATTER
-from matplotlib.patches import Rectangle  # 图例面要素
 from shapely.geometry import LineString, shape  # GeoJSON -> Shapely / 取外环
 from shapely.ops import unary_union  # 合并行政区, 得到缅甸整体轮廓
 
@@ -40,15 +38,11 @@ from cartopy_file.data import configure_cartopy
 
 configure_cartopy()
 
-# 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
-from cartopy_file.fonts import apply_matplotlib_fonts
-from cartopy_file.labels import label_id
 from cartopy_file.output import apply_svg_output, save_svg
 
 # 国界/海岸线吻合处只画一条线: 用共享剪枝工具, 见 docs/reference/overlap.md.
 from cartopy_file.overlap import cut, overlap_mask
 
-apply_matplotlib_fonts()
 # 产物统一为 SVG, 见 docs/reference/output.md.
 apply_svg_output()
 # 斜线填充过密会在成品尺寸下糊成深色块, 这里保持项目里一致的细线.
@@ -132,76 +126,7 @@ RELIEF_CMAP = mcolors.LinearSegmentedColormap.from_list(
 RELIEF_VMIN, RELIEF_VMAX = 0, 4200
 RELIEF_ALPHA = 0.55
 
-# 行政区名标签位置(经度, 纬度). 多数放在单元内部; 面积很小的单元
-# (内比都联邦区、仰光省、孟邦)单独给 callout 锚点, 避免文字压住边界和中心点.
-ADMIN_LABELS: dict[str, tuple[float, float]] = {
-    "kachin": (97.05, 27.05),
-    "sagaing": (94.68, 25.15),
-    "chin": (93.55, 23.42),
-    "shan": (98.62, 22.20),
-    "mandalay": (95.95, 21.00),
-    "magway": (94.30, 20.95),
-    "bago": (96.35, 18.60),
-    "ayeyarwady": (95.10, 17.62),
-    "rakhine": (93.52, 19.00),
-    "kayah": (97.45, 19.25),
-    "kayin": (97.90, 18.35),
-    "mon": (97.55, 15.65),
-    "tanintharyi": (98.56, 12.95),
-    "yangon": (96.45, 16.15),
-    "npt": (96.45, 20.16),
-}
-# ADMIN_LABELS 中需要从标签引一条细线到实际区域的单元; 值是锚点(经度, 纬度).
-ADMIN_LABEL_ANCHORS: dict[str, tuple[float, float]] = {
-    "npt": (96.12, 19.74),
-    "yangon": (96.35, 16.93),
-    "mon": (97.78, 16.10),
-}
-
-# 行政中心标签相对标记点的偏移(单位: 磅), 以及水平对齐方式.
-# ha 决定标签往哪一侧展开, 手工调整是为了避开相邻中心点、河流和边界.
-CAPITAL_OFFSETS: dict[str, tuple[float, float, str]] = {
-    "kachin": (7, 4, "left"),
-    "kayah": (7, 4, "left"),
-    "kayin": (7, 4, "left"),
-    "chin": (-7, 3, "right"),
-    "mon": (7, -5, "left"),
-    "rakhine": (7, 3, "left"),
-    "shan": (7, -5, "left"),
-    "ayeyarwady": (-7, -5, "right"),
-    "bago": (7, 5, "left"),
-    "magway": (7, -6, "left"),
-    "mandalay": (7, 5, "left"),
-    "sagaing": (7, 4, "left"),
-    "tanintharyi": (7, 4, "left"),
-    "yangon": (-7, -7, "right"),
-    "npt": (-9, 7, "right"),
-}
-
-# 邻国、海域标注: (经度, 纬度, 中文, 英文). 只作为定位参照, 不参与颜色编码.
-NEIGHBOUR_LABELS = [
-    (99.85, 28.30, "中国", "CHINA"),
-    (92.20, 26.40, "印度", "INDIA"),
-    (91.55, 23.55, "孟加拉国", "BANGLADESH"),
-    (99.45, 18.40, "泰国", "THAILAND"),
-    (100.80, 20.55, "老挝", "LAOS"),
-]
-SEA_LABELS = [
-    (91.45, 15.20, "孟加拉湾", "BAY OF BENGAL"),
-    (96.45, 10.20, "安达曼海", "ANDAMAN SEA"),
-]
-
-TITLE_ZH = "缅甸联邦共和国行政区划图"
-TITLE_EN = "ADMINISTRATIVE DIVISIONS OF THE REPUBLIC OF THE UNION OF MYANMAR"
-SUBTITLE = (
-    "七邦（冷色）· 七省（暖色）· 内比都联邦区　　"
-    "7 States (cool colours) · 7 Regions (warm colours) · Naypyidaw Union Territory"
-)
-SOURCE = (
-    "行政区划: GADM 4.1 / OpenStreetMap (ODbL)　|　"
-    "国界: 行政区合并轮廓(仅陆上段)　|　河流·海岸线剪枝: Natural Earth 10m　|　"
-    "地形: NOAA ETOPO 2022　|　投影: Lambert Conformal Conic"
-)
+# 输出路径(脚本同目录), 见 docs/reference/output.md.
 OUT_SVG = ROOT / "myanmar_administrative_divisions_bilingual.svg"
 
 
@@ -413,114 +338,12 @@ def add_country_outline(ax: plt.Axes, border) -> None:
     )
 
 
-def add_bilingual(
-    ax: plt.Axes,
-    lon: float,
-    lat: float,
-    zh: str,
-    en: str,
-    *,
-    size_zh: float,
-    size_en: float,
-    dx: float = 0,
-    dy_zh: float = 4.0,
-    dy_en: float = -7.0,
-    ha: str = "center",
-    anchor: tuple[float, float] | None = None,
-    color: str = "#171717",
-    halo: float = 3.0,
-    zorder: float = 12,
-    gid_zh: str | None = None,
-    gid_en: str | None = None,
-) -> None:
-    """在指定经纬度处写中文 + 英文两行标签.
-
-    用 offset points 而不是经纬度偏移: 标签间距应与字号相关, 不能随
-    纬度变化; 投影后同样一段经度差在南北方向对应的图面距离并不相同.
-    """
-    transform = ccrs.PlateCarree()._as_mpl_transform(ax)
-    if anchor is not None:
-        ax.annotate(
-            "",
-            xy=anchor,
-            xycoords=transform,
-            xytext=(lon, lat),
-            textcoords=transform,
-            arrowprops=dict(
-                arrowstyle="-",
-                color="#3d3d3d",
-                linewidth=0.75,
-                shrinkA=1.5,
-                shrinkB=4.0,
-            ),
-            zorder=zorder - 1,
-        )
-    halo_effects = [pe.withStroke(linewidth=halo, foreground="white")]
-    ax.annotate(
-        zh,
-        xy=(lon, lat),
-        xycoords=transform,
-        xytext=(dx, dy_zh),
-        textcoords="offset points",
-        ha=ha,
-        va="center",
-        fontsize=size_zh,
-        color=color,
-        path_effects=halo_effects,
-        zorder=zorder,
-        gid=gid_zh,
-    )
-    ax.annotate(
-        en,
-        xy=(lon, lat),
-        xycoords=transform,
-        xytext=(dx, dy_en),
-        textcoords="offset points",
-        ha=ha,
-        va="center",
-        fontsize=size_en,
-        color="#303030",
-        path_effects=[pe.withStroke(linewidth=halo * 0.8, foreground="white")],
-        zorder=zorder,
-        gid=gid_en,
-    )
-
-
-def add_admin_labels(ax: plt.Axes, units) -> None:
-    """标注 15 个行政区名(中文 + English)与 15 个行政中心."""
+def add_admin_centres(ax: plt.Axes, units) -> None:
+    """画出各行政区中心: 联邦区/首都用星形, 其余用空心圆."""
     for unit in units:
-        key = unit["key"]
-        lon, lat = ADMIN_LABELS[key]
-        is_union = unit["kind"] == "union"
-        small = key in {"kayah", "mon", "yangon", "npt"}
-        # 内比都的英文全名太长, 在图上压到隔壁单元; 用 U.T. 缩写,
-        # 图例和标题里保留全称 Naypyidaw Union Territory.
-        display_en = "Naypyidaw U.T." if is_union else unit["name_en"]
-        add_bilingual(
-            ax,
-            lon,
-            lat,
-            unit["name_zh"],
-            display_en,
-            gid_zh=label_id(unit["kind"], key),
-            gid_en=label_id(unit["kind"], key + "-en"),
-            size_zh=8.8 if is_union else (10.3 if small else (10.8 if unit["kind"] == "state" else 10.5)),
-            size_en=6.4 if is_union else (6.9 if small else 7.8),
-            dy_zh=4.2,
-            dy_en=-7.0,
-            anchor=ADMIN_LABEL_ANCHORS.get(key),
-            color="#111111",
-            halo=3.2,
-            zorder=13,
-        )
-
-    # 行政中心: 普通省/邦中心用空心圆, 联邦区/首都用星形.
-    for unit in units:
-        key = unit["key"]
         lon = unit["capital_lon"]
         lat = unit["capital_lat"]
-        is_union = unit["kind"] == "union"
-        if is_union:
+        if unit["kind"] == "union":
             ax.plot(
                 lon,
                 lat,
@@ -544,455 +367,6 @@ def add_admin_labels(ax: plt.Axes, units) -> None:
                 transform=ccrs.PlateCarree(),
                 zorder=15,
             )
-
-        dx, dy, ha = CAPITAL_OFFSETS[key]
-        # 联邦区标签已经用行政区名表达, 不再重复写一次 "内比都" 破坏小区域.
-        if is_union:
-            continue
-        add_bilingual(
-            ax,
-            lon,
-            lat,
-            unit["capital_zh"],
-            unit["capital_en"],
-            gid_zh=label_id("city", unit["capital_zh"]),
-            gid_en=label_id("city", unit["capital_zh"] + "-en"),
-            size_zh=8.0,
-            size_en=6.5,
-            dx=dx,
-            dy_zh=dy + 2.6,
-            dy_en=dy - 5.0,
-            ha=ha,
-            color="#111111",
-            halo=2.6,
-            zorder=14,
-        )
-
-
-def add_place_labels(ax: plt.Axes) -> None:
-    """标注邻国、海域和两条大江, 提供地图定位参照."""
-    for lon, lat, zh, en in NEIGHBOUR_LABELS:
-        add_bilingual(
-            ax,
-            lon,
-            lat,
-            zh,
-            en,
-            gid_zh=label_id("country", zh),
-            gid_en=label_id("country", zh + "-en"),
-            size_zh=12.0,
-            size_en=8.4,
-            dy_zh=4.0,
-            dy_en=-7.0,
-            color="#4a4a4a",
-            halo=3.4,
-            zorder=11,
-        )
-    for lon, lat, zh, en in SEA_LABELS:
-        add_bilingual(
-            ax,
-            lon,
-            lat,
-            zh,
-            en,
-            gid_zh=label_id("sea", zh),
-            gid_en=label_id("sea", zh + "-en"),
-            size_zh=11.5,
-            size_en=8.0,
-            dy_zh=3.5,
-            dy_en=-6.5,
-            color="#1c5f8a",
-            halo=3.2,
-            zorder=11,
-        )
-
-    # 两条大江的标签; 位置避开了主要行政区名和行政中心点.
-    add_bilingual(
-        ax,
-        95.12,
-        18.45,
-        "伊洛瓦底江",
-        "Irrawaddy River",
-        gid_zh=label_id("river", "伊洛瓦底江"),
-        gid_en=label_id("river", "伊洛瓦底江-en"),
-        size_zh=9.0,
-        size_en=6.8,
-        dy_zh=3.5,
-        dy_en=-6.0,
-        color="#0d47a1",
-        halo=2.8,
-        zorder=14,
-    )
-    add_bilingual(
-        ax,
-        98.55,
-        20.55,
-        "萨尔温江",
-        "Salween River",
-        gid_zh=label_id("river", "萨尔温江"),
-        gid_en=label_id("river", "萨尔温江-en"),
-        size_zh=9.0,
-        size_en=6.8,
-        dy_zh=3.5,
-        dy_en=-6.0,
-        color="#0d47a1",
-        halo=2.8,
-        zorder=14,
-    )
-
-
-def add_scale_bar(ax: plt.Axes) -> None:
-    """在西南海域画 200 km 直线比例尺.
-
-    投影坐标单位是米, 在标准纬线 10°N 附近比例因子接近 1, 所以直接按
-    投影平面长度画 200 km; 这不是全图统一比例尺(兰勃特投影比例随纬度
-    变化), 但在该参考位置足够准确, 且不会误导到 5% 以上.
-    """
-    x0, y0 = PROJECTION.transform_point(91.35, 10.15, ccrs.PlateCarree())
-    length_m = 200_000.0
-    ax.plot(
-        [x0, x0 + length_m],
-        [y0, y0],
-        color="#222222",
-        linewidth=3.0,
-        solid_capstyle="butt",
-        zorder=16,
-    )
-    ax.plot(
-        [x0, x0 + length_m],
-        [y0, y0],
-        color="white",
-        linewidth=1.2,
-        solid_capstyle="butt",
-        zorder=17,
-    )
-    for frac in (0.0, 0.5, 1.0):
-        x = x0 + length_m * frac
-        ax.plot(
-            [x, x],
-            [y0 - 3500, y0 + 3500],
-            color="#222222",
-            linewidth=1.0,
-            zorder=17,
-        )
-    for frac, label in ((0.0, "0"), (0.5, "100"), (1.0, "200 km")):
-        ax.text(
-            x0 + length_m * frac,
-            y0 + 7000,
-            label,
-            ha="center",
-            va="bottom",
-            fontsize=7.0,
-            color="#222222",
-            zorder=18,
-        )
-
-
-
-def add_north_arrow(ax: plt.Axes) -> None:
-    """在右上角空白处画一个简洁的指北针."""
-    ax.annotate(
-        "",
-        xy=(0.965, 0.965),
-        xytext=(0.965, 0.905),
-        xycoords="axes fraction",
-        arrowprops=dict(arrowstyle="-|>", color="#222222", linewidth=1.2),
-        zorder=20,
-    )
-    ax.text(
-        0.965,
-        0.972,
-        "N",
-        transform=ax.transAxes,
-        ha="center",
-        va="bottom",
-        fontsize=11,
-        color="#222222",
-        zorder=20,
-    )
-
-
-def add_legend(fig: plt.Figure) -> None:
-    """右侧独立图例面板: 颜色分组、符号、线型与数据说明."""
-    lax = fig.add_axes([0.765, 0.19, 0.215, 0.66])
-    lax.set_xlim(0, 1)
-    lax.set_ylim(0, 1)
-    lax.axis("off")
-
-    lax.text(
-        0.0,
-        0.98,
-        "图例",
-        ha="left",
-        va="top",
-        fontsize=17,
-        color="#111111",
-    )
-    lax.text(
-        0.22,
-        0.978,
-        "LEGEND",
-        ha="left",
-        va="top",
-        fontsize=10,
-        color="#555555",
-    )
-
-    # --- 邦: 冷色 ---
-    lax.text(
-        0.0,
-        0.915,
-        "邦 / STATE（7）",
-        ha="left",
-        va="top",
-        fontsize=10.2,
-        color="#111111",
-    )
-    lax.text(
-        0.0,
-        0.880,
-        "冷色 · cool colours",
-        ha="left",
-        va="top",
-        fontsize=7.6,
-        color="#555555",
-    )
-    state_keys = ["kachin", "kayah", "kayin", "chin", "mon", "rakhine", "shan"]
-    for i, key in enumerate(state_keys):
-        lax.add_patch(
-            Rectangle(
-                (0.02 + i * 0.137, 0.825),
-                0.115,
-                0.035,
-                facecolor=STATE_COLORS[key],
-                edgecolor="#ffffff",
-                linewidth=0.6,
-            )
-        )
-
-    # --- 省: 暖色 ---
-    lax.text(
-        0.0,
-        0.775,
-        "省 / REGION（7）",
-        ha="left",
-        va="top",
-        fontsize=10.2,
-        color="#111111",
-    )
-    lax.text(
-        0.0,
-        0.740,
-        "暖色 · warm colours",
-        ha="left",
-        va="top",
-        fontsize=7.6,
-        color="#555555",
-    )
-    region_keys = ["sagaing", "magway", "mandalay", "bago", "ayeyarwady", "yangon", "tanintharyi"]
-    for i, key in enumerate(region_keys):
-        lax.add_patch(
-            Rectangle(
-                (0.02 + i * 0.137, 0.685),
-                0.115,
-                0.035,
-                facecolor=REGION_COLORS[key],
-                edgecolor="#ffffff",
-                linewidth=0.6,
-            )
-        )
-
-    # --- 联邦区 ---
-    lax.add_patch(
-        Rectangle(
-            (0.02, 0.600),
-            0.115,
-            0.040,
-            facecolor=UNION_COLOR,
-            edgecolor="#6b4e00",
-            linewidth=1.0,
-            hatch="////",
-        )
-    )
-    lax.text(
-        0.18,
-        0.628,
-        "联邦区  Union Territory",
-        ha="left",
-        va="center",
-        fontsize=9.2,
-        color="#111111",
-    )
-    lax.text(
-        0.18,
-        0.598,
-        "内比都联邦区",
-        ha="left",
-        va="center",
-        fontsize=7.6,
-        color="#333333",
-    )
-    lax.text(
-        0.18,
-        0.568,
-        "Naypyidaw Union Territory",
-        ha="left",
-        va="center",
-        fontsize=6.9,
-        color="#555555",
-    )
-
-    # --- 点符号 ---
-    lax.plot(
-        [0.045],
-        [0.535],
-        marker="*",
-        markersize=13,
-        markerfacecolor="#ffd200",
-        markeredgecolor="#111111",
-        markeredgewidth=0.7,
-        linestyle="none",
-    )
-    lax.text(
-        0.18,
-        0.535,
-        "联邦首都 / Union capital",
-        ha="left",
-        va="center",
-        fontsize=8.4,
-        color="#111111",
-    )
-    lax.plot(
-        [0.045],
-        [0.485],
-        marker="o",
-        markersize=6.5,
-        markerfacecolor="white",
-        markeredgecolor="#111111",
-        markeredgewidth=0.9,
-        linestyle="none",
-    )
-    lax.text(
-        0.18,
-        0.485,
-        "行政中心 / Administrative centre",
-        ha="left",
-        va="center",
-        fontsize=8.4,
-        color="#111111",
-    )
-
-    # --- 线状要素 ---
-    lax.plot(
-        [0.02, 0.11],
-        [0.425, 0.425],
-        color="#1565c0",
-        linewidth=3.0,
-        solid_capstyle="round",
-    )
-    lax.text(
-        0.18,
-        0.425,
-        "河流 / River",
-        ha="left",
-        va="center",
-        fontsize=8.4,
-        color="#111111",
-    )
-    lax.plot(
-        [0.02, 0.11],
-        [0.380, 0.380],
-        color=BOUNDARY_COLOR,
-        linewidth=1.2,
-    )
-    lax.text(
-        0.18,
-        0.380,
-        "邦/省界 / State & region boundary",
-        ha="left",
-        va="center",
-        fontsize=7.9,
-        color="#111111",
-    )
-    lax.plot(
-        [0.02, 0.11],
-        [0.335, 0.335],
-        color=COLOR_BORDER,
-        linewidth=BORDER_WIDTH,
-        alpha=BORDER_ALPHA,
-    )
-    lax.text(
-        0.18,
-        0.335,
-        "国界 / International boundary",
-        ha="left",
-        va="center",
-        fontsize=7.9,
-        color="#111111",
-    )
-
-    # --- 地形晕渲示意 ---
-    for i in range(40):
-        frac = i / 39
-        color = RELIEF_CMAP(frac)
-        lax.add_patch(
-            Rectangle(
-                (0.02 + i * 0.0027, 0.265),
-                0.0028,
-                0.032,
-                facecolor=color,
-                edgecolor="none",
-            )
-        )
-    lax.text(
-        0.18,
-        0.281,
-        "地形晕渲 / Relief shading",
-        ha="left",
-        va="center",
-        fontsize=7.9,
-        color="#111111",
-    )
-
-    # --- 文字说明 ---
-    lax.add_patch(
-        Rectangle(
-            (0.0, 0.09),
-            1.0,
-            0.115,
-            facecolor="#f4f1e8",
-            edgecolor="#d0c8b6",
-            linewidth=0.6,
-        )
-    )
-    lax.text(
-        0.04,
-        0.178,
-        "地名均为中文 + English 双语",
-        ha="left",
-        va="center",
-        fontsize=8.3,
-        color="#333333",
-    )
-    lax.text(
-        0.04,
-        0.128,
-        "All place names are bilingual (Chinese + English).",
-        ha="left",
-        va="center",
-        fontsize=7.0,
-        color="#555555",
-    )
-
-    lax.text(
-        0.0,
-        0.025,
-        "7 邦 · 7 省 · 1 联邦区",
-        ha="left",
-        va="bottom",
-        fontsize=10.2,
-        color="#111111",
-    )
 
 
 def main() -> None:
@@ -1033,7 +407,7 @@ def main() -> None:
     if country_border is None:
         raise ValueError("行政区并集没有外环, 无法确定国界")
     border_zone = country_border.buffer(BORDER_ZONE_DEG)
-    # 画布偏竖长: 投影后缅甸国土宽高比约 0.56, 右侧留 2.9 英寸给图例.
+    # 画布偏竖长: 投影后缅甸国土宽高比约 0.56.
     fig = plt.figure(figsize=(13, 17), facecolor="white")
     ax = fig.add_axes([0.075, 0.045, 0.655, 0.855], projection=PROJECTION)
     ax.set_anchor("C")
@@ -1043,80 +417,27 @@ def main() -> None:
     add_admin_fills(ax, units, border_zone)
     add_rivers(ax)
     add_country_outline(ax, country_border)
-    add_admin_labels(ax, units)
-    add_place_labels(ax)
-    add_scale_bar(ax)
-    add_north_arrow(ax)
+    add_admin_centres(ax, units)
 
-    # 经纬网: 经度每 2°, 纬度每 5°, 只留左侧和底部标签; 标签保持水平,
-    # 因为圆锥投影下经线是斜的, 旋转后的数字不适合中文地图阅读习惯.
+    # 经纬网: 经度每 2°, 纬度每 5°, 位置由 locator 固定; 只画网线, 不画刻度文字.
     gl = ax.gridlines(
         crs=ccrs.PlateCarree(),
-        draw_labels=True,
-        x_inline=False,
-        y_inline=False,
+        draw_labels=False,
         linewidth=0.45,
         color="#6f6f6f",
         alpha=0.38,
         linestyle="-",
         zorder=3.5,
     )
-    gl.top_labels = False
-    gl.right_labels = False
-    gl.rotate_labels = False
     gl.xlocator = mticker.FixedLocator(np.arange(92, 103, 2))
     gl.ylocator = mticker.FixedLocator(np.arange(10, 30, 5))
-    gl.xformatter = LONGITUDE_FORMATTER
-    gl.yformatter = LATITUDE_FORMATTER
-    gl.xlabel_style = {"size": 8.5, "color": "#333333"}
-    gl.ylabel_style = {"size": 8.5, "color": "#333333"}
 
     # 国界/地图边框: 线宽略粗, 让画面有明确边界.
     ax.spines["geo"].set_linewidth(0.8)
     ax.spines["geo"].set_edgecolor("#333333")
 
-    # 标题与副标题用 figure 级文本, 避开 GeoAxes 的自动布局.
-    fig.text(
-        0.5,
-        0.988,
-        TITLE_ZH,
-        ha="center",
-        va="top",
-        fontsize=25,
-        color="#111111",
-    )
-    fig.text(
-        0.5,
-        0.955,
-        TITLE_EN,
-        ha="center",
-        va="top",
-        fontsize=12.8,
-        color="#333333",
-    )
-    fig.text(
-        0.5,
-        0.933,
-        SUBTITLE,
-        ha="center",
-        va="top",
-        fontsize=9.4,
-        color="#555555",
-    )
-    fig.text(
-        0.5,
-        0.012,
-        SOURCE,
-        ha="center",
-        va="bottom",
-        fontsize=7.6,
-        color="#666666",
-    )
-
-    add_legend(fig)
-
     # 注意: 不能用 tight_layout/constrained_layout/bbox_inches="tight";
-    # cartopy 的 gridliner 在非矩形投影上提前绘制时会触发 GEOS 异常或裁掉标签,
+    # cartopy 的 gridliner 在非矩形投影上提前绘制时会触发 GEOS 异常或裁掉画面,
     # 与项目内 myanmar.py 的处理保持一致.
     save_svg(fig, OUT_SVG, dpi=args.dpi)
     print(f"地图已保存: {OUT_SVG}")

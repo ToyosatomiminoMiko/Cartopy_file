@@ -23,14 +23,13 @@
 | [data-preparation.md](data-preparation.md) | 数据放哪、从哪来、许可、准备命令、ETOPO 下载与 `--check` |
 | [add-map.md](add-map.md) | 新增图种/共享模块的步骤与扩展点 |
 | [conventions.md](conventions.md) | 文档模板、命名、路径、文风、注释规则 |
-| [label-editing.md](label-editing.md) | 两步出图: 脚本出底图, 浏览器里用鼠标调标签位置与角度 |
 
 ## 图种
 
 | 页面 | 脚本 | 内容 |
 | --- | --- | --- |
 | [maps/myanmar.md](maps/myanmar.md) | `Myanmar/myanmar.py` | 缅甸全境地形图 |
-| [maps/myanmar-admin.md](maps/myanmar-admin.md) | `Myanmar/myanmar_admin.py` | 缅甸省/邦级行政区双语图 |
+| [maps/myanmar-admin.md](maps/myanmar-admin.md) | `Myanmar/myanmar_admin.py` | 缅甸省/邦级行政区划图 |
 | [maps/northern-shan.md](maps/northern-shan.md) | `Myanmar/northern_shan.py` | 掸邦/特区地形图 |
 | [maps/ussr.md](maps/ussr.md) | `USSR/ussr.py` | 苏联地形图 |
 | [maps/ukraine.md](maps/ukraine.md) | `Ukraine/ukraine.py` | 乌克兰全图(1991/2014/2022 边界) |
@@ -41,9 +40,7 @@
 | 页面 | 模块 |
 | --- | --- |
 | [reference/data.md](reference/data.md) | `cartopy_file.data`: 数据目录与缓存定位 |
-| [reference/labels.md](reference/labels.md) | `cartopy_file.labels`: 手工标签布局文件与施加方式 |
-| [reference/fonts.md](reference/fonts.md) | `cartopy_file.fonts`: 全局字体 |
-| [reference/output.md](reference/output.md) | `cartopy_file.output`: SVG 出图 |
+| [reference/output.md](reference/output.md) | `cartopy_file.output`: 纯几何 SVG 出图 |
 | [reference/relief.md](reference/relief.md) | `cartopy_file.relief`: 高程、晕渲、海陆底色 |
 | [reference/overlap.md](reference/overlap.md) | `cartopy_file.overlap`: 边界重合剪枝 |
 

@@ -12,12 +12,12 @@ Cartopy_file/
 ├── docs/                   本目录: 概念 / 图种 / 参考三层
 ├── data/                   cartopy 共用的 Natural Earth 底图缓存(不入库)
 ├── download_data.py        共用底图预取 + 全项目数据清单检查
-├── src/cartopy_file/       共享包: data / fonts / output / relief / overlap
+├── src/cartopy_file/       共享包: data / output / relief / overlap
 ├── Myanmar/                缅甸图种: 3 张图 + 数据准备脚本 + data/
 ├── USSR/                   苏联图种
 ├── Ukraine/                乌克兰图种
 ├── Volga/                  伏尔加河流域图种: 流域图 + 周边六个共和国图 + 数据准备脚本 + data/
-├── tools/                  仓库工具: check_docs.py 文档检查, label_editor.py 标签编辑器
+├── tools/                  仓库工具: check_docs.py 文档检查
 ├── AmericaArmy/            早期演示脚本与手工底图, 不在维护范围
 ├── global.py               一次性演示脚本
 └── _stride1_chunked.py     一次性临时脚本(见 maps/northern-shan.md)
@@ -28,7 +28,7 @@ Cartopy_file/
 1. **图种层**([`maps/`](maps)): 每个图种一个目录, 内含绘图脚本、数据准备脚本和私有数据目录
    `<图种>/data/`; 产物写到脚本同目录; 各图种之间不互相 import.
 2. **共享层**([`src/cartopy_file/`](../src/cartopy_file)): 可安装的包, 放四组图共用的数据
-   定位、字体、SVG 出图、地形与几何工具.
+   定位、纯几何 SVG 出图、地形与几何工具.
 3. **数据层**([`data-preparation.md`](data-preparation.md)): 仓库 `data/cartopy/` 是全项目
    共用的 cartopy 底图缓存; 各图种自己的数据放在各自 `data/` 下.
 
@@ -45,15 +45,13 @@ download_data.py ──► data/cartopy/ ─┐
 
 ## 共享包模块
 
-顶层 `__init__.py` 重导出 `data` / `fonts` / `output` 的常用符号; `overlap` 与 `relief` 不
+顶层 `__init__.py` 重导出 `data` / `output` 的常用符号; `overlap` 与 `relief` 不
 重导出, 避免所有脚本都连带导入 shapely / matplotlib.
 
 | 模块 | 内容 | 参考页 |
 | --- | --- | --- |
 | `data` | 数据目录与 cartopy/matplotlib 缓存定位 | [`reference/data.md`](reference/data.md) |
-| `fonts` | 全局字体(中英文逐字符回退) | [`reference/fonts.md`](reference/fonts.md) |
-| `output` | 唯一的 SVG 出图入口 | [`reference/output.md`](reference/output.md) |
-| `labels` | 手工标签布局文件(位移 + 新增标注)的读写与施加 | [`reference/labels.md`](reference/labels.md) |
+| `output` | 唯一的纯几何 SVG 出图入口 | [`reference/output.md`](reference/output.md) |
 | `relief` | 高程读取、配色与山体晕渲、海陆底色 | [`reference/relief.md`](reference/relief.md) |
 | `overlap` | 边界重合剪枝(按子模块导入) | [`reference/overlap.md`](reference/overlap.md) |
 

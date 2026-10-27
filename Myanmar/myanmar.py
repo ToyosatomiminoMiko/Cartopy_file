@@ -5,7 +5,8 @@
 
 是什么: 读取本地 NOAA ETOPO 2022 缅甸区域高程, 用兰勃特等角圆锥投影绘制全国
 地形图, 叠加 Natural Earth 10m 国界(仅陆上段, 半透明红色)与邻国国界(灰虚线),
-并标注邻国、城市和海域; 海岸线不单独绘制, 海陆界线由地形配色在 0 m 处的跳变表达.
+并画出主要城市点; 海岸线不单独绘制, 海陆界线由地形配色在 0 m 处的跳变表达.
+只绘制地理要素, 不绘制任何文字/图例/色标/标题/比例尺/指北针.
 完整说明(投影选择、数据来源、运行方式)见 ``docs/maps/myanmar.md``.
 """
 
@@ -21,11 +22,9 @@ DATA_DIR = ROOT / "data"
 os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
 import cartopy.crs as ccrs  # 地图投影
-import matplotlib.cm as cm  # 构造独立色标用的 ScalarMappable
 import matplotlib.colors as mcolors  # 构造 0 m 处断开的海陆色带
-import matplotlib.patheffects as pe  # 文字描边, 保证在深色地形上仍可读
 import matplotlib.pyplot as plt  # 绘图
-import matplotlib.ticker as mticker  # 经纬网刻度定位
+import matplotlib.ticker as mticker  # 经纬网线位置定位
 import numpy as np  # 数组运算
 from shapely.ops import unary_union  # 合并多块几何, 得到缅甸整体轮廓
 
@@ -36,15 +35,11 @@ from cartopy_file.data import configure_cartopy
 
 configure_cartopy()
 
-# 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
-from cartopy_file.fonts import apply_matplotlib_fonts
-from cartopy_file.labels import label_id
 from cartopy_file.output import apply_svg_output, save_svg
 
 # 国界与海岸线重合时只保留国界: 用共享剪枝工具裁掉沿海段, 见 docs/reference/overlap.md.
 from cartopy_file.overlap import cut, overlap_mask
 
-apply_matplotlib_fonts()
 # 产物统一为 SVG, 见 docs/reference/output.md.
 apply_svg_output()
 
@@ -83,7 +78,7 @@ BASE_LAND_COLOR = "#dce4a2"
 
 # 地形配色与山体阴影参数.
 # 高程范围取 ±5000 m 与 USSR 图一致; 该子集西北角是喜马拉雅山, 最高约 8100 m,
-# 超出上限的部分用色标末端的 extend 三角形表示"被截断"而不是画成纯白大块.
+# 超出上限的高程饱和在色带末端的近雪白色.
 ELEV_VMIN, ELEV_VMAX = -5000, 5000
 
 
@@ -97,7 +92,7 @@ def make_relief_cmap(vmin: float, vmax: float) -> mcolors.LinearSegmentedColorma
         一片, 分不出哪里是海. 这里让水色在 0 m 处直接跳到陆色, 浅海也一眼
         是"水"; 陆地段把锚点密集放在 0~500 m, 低地高程差异才拉得开.
 
-    返回的色带配合 Normalize(vmin, vmax) 使用(色标横轴保持线性, 只是中点处
+    返回的色带配合 Normalize(vmin, vmax) 使用(Normalize 保持线性, 只是中点处
     色带不连续); N=2048 是为了让 0 m 处的水/陆跳变只占一个色阶宽度. 海水
     锚点比 Ukraine 图更深, 因为安达曼海最深约 4700 m. 颜色按 (高程 m, 十六
     进制) 给出, 便于按数据调整.
@@ -162,33 +157,14 @@ COAST_CLIP_MIN_LEN = 0.03
 NEIGHBOR_GAP_DEG = 0.06
 
 
-# 邻国与海域文字标注: (经度, 纬度, 文字).
-# 坐标是 PlateCarree 经纬度, 由 transform 转换到当前投影.
-COUNTRY_LABELS = [
-    (99.6, 29.9, "中国"),
-    (89.2, 25.4, "印度"),
-    (89.6, 22.8, "孟加拉国"),
-    (101.3, 16.0, "泰国"),
-    (103.4, 19.6, "老挝"),
-]
-SEA_LABELS = [
-    (89.8, 15.8, "孟加拉湾"),
-    (96.8, 9.3, "安达曼海"),
-]
-# 城市标注: (经度, 纬度, 名称, 是否首都).
-# 首都用星形标记, 其余用圆点, 便于快速定位.
+# 城市点: (经度, 纬度, 名称, 是否首都).
+# 首都用星形标记, 其余用圆点, 便于快速定位; 名称本轮不绘制, 留给后续 geo.json 初始标注.
 CITIES = [
     (96.10, 19.75, "内比都", True),
     (96.16, 16.87, "仰光", False),
     (96.08, 21.98, "曼德勒", False),
 ]
 
-# 图标题: 第一行说明国家与数据源, 第二行说明投影与参数.
-TITLE = (
-    "缅甸联邦共和国全境地形图\n"
-    "NOAA ETOPO 2022 | 兰勃特等角圆锥投影"
-    "(中央经线 96.5°E, 标准纬线 10°N / 27°N)"
-)
 # 输出路径(脚本同目录), 见 docs/reference/output.md.
 OUT_SVG = ROOT / "myanmar_topography_etopo2022_lambert_conformal.svg"
 
@@ -263,58 +239,9 @@ def draw_borders(ax: plt.Axes, world) -> None:
     print(f"缅甸边界: {len(myanmar)} 个要素, 边界框 {myanmar.total_bounds.round(2)}")
 
 
-def add_labels(ax: plt.Axes) -> None:
-    """Annotate neighbours, seas and main cities with haloed text."""
-    # 描边: 白色 2.5 磅轮廓 + 深色文字, 放在彩色地形上任何位置都看得清.
-    halo = [pe.withStroke(linewidth=3.0, foreground="white")]
-
-    for lon, lat, text in COUNTRY_LABELS:
-        ax.text(
-            lon,
-            lat,
-            text,
-            gid=label_id("country", text),
-            transform=ccrs.PlateCarree(),
-            fontsize=13,
-            color="#333333",
-            ha="center",
-            va="center",
-            path_effects=halo,
-            zorder=5,
-        )
-    for lon, lat, text in SEA_LABELS:
-        ax.text(
-            lon,
-            lat,
-            text,
-            gid=label_id("sea", text),
-            transform=ccrs.PlateCarree(),
-            fontsize=12,
-            color="#1f4e79",
-            style="italic",
-            ha="center",
-            va="center",
-            path_effects=halo,
-            zorder=5,
-        )
-    # 国名单独标注, 放在国土中北部, 用深红色与红色国界呼应.
-    # 不用 fontweight="bold": 本机 CJK 字体是可变字体 TTC, matplotlib 只能取到默认实例,
-    # 请求粗体会回退并告警; 这里用更大的字号和深红色来突出国名.
-    # 位置避开曼德勒、内比都等城市地名, 防止文字互相压盖.
-    ax.text(
-        95.6,
-        23.5,
-        "缅甸",
-        gid=label_id("country", "缅甸"),
-        transform=ccrs.PlateCarree(),
-        fontsize=22,
-        color="#8b0000",
-        ha="center",
-        va="center",
-        path_effects=halo,
-        zorder=9,
-    )
-    for lon, lat, name, is_capital in CITIES:
+def add_city_markers(ax: plt.Axes) -> None:
+    """画出主要城市点: 首都用星形, 其余用空心圆."""
+    for lon, lat, _, is_capital in CITIES:
         if is_capital:
             ax.plot(
                 lon,
@@ -339,19 +266,6 @@ def add_labels(ax: plt.Axes) -> None:
                 transform=ccrs.PlateCarree(),
                 zorder=8,
             )
-        ax.text(
-            lon + 0.18,
-            lat - 0.05,
-            name,
-            gid=label_id("city", name),
-            transform=ccrs.PlateCarree(),
-            fontsize=10,
-            color="black",
-            ha="left",
-            va="center",
-            path_effects=halo,
-            zorder=9,
-        )
 
 
 def main() -> None:
@@ -386,8 +300,7 @@ def main() -> None:
 
     # 画布偏竖长: 缅甸南北约 26°、东西约 19°, 投影后宽高比约 3:4,
     # 用 12x15 英寸能充分展示南北狭长的国土轮廓.
-    # 手动画布 + add_axes: 地图与色标的位置完全可控, 不依赖任何自动布局
-    # (自动布局在带经纬网标签的圆锥投影上会出错, 原因见保存前的注释).
+    # 手动画布 + add_axes: 地图位置完全可控, 不依赖任何自动布局.
     fig = plt.figure(figsize=(12, 15), facecolor="white")
     ax = fig.add_axes([0.075, 0.05, 0.78, 0.85], projection=PROJECTION)
     # GeoAxes 用 equal aspect 保持投影等比例, 在给定矩形内居中显示.
@@ -404,7 +317,7 @@ def main() -> None:
     )
 
     # 把高程配色与山体晕渲合成 RGB 图, 比单一高程色带更能读出山脊走向.
-    relief, norm, cmap = map_lib.make_relief(
+    relief, _, _ = map_lib.make_relief(
         z,
         lat,
         lon,
@@ -428,59 +341,30 @@ def main() -> None:
         interpolation="nearest",
         zorder=1,
     )
-    # 色标单独占一个坐标轴, 避免 colorbar 抢走地图宽度导致版面偏移.
-    # 由于画的是 RGB 图, 色标改用与晕渲同一套 norm/cmap 的 ScalarMappable.
-    cax = fig.add_axes([0.868, 0.26, 0.017, 0.48])
-    mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
-    mappable.set_array([])
-    fig.colorbar(mappable, cax=cax, label="高程 / 水深 (m)", extend="max")
 
     # 海岸线不画: 海陆界线由 ELEV_CMAP 在 0 m 处的跳变表达. 国界只画陆上段
     # (半透明红线), 邻国国界用细灰虚线, 详见 draw_borders.
     draw_borders(ax, world)
-    add_labels(ax)
+    add_city_markers(ax)
 
-    # 经纬网: 经度每 3°, 纬度每 5°, 只保留左侧和底部标签, 避免画面边缘拥挤.
-    # rotate_labels=False: 圆锥投影下经线是斜的, 默认会让底部经度标签跟着旋转,
-    # 旋转后的汉字/数字不易读, 这里统一保持水平.
+    # 经纬网: 经度每 3°, 纬度每 5°, 位置由 locator 固定; 只画网线, 不画刻度文字.
     gl = ax.gridlines(
         crs=ccrs.PlateCarree(),
-        draw_labels=True,
-        x_inline=False,
-        y_inline=False,
+        draw_labels=False,
         linewidth=0.6,
         color="gray",
         alpha=0.55,
         linestyle="-",
         zorder=4,
     )
-    gl.top_labels = False
-    gl.right_labels = False
-    gl.rotate_labels = False
     gl.xlocator = mticker.FixedLocator(np.arange(87, 107, 3))
     gl.ylocator = mticker.FixedLocator(np.arange(5, 32, 5))
-    gl.xlabel_style = {"size": 10, "color": "#444444"}
-    gl.ylabel_style = {"size": 10, "color": "#444444"}
-
-    # 用 figure 级标题而不用 ax.set_title: cartopy 的 GeoAxes 会在有经纬网标签时
-    # 重新计算标题位置, 与多行标题叠加容易出现标题被移出画布的问题.
-    fig.suptitle(TITLE, fontsize=16, y=0.985, va="top")
-    # 数据来源放在画面底部, 不遮挡地图主体.
-    fig.text(
-        0.5,
-        0.015,
-        "数据: NOAA NCEI ETOPO 2022 (15 弧秒) | 边界: Natural Earth 10m",
-        ha="center",
-        va="bottom",
-        fontsize=9,
-        color="#666666",
-    )
 
     # 注意: 这里既不能用 plt.tight_layout()/constrained_layout, 也不能用
     # bbox_inches="tight".
-    # 原因: cartopy 0.25 在非矩形投影上绘制经纬网标签时, 布局引擎触发的提前绘制
+    # 原因: cartopy 0.25 在非矩形投影上绘制经纬网时, 布局引擎触发的提前绘制
     # 会让 gridliner 用未闭合的边界顶点构造多边形, 抛 shapely GEOSException;
-    # 而 bbox_inches="tight" 又会把 gridliner 标签的包围盒算错, 导致图片被裁掉一截.
+    # 而 bbox_inches="tight" 又会把地图的包围盒算错, 导致图片被裁掉一截.
     save_svg(fig, OUT_SVG, dpi=args.dpi)
     print(f"地图已保存: {OUT_SVG}")
 

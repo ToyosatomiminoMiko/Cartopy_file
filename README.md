@@ -1,7 +1,8 @@
 # Cartopy_file
 
 四组地图(缅甸、苏联、乌克兰、伏尔加河流域)的 cartopy 绘图脚本, 共用一套可安装的 `cartopy_file` 包. 产物统一
-为单个自包含 SVG.
+为单个自包含的**纯几何** SVG: 只有地理图形, 不含文字、图例、色标、标题与刻度文字; 文字与版面由
+`miko_svg_editor` 的前端排版接管(迁移中).
 
 ## 安装
 
@@ -41,42 +42,18 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 每张图的前置数据、`--stride` / `--dpi` / `--show` 选项和设计取舍见
 [docs/index.md](docs/index.md) 里的图种页.
 
-产物统一由 [src/cartopy_file/output.py](src/cartopy_file/output.py) 保存: 文字、边界、河流、填色
-都是矢量, 汉字以真 `<text>` 写入并把用到的字形裁成字体子集内嵌, 换台机器打开不缺字体、文字
-还能选中/复制/检索; 唯一的栅格是山体晕渲, 以 base64 内嵌在同一个 `.svg` 里, 所以产物始终是
-单个自包含文件(`--dpi` 只影响晕渲像素密度, 默认 300). 出图不写时间戳、内部 id 固定, 同一份
-数据重复运行得到相同内容. 实现与理由见 [docs/reference/output.md](docs/reference/output.md).
+产物统一由 [src/cartopy_file/output.py](src/cartopy_file/output.py) 保存: 只是一张纯几何地图, 海岸线、
+国界、河流、湖泊与填色都是矢量, 不含文字、图例、色标、标题和刻度文字. 文字与版面(标题/图例/色标/
+刻度/注/来源)由 `miko_svg_editor` 的前端排版接管, 迁移尚未完成. 唯一的栅格是山体晕渲, 以 base64
+内嵌在同一个 `.svg` 里, 所以产物始终是单个自包含文件(`--dpi` 只影响晕渲像素密度, 默认 300). 出图
+不写时间戳、内部 id 固定, 同一份数据重复运行得到相同内容. 实现与理由见
+[docs/reference/output.md](docs/reference/output.md).
 
 `AmericaArmy/` 下的两张 PNG 是早期手工上传的底图素材, 不由任何脚本生成
 (`AmericaArmy/main.py` 只画图不落盘), 因此没有对应的 SVG 产物.
 
-## 调整标签位置与角度
-
-地图上的文字标注写死在绘图脚本里, 挪几个数字或改个角度就要重跑整张图. 标签位置与角度可以
-改用鼠标调:
-
-```bash
-python Volga/volga.py                    # 1. 先出图(慢, 一次就够)
-python tools/label_editor.py             # 2. 浏览器里拖标签/旋转/加标注, Ctrl+S 存布局(快)
-python Volga/volga.py                    # 3. 再跑一次, 产物带上手工位置与角度
-```
-
-编辑器不带命令行参数: 调哪张图由 `tools/label_editor.toml` 的 `svg` 项决定(默认是伏尔加流域图,
-换图改这一行即可), 监听地址固定 `127.0.0.1`.
-
-布局存成产物旁边的 `<产物>.labels.json`(与产物一起入库), 出图时自动施加, 所以重跑不会丢手工
-调整. 坐标系、字段与实现见 [docs/reference/labels.md](docs/reference/labels.md), 编辑器用法与
-常见问题见 [docs/label-editing.md](docs/label-editing.md).
-
-## 字体
-
-字体由 [src/cartopy_file/fonts.py](src/cartopy_file/fonts.py) 统一提供, 各绘图脚本不再单独设
-`rcParams`; 在导入 matplotlib 之后调用 `apply_matplotlib_fonts()` 即可:
-
-- 汉字: Noto Sans Mono CJK SC;
-- 英文/数字: JetBrainsMonoSlashed-Medium(matplotlib 字体名 `JetBrains Mono Slashed Medium`).
-
-逐字符回退的原理与坑见 [docs/reference/fonts.md](docs/reference/fonts.md).
+**本轮只改脚本、未重出产物**: 仓内现有的 7 张 SVG 仍是改造前"带文字/图例/色标/标题"的版本,
+保留给 `miko_svg_editor` 迁移时抽取地名等元数据用; 等前端排版接管后再统一重出纯几何产物.
 
 ## 缓存
 

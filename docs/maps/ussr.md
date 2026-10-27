@@ -25,8 +25,8 @@
 - 海岸线: cartopy 的 Natural Earth 海岸线(按图幅自动选分辨率), 黑色细线;
 - 红色边界: 15 个前苏联加盟共和国的 Natural Earth 国界 `unary_union` 合并成一个整体, 只画
   外轮廓、不填充, 避免盖住地形;
-- 经纬网: 纬度每 10°、经度每 15°, 只显示左/下侧标签, 度分格式(`dms`);
-- 色标 `Elevation (m)`; 标题注明数据来源与投影; 画布 16×12 英寸.
+- 经纬网: 纬度每 10°、经度每 15°, 只画网线, 不写刻度文字;
+- 画布 16×12 英寸, 不画色标与标题.
 
 ## 数据
 
@@ -61,10 +61,11 @@ python USSR/ussr.py                        # 出图, 产物写到脚本同目录
 ## 注意事项
 
 - 高程文件不存在时脚本抛 `FileNotFoundError` 并给出修复命令;
-- 标题字符串写的是"中心 90°E, 55°N", 实际投影参数是 `central_longitude=105`(原始代码如此),
-  引用图题时以实际参数为准;
+- 投影实际参数是 `central_longitude=105`, 不是 90°E(原始代码如此), 引用投影参数时以代码为准;
 - `ussr.py` 读 10m 国界, 而 `download_etopo.py` 下载的是 110m 版本: 图上没有红色边界时先确认
   `data/ne_10m_admin_0_countries/` 存在(跑 `python download_data.py`);
 - 地形色带直接用 matplotlib 的 `terrain`, 没有像乌克兰图那样为海陆分界定制色带;
 - 下载细节(ERDDAP 范围、断点续传、退出码)见
-  [`data-preparation.md`](../data-preparation.md) 的 ETOPO 一节.
+  [`data-preparation.md`](../data-preparation.md) 的 ETOPO 一节;
+- 本轮只出纯几何地图, 文字与版面(标题/图例/色标/刻度/注/来源)已移除, 等待前端排版接管
+  (见 miko_svg_editor 的 `docs/CARTOPY-MIGRATION.md`).

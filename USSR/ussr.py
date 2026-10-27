@@ -27,11 +27,8 @@ from shapely.ops import unary_union  # 合并多个面为单一几何边界
 # cartopy 底图缓存统一到仓库 data/cartopy, 见 docs/reference/data.md.
 configure_cartopy()
 
-# 全局字体由 cartopy_file.fonts 统一设置, 见 docs/reference/fonts.md.
-from cartopy_file.fonts import apply_matplotlib_fonts
 from cartopy_file.output import apply_svg_output, save_svg
 
-apply_matplotlib_fonts()
 # 产物统一为 SVG, 见 docs/reference/output.md.
 apply_svg_output()
 
@@ -75,11 +72,6 @@ extent = [15, 195, 15, 90]  # [min_lon, max_lon, min_lat, max_lat]
 # 想换成等距方位投影时,可替换为：
 # ccrs.AzimuthalEquidistant(central_longitude=90, central_latitude=55)
 PROJECTION = ccrs.LambertAzimuthalEqualArea(central_longitude=105, central_latitude=55)
-# 图标题,换行分隔数据来源、投影类型和投影中心.
-title = (
-    "USSR (ETOPO 2022,本地 NetCDF)\n"
-    "兰勃特等面积方位投影(平面/方位投影)|中心 90°E, 55°N"
-)
 
 
 # ============================
@@ -127,7 +119,7 @@ ax.set_extent(extent, crs=ccrs.PlateCarree())
 # origin="lower" 保证数组第一行对应图像底部;
 # extent 告诉 Matplotlib 数据对应的经纬度范围;
 # transform 表示这些坐标是经纬度,需要由 Cartopy 转换到投影坐标.
-im = ax.imshow(
+ax.imshow(
     z,
     origin="lower",
     extent=[lon[0], lon[-1], lat[0], lat[-1]],
@@ -139,8 +131,6 @@ im = ax.imshow(
     interpolation="nearest",
 )
 
-# 添加色标,并标出高程单位.
-fig.colorbar(im, ax=ax, fraction=0.025, pad=0.04, label="Elevation (m)")
 # 叠加海岸线,便于观察陆地轮廓与地形之间的对应关系.
 ax.add_feature(cfeature.COASTLINE, linewidth=0.6, color="black")
 
@@ -208,28 +198,18 @@ else:
     print("警告: 未找到 Natural Earth shapefile,跳过红色边界.")
 
 # ============================
-# 4. 添加网格和标签
+# 4. 添加网格
 # ============================
-# draw_labels=False 先关闭自动标签,下面再手动控制显示位置,
-# 这样更容易统一标签的刻度密度和视觉样式.
+# 只画经纬网线, 不画刻度文字.
 gl = ax.gridlines(
     draw_labels=False,
-    dms=True,
-    x_inline=False,
-    y_inline=False,
     linewidth=0.8,
     color="gray",
     alpha=0.6,
 )
-# 只显示左侧纬度标签和底部经度标签,减少上下左右的视觉拥挤.
-gl.top_labels = False
-gl.right_labels = False
 # 纬度每 10° 一条,经度每 15° 一条; 经度上限要与展开后的 195° 对齐.
 gl.ylocator = mticker.FixedLocator(np.arange(20, 91, 10))
 gl.xlocator = mticker.FixedLocator(np.arange(15, 196, 15))
-
-# 设置标题,pad 控制标题与地图之间的间距.
-ax.set_title(title, fontsize=15, pad=20)
 
 # 保存高清图片
 # 先收紧布局,避免四周留下过多空白.

@@ -21,20 +21,18 @@ import cartopy.crs as ccrs  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 
 from cartopy_file.data import configure_cartopy  # noqa: E402
-from cartopy_file.fonts import apply_matplotlib_fonts  # noqa: E402
 from cartopy_file.output import apply_svg_output, save_svg  # noqa: E402
 from cartopy_file.relief import find_etopo, load_elevation  # noqa: E402
 
 configure_cartopy()
-apply_matplotlib_fonts()
 apply_svg_output()
 
 OUT_SVG = ROOT / "<product>.svg"
 ```
 
-- 地图上的文字标注要给稳定 id: `ax.text(..., gid=label_id(kind, name[, index]))`, 名称用数据里
-  的键或图上的名字, 同一名字多次出现才加序号; 标题/图例/色标/经纬网刻度/比例尺/资料来源这类
-  版式文字不加. 标签编辑器靠它认标签, 见 [`reference/labels.md`](reference/labels.md);
+- 绘图脚本**不再写任何文字**: 地名、标题、图例、色标、刻度、注与来源都由 `miko_svg_editor`
+  的前端排版接管(迁移中), 脚本只负责地理图形(投影、边界、河流、湖泊、地形与晕渲). 因此
+  不要 `ax.text()`, 也不要画图例/色标/比例尺/指北针;
 - `main()` 用 argparse 提供 `--stride` / `--dpi` / `--show`(与现有图种一致), 高程文件路径
   支持 `<NAME>_ETOPO_PATH` 环境变量, 最后 `save_svg(fig, OUT_SVG, dpi=args.dpi)`;
 - 地形/晕渲/海陆底色不要复制: 用 [`reference/relief.md`](reference/relief.md) 的函数;
@@ -71,8 +69,6 @@ OUT_SVG = ROOT / "<product>.svg"
 python download_data.py --check   # 新数据已进清单且能检查到
 python <Name>/<name>.py           # 出图
 python <Name>/<name>.py           # 再跑一次, 产物应字节级不变(理由见 reference/output.md)
-# 先改 tools/label_editor.toml 的 svg 指向新产物
-python tools/label_editor.py      # 标签能拖/旋转、保存后重跑仍生效
 python tools/check_docs.py        # 文档链接/模板/索引全绿
 ```
 
@@ -80,7 +76,7 @@ python tools/check_docs.py        # 文档链接/模板/索引全绿
 
 - 放 `src/cartopy_file/<module>.py`; 只有确实被多个图种使用才上移, 单图种逻辑留在图种目录;
 - 顶层 `__init__.py` 是否重导出要谨慎: 重导出会把该模块的依赖带给**所有**脚本; 现有约定是
-  `data` / `fonts` / `output` 重导出, `relief` / `overlap` 按子模块导入;
+  `data` / `output` 重导出, `relief` / `overlap` 按子模块导入;
 - 纯几何模块(如 `overlap`)不要 import matplotlib/cartopy, 让数据准备脚本也能用;
 - 建 `docs/reference/<module>.md`(模板见 [`conventions.md`](conventions.md)), 并在
   [`index.md`](index.md) 与 [`overview.md`](overview.md) 的模块表里加一行;
