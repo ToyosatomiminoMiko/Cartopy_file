@@ -1,7 +1,7 @@
 # 苏联地形图 (USSR/ussr.py)
 
 - 源码: [`USSR/ussr.py`](../../USSR/ussr.py)
-- 产物: `ussr_topography_etopo2022_lambert_azimuthal.svg`(与脚本同目录)
+- 产物: `ussr_topography_etopo2022_lambert_azimuthal.svg`(与脚本同目录), 每张图另出同名 `.geo.json`
 
 ## 是什么
 

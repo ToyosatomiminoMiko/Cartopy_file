@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
@@ -44,7 +44,17 @@ from cartopy_file.overlap import cut, overlap_mask
 # 共享的 ETOPO/晕渲/底图工具(实现见 src/cartopy_file/relief.py).
 from cartopy_file.relief import find_etopo, load_elevation, load_ne_layer, make_relief
 
-from cartopy_file.output import apply_svg_output, save_svg
+from cartopy_file.output import apply_svg_output
+
+# 底图 + geo.json 出图: save_map 同时写裁到地图框的 SVG 与同名 geo.json,
+# 见 docs/reference/geo.md.
+from cartopy_file.geo import (
+    GeoDoc,
+    figure_frame,
+    projected_angle,
+    relief_from_cmap,
+    save_map,
+)
 
 # 产物统一为 SVG, 见 docs/reference/output.md.
 apply_svg_output()
@@ -148,6 +158,15 @@ COLOR_RIVER = "#5c93bf"        # 支流
 COLOR_RIVER_TRUNK = "#2d6ea6"  # 干流(高等级/大流量河段)
 COLOR_WATER = "#b9d7ee"        # 梯级水库水面
 COLOR_WATER_EDGE = "#4a7fb0"
+COLOR_HIGHLAND = "#7a6450"     # 丘陵/山地标注: 棕灰斜体
+COLOR_COUNTRY = "#3a3a3a"      # 邻国名称
+COLOR_SEA = "#1f4e79"          # 海域名称
+COLOR_NOTE = "#333333"
+
+# 地名光晕: 地形/填色/河网叠在文字下面时, 白描边保证可读; 宽度交给前端 halo,
+# 前端按地图缩放比换算到纸面(见 miko 的 makeLabelItem).
+HALO = {"color": "#ffffff", "width_pt": 3.0}
+HALO_WIDE = {"color": "#ffffff", "width_pt": 3.6}
 
 # 周边八个联邦主体共和国(GADM NAME_1): 流域直接覆盖/紧邻的民族共和国.
 # 流域图不画行政区; 共和国图只保留前六个, 科米与卡尔梅克不画.
@@ -163,33 +182,82 @@ REPUBLICS = (
 )
 REPUBLICS_SHOWN = REPUBLICS[:6]
 REPUBLICS_HIDDEN = frozenset(REPUBLICS[6:])
+# 轮廓小的共和国用略小字号, 防止两行文字的宽度超出共和国范围.
+SMALL_REPUBLICS = frozenset({"Chuvash", "Mariy-El", "Mordovia", "Kalmyk"})
 
-# 城市点: (经度, 纬度, 类型).
-# 类型: capital=首都(星形), rep=共和国首府(方块), city=一般城市(圆点); 不画城名.
+# 共和国名称: GADM NAME_1 -> (经度, 纬度, 文字). 放在各共和国境内的空旷处,
+# 避开首府城点与主要河湖; 小共和国用两行文字, 字号见 SMALL_REPUBLICS.
+REPUBLIC_LABELS: dict[str, tuple[float, float, str]] = {
+    "Tatarstan": (50.30, 54.85, "鞑靼斯坦\n共和国"),
+    "Bashkortostan": (56.60, 53.35, "巴什科尔托斯坦\n共和国"),
+    "Chuvash": (47.05, 55.28, "楚瓦什\n共和国"),
+    "Mariy-El": (48.90, 57.22, "马里埃尔\n共和国"),
+    "Mordovia": (44.50, 54.85, "莫尔多瓦\n共和国"),
+    "Udmurt": (52.60, 57.55, "乌德穆尔特\n共和国"),
+    "Kalmyk": (45.25, 46.78, "卡尔梅克\n共和国"),
+    "Komi": (54.50, 61.00, "科米\n共和国"),
+}
+
+# 城市: (经度, 纬度, 名称, 类型, 文字偏移经度, 文字偏移纬度, 水平对齐).
+# 类型: capital=首都(星形), rep=共和国首府(方块), city=一般城市(圆点).
+# 偏移与对齐是改前成品的文字落点, 现在只用来产出 geo.labels 的锚点, 不再画文字.
 CITIES = [
-    (37.617, 55.755, "capital"),
-    (35.900, 56.858, "city"),
-    (39.873, 57.626, "city"),
-    (40.926, 57.768, "city"),
-    (44.002, 56.326, "city"),
-    (49.660, 58.603, "city"),
-    (56.248, 58.010, "city"),
-    (53.204, 56.852, "rep"),
-    (49.122, 55.788, "rep"),
-    (55.972, 54.738, "rep"),
-    (50.150, 53.195, "city"),
-    (48.403, 54.317, "city"),
-    (46.034, 51.533, "city"),
-    (44.501, 48.708, "city"),
-    (48.034, 46.349, "city"),
-    (47.251, 56.132, "rep"),
-    (47.890, 56.638, "rep"),
-    (45.184, 54.183, "rep"),
-    (45.000, 53.195, "city"),
-    (39.741, 54.626, "city"),
-    (55.097, 51.768, "city"),
-    (44.256, 46.307, "rep"),
-    (50.836, 61.668, "rep"),
+    (37.617, 55.755, "莫斯科", "capital", 0.12, 0.14, "left"),
+    (35.900, 56.858, "特维尔", "city", 0.10, 0.10, "left"),
+    (39.873, 57.626, "雅罗斯拉夫尔", "city", -0.12, 0.16, "right"),
+    (40.926, 57.768, "科斯特罗马", "city", 0.12, -0.16, "left"),
+    (44.002, 56.326, "下诺夫哥罗德", "city", 0.10, 0.10, "left"),
+    (49.660, 58.603, "基洛夫", "city", 0.10, 0.10, "left"),
+    (56.248, 58.010, "彼尔姆", "city", 0.10, 0.10, "left"),
+    (53.204, 56.852, "伊热夫斯克", "rep", 0.10, 0.10, "left"),
+    (49.122, 55.788, "喀山", "rep", 0.10, 0.10, "left"),
+    (55.972, 54.738, "乌法", "rep", 0.10, 0.10, "left"),
+    (50.150, 53.195, "萨马拉", "city", 0.10, 0.10, "left"),
+    (48.403, 54.317, "乌里扬诺夫斯克", "city", 0.10, 0.10, "left"),
+    (46.034, 51.533, "萨拉托夫", "city", 0.10, 0.10, "left"),
+    (44.501, 48.708, "伏尔加格勒", "city", 0.10, 0.10, "left"),
+    (48.034, 46.349, "阿斯特拉罕", "city", 0.10, 0.10, "left"),
+    (47.251, 56.132, "切博克萨雷", "rep", -0.10, -0.12, "right"),
+    (47.890, 56.638, "约什卡尔奥拉", "rep", 0.10, -0.12, "left"),
+    (45.184, 54.183, "萨兰斯克", "rep", 0.10, -0.10, "left"),
+    (45.000, 53.195, "奔萨", "city", 0.10, -0.10, "left"),
+    (39.741, 54.626, "梁赞", "city", 0.10, 0.10, "left"),
+    (55.097, 51.768, "奥伦堡", "city", 0.10, 0.10, "left"),
+    (44.256, 46.307, "埃利斯塔", "rep", -0.12, -0.12, "right"),
+    (50.836, 61.668, "瑟克特夫卡尔", "rep", 0.10, 0.10, "left"),
+]
+
+# 河名: (经度, 纬度, 文字, 旋转参考点1经度, 纬度, 参考点2经度, 纬度).
+# 文字放在河道旁的陆地上, 旋转方向与河道在投影平面内的走向一致(见 projected_angle).
+RIVER_LABELS = [
+    (43.05, 56.10, "伏尔加河", 42.40, 56.20, 44.00, 56.10),
+    (45.35, 49.90, "伏尔加河", 45.80, 50.60, 44.80, 49.10),
+    (53.40, 55.35, "卡马河", 54.20, 55.30, 52.40, 55.40),
+    (41.55, 54.85, "奥卡河", 40.80, 54.50, 42.40, 55.10),
+    (56.30, 54.15, "别拉亚河", 56.40, 53.60, 56.10, 54.80),
+    (50.20, 57.45, "维亚特卡河", 50.60, 57.70, 49.70, 57.10),
+]
+
+# 邻国名称: 只标画框内可见的三个邻国.
+COUNTRY_LABELS = [
+    (55.10, 47.60, "哈萨克斯坦"),
+    (30.95, 53.45, "白俄罗斯"),
+    (33.10, 48.75, "乌克兰"),
+]
+
+# 海域名称.
+SEA_LABELS = [
+    (50.60, 45.35, "里海"),
+    (31.20, 45.05, "黑海"),
+    (36.80, 46.05, "亚速海"),
+]
+
+# 地貌名称: (经度, 纬度, 文字, 旋转角度). 旋转角度 0 表示水平.
+HIGHLAND_LABELS = [
+    (33.10, 57.55, "瓦尔代丘陵", 0),
+    (46.90, 52.20, "伏尔加高地", 0),
+    (47.40, 48.60, "里海低地", 0),
+    (59.30, 56.80, "乌拉尔山", 78),
 ]
 
 # 河网分级: Natural Earth 10m 河流的 scalerank(数值越小越主要)分三档.
@@ -223,35 +291,49 @@ BORDER_GEOJSON = DATA_DIR / "russia_border.geojson"
 # ============================
 @dataclass(frozen=True)
 class MapSpec:
-    """一张图的画框、行政区主题开关与产物路径.
+    """一张图的画框、行政区主题开关、默认文案与产物路径.
 
     为什么用规格对象而不是给每张图写一套流程: 两张图共用投影、色带、地形、
-    河网与版式, 差异只有画框与画哪些行政区; 把这些差异收敛成数据,
-    图层函数只需按 spec 取参数.
+    河网与版式, 差异只有画框、画哪些行政区与文案(geo.suggestions); 把这些
+    差异收敛成数据, 图层函数与 geo 收集只需按 spec 取参数.
     """
 
     key: str
     extent: tuple[float, float, float, float]
+    title: str
+    subtitle: str
     out_svg: Path
     draw_admin: bool
+    area_label_in_map: bool
     republics: tuple[str, ...] = ()
     hidden_subjects: frozenset[str] = frozenset()
+    # 河名 -> 额外旋转角(度): 卡马河参考点由东指西, 屏幕角约 -180°, 文字倒置,
+    # 统一再转 180° 让它正向可读.
+    river_label_extra_rotation: dict[str, float] = field(default_factory=dict)
 
 
 SPEC_BASIN = MapSpec(
     key="basin",
     extent=EXTENT_BASIN,
+    title="伏尔加河流域地形图",
+    subtitle="ETOPO 2022 | 流域: HydroSHEDS | 国界: GADM 4.1 | 兰勃特等角圆锥投影",
     out_svg=ROOT / "volga_basin_topography_etopo2022_lambert_conformal.svg",
     draw_admin=False,
+    area_label_in_map=False,
+    river_label_extra_rotation={"卡马河": 180.0},
 )
 
 SPEC_REPUBLICS = MapSpec(
     key="republics",
     extent=EXTENT_REPUBLICS,
+    title="伏尔加河流域与周边联邦主体共和国地形图",
+    subtitle="ETOPO 2022 | 流域: HydroSHEDS | 行政区: GADM 4.1 | 兰勃特等角圆锥投影",
     out_svg=ROOT / "volga_basin_republics_topography_etopo2022_lambert_conformal.svg",
     draw_admin=True,
+    area_label_in_map=True,
     republics=REPUBLICS_SHOWN,
     hidden_subjects=REPUBLICS_HIDDEN,
+    river_label_extra_rotation={"卡马河": 180.0},
 )
 
 SPECS = (SPEC_BASIN, SPEC_REPUBLICS)
@@ -353,6 +435,14 @@ def load_vectors(extent: tuple[float, float, float, float]) -> tuple[gpd.GeoData
     basin = unary_union(polygon_parts(basin.intersection(land)))
     border = unary_union(gpd.read_file(_require(BORDER_GEOJSON)).geometry)
     return subjects, basin, border
+
+
+def basin_area_km2(basin) -> float:
+    """流域面积(km²): 在等积投影 EPSG:6933 下计算, 与图注「约 141 万 km²」同口径."""
+    # EPSG:6933 的单位是米, 面积是 m²; 先换成 km² 再返回.
+    return float(
+        gpd.GeoSeries([basin], crs="EPSG:4326").to_crs("EPSG:6933").area.iloc[0] / 1.0e6
+    )
 
 
 # ============================
@@ -723,7 +813,7 @@ def add_city_markers(ax: plt.Axes, spec: MapSpec) -> None:
     画框外跳过: 与改前一致, 窄画框(共和国图)不画框外的城市.
     """
     extent = spec.extent
-    for lon, lat, kind in CITIES:
+    for lon, lat, _name, kind, _dx, _dy, _align in CITIES:
         if not in_extent(lon, lat, extent):
             continue
         if kind == "capital":
@@ -792,6 +882,246 @@ def add_gridlines(ax: plt.Axes, extent: tuple[float, float, float, float]) -> No
 
 
 # ============================
+# geo.json 收集
+# ============================
+# 高程色标刻度: 改前色标上的整百/整千值, 前端 colorbar 直接复用.
+RELIEF_TICKS = (-2000, -1000, 0, 500, 1000, 1500, 2000)
+
+# 经纬网样式: 与 add_gridlines 画出的线同源(gray / 0.5pt / 点线 / 0.4 不透明度);
+# 点线在 0.5pt 线宽下的 dash 为 (1, 1.65) x 0.5, 与旧成品抽出的 [0.5, 0.825] 一致.
+GRATICULE_STYLE = {
+    "stroke": "#808080",
+    "width_pt": 0.5,
+    "dash": [0.5, 0.825],
+    "opacity": 0.4,
+}
+
+
+def collect_graticule(doc: GeoDoc, ax: plt.Axes, extent: tuple[float, float, float, float]) -> None:
+    """把经纬刻度(值/文字/与地图框边线的交点)登记进 geo; 网线已由 add_gridlines 画好."""
+    doc.add_graticule(
+        ax,
+        extent,
+        lon_step=5.0,
+        lat_step=2.0,
+        lon_side="bottom",
+        lat_side="left",
+        style=GRATICULE_STYLE,
+    )
+
+
+def collect_labels(doc: GeoDoc, ax: plt.Axes, spec: MapSpec, basin_area_km2: float) -> None:
+    """把改前成品上的文字整理成 geo.labels(位置/角度/字号/颜色/锚点/halo), 不画文字.
+
+    顺序按旧图的 zorder 升序登记(前端 scene 按 order 叠放): 国名/海名/地貌(9.0)、
+    图内流域名(9.2)、共和国名(9.3)、河名(9.4)、城市(10.1). 画框外的候选跳过,
+    与改前用 in_extent 过滤文字的行为一致.
+    """
+    extent = spec.extent
+
+    # 邻国名称.
+    for lon, lat, text in COUNTRY_LABELS:
+        if not in_extent(lon, lat, extent):
+            continue
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="country", font_size_pt=12.0, color=COLOR_COUNTRY,
+            ha="center", va="center", halo=HALO,
+        )
+
+    # 海域名称.
+    for lon, lat, text in SEA_LABELS:
+        if not in_extent(lon, lat, extent):
+            continue
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="sea", font_size_pt=11.0, color=COLOR_SEA,
+            ha="center", va="center", italic=True, halo=HALO,
+        )
+
+    # 地貌名: 棕灰斜体; 乌拉尔山按山脊走向旋转.
+    for lon, lat, text, rotation in HIGHLAND_LABELS:
+        if not in_extent(lon, lat, extent):
+            continue
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="highland", font_size_pt=10.0, color=COLOR_HIGHLAND,
+            ha="center", va="center", rotation_deg=rotation, italic=True, halo=HALO,
+        )
+
+    # 图内流域名: 只有共和国图在图上写「伏尔加河流域 / 面积」; 流域图的同一块
+    # 文字在旧版是图外面板, 现在由 geo.suggestions.area_annotation 带给前端.
+    if spec.area_label_in_map and in_extent(42.55, 51.95, extent):
+        doc.add_label(
+            ax, 42.55, 51.95,
+            f"伏尔加河流域\n约 {basin_area_km2 / 1e4:.0f} 万 km²",
+            kind="area", name="流域", font_size_pt=15.0, color=COLOR_BASIN_EDGE,
+            ha="center", va="center", linespacing=1.35, italic=True, halo=HALO_WIDE,
+        )
+
+    # 共和国名: 蓝紫色, 字号按共和国轮廓大小分两档(小共和国 10.5, 大共和国 12.5).
+    for name in spec.republics:
+        lon, lat, text = REPUBLIC_LABELS[name]
+        if not in_extent(lon, lat, extent):
+            continue
+        size = 10.5 if name in SMALL_REPUBLICS else 12.5
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="area", id_kind="republic", name=name, font_size_pt=size,
+            color=COLOR_REPUBLIC_EDGE, ha="center", va="center",
+            linespacing=1.15, halo=HALO,
+        )
+
+    # 河名: 与干流同色, 沿河道方向旋转; 同一条河标两段时 id 加 1 起算序号.
+    river_counts: dict[str, int] = {}
+    for _, _, text, *_ in RIVER_LABELS:
+        river_counts[text] = river_counts.get(text, 0) + 1
+    river_seen: dict[str, int] = {}
+    for lon, lat, text, lon1, lat1, lon2, lat2 in RIVER_LABELS:
+        river_seen[text] = river_seen.get(text, 0) + 1
+        if not in_extent(lon, lat, extent):
+            continue
+        rotation = projected_angle(PROJECTION, lon1, lat1, lon2, lat2) + float(
+            spec.river_label_extra_rotation.get(text, 0.0)
+        )
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="river", name=text,
+            index=river_seen[text] if river_counts[text] > 1 else None,
+            font_size_pt=9.8, color=COLOR_RIVER_TRUNK, ha="center", va="center",
+            rotation_deg=rotation, italic=True, halo=HALO,
+        )
+
+    # 城市: 文字跟着点位偏移; 字号按城市等级分三档.
+    sizes = {"capital": 10.8, "rep": 9.3, "city": 8.8}
+    for lon, lat, name, kind, dx, dy, align in CITIES:
+        if not in_extent(lon, lat, extent):
+            continue
+        doc.add_label(
+            ax, lon + dx, lat + dy, name,
+            kind="city", name=name, font_size_pt=sizes[kind], color="#000000",
+            ha=align, va="center", halo=HALO,
+        )
+
+
+def collect_legend(doc: GeoDoc, spec: MapSpec) -> None:
+    """图例数据: 只列该图实际画了的线型/面, 流域图没有行政区两项(与改前图例一致)."""
+    entries: list[dict] = [
+        {
+            "label": "伏尔加河流域",
+            "shape": "rect",
+            "stroke": COLOR_BASIN_EDGE,
+            "width_pt": 2.0,
+            "fill": COLOR_BASIN_FILL,
+            "opacity": 0.45,
+        }
+    ]
+    if spec.draw_admin:
+        entries.extend(
+            [
+                {
+                    "label": "周边联邦主体共和国",
+                    "shape": "rect",
+                    "stroke": COLOR_REPUBLIC_EDGE,
+                    "width_pt": 1.8,
+                    "fill": COLOR_REPUBLIC_FILL,
+                    "opacity": 0.45,
+                },
+                {
+                    "label": "其他联邦主体界",
+                    "shape": "line",
+                    "stroke": COLOR_SUBJECT,
+                    "width_pt": 0.9,
+                    "dash": [5.0, 3.0],
+                    "opacity": 0.8,
+                },
+            ]
+        )
+    entries.extend(
+        [
+            {"label": "国界", "shape": "line", "stroke": COLOR_BORDER, "width_pt": 1.4},
+            {"label": "干流(伏尔加河等)", "shape": "line", "stroke": COLOR_RIVER_TRUNK, "width_pt": 1.8},
+            {"label": "支流", "shape": "line", "stroke": COLOR_RIVER, "width_pt": 0.8},
+            {
+                "label": "湖泊 / 水库水面",
+                "shape": "rect",
+                "stroke": COLOR_WATER_EDGE,
+                "width_pt": 0.6,
+                "fill": COLOR_WATER,
+            },
+            {
+                "label": "首都",
+                "shape": "point",
+                "stroke": "#000000",
+                "width_pt": 1.5,
+                "fill": "#ffd200",
+                "marker": "star",
+            },
+            {
+                "label": "共和国首府",
+                "shape": "point",
+                "stroke": "#000000",
+                "width_pt": 1.5,
+                "fill": "#ffffff",
+                "marker": "square",
+            },
+            {
+                "label": "城市",
+                "shape": "point",
+                "stroke": "#000000",
+                "width_pt": 1.5,
+                "fill": "#ffffff",
+                "marker": "circle",
+            },
+        ]
+    )
+    doc.set_legend("图例", entries)
+
+
+def collect_suggestions(doc: GeoDoc, spec: MapSpec, basin_area_km2: float) -> None:
+    """默认文案: 标题/副标题/右栏注/来源/图外面积注记, 只给前端预填, 不参与合成."""
+    area_wan = basin_area_km2 / 1e4
+    notes = [
+        "注 1：流域为 HydroBASINS level 5 的伏尔加河主流域合并，",
+        f"面积约 {area_wan:.0f} 万 km²（HydroSHEDS 口径，不含里海）。",
+    ]
+    if spec.draw_admin:
+        notes += [
+            "注 2：加粗填色者为流域周边的六个联邦主体共和国，科米与",
+            "卡尔梅克不画；其余联邦主体只画灰色虚线界线。行政区为",
+            "GADM 4.1，其俄罗斯国界口径不含克里米亚。",
+        ]
+    else:
+        notes += [
+            "注 2：本图不画联邦主体行政区界，只保留俄罗斯国界（GADM",
+            "4.1 口径，不含克里米亚）。",
+        ]
+    notes += [
+        "注 3：河网与湖库为 Natural Earth 10m；河流按 scalerank 分三级，",
+        "湖泊/水库按面填色；里海不在湖泊层，其水深仍由地形配色表达。",
+        "注 4：地形 ETOPO 2022（15″）；投影 Lambert Conformal Conic，",
+        "中央经线 46°E，标准纬线 47°N / 57°N。",
+    ]
+    doc.set_suggestions(
+        {
+            "title": spec.title,
+            "subtitle": spec.subtitle,
+            "notes": notes,
+            "source": (
+                "地形: NOAA NCEI ETOPO 2022（15″） | 流域: HydroSHEDS HydroBASINS level 5 | "
+                "行政区: GADM 4.1 | 河网·湖库: Natural Earth 10m | "
+                "投影: Lambert Conformal Conic"
+            ),
+            "area_annotation": []
+            if spec.area_label_in_map
+            else ["伏尔加河流域", f"约 {area_wan:.0f} 万 km²"],
+            "legend_title": "图例",
+            "colorbar_title": "高程 / 水深",
+        }
+    )
+
+
+# ============================
 # 出图
 # ============================
 def build_map(
@@ -804,8 +1134,8 @@ def build_map(
     lat: np.ndarray,
     z: np.ndarray,
     dpi: int,
-) -> plt.Figure:
-    """按规格画一张图, 返回未保存的 Figure."""
+) -> tuple[plt.Figure, plt.Axes]:
+    """按规格画一张纯几何图, 返回未保存的 Figure 与地图坐标区(geo 收集要用 ax)."""
     fig = plt.figure(figsize=layout.figsize, facecolor="white")
     ax = fig.add_axes(layout.map_rect, projection=PROJECTION)
     ax.set_anchor("C")
@@ -829,7 +1159,7 @@ def build_map(
 
     add_city_markers(ax, spec)
     add_gridlines(ax, spec.extent)
-    return fig
+    return fig, ax
 
 
 # ============================
@@ -863,10 +1193,11 @@ def main() -> None:
 
     lon, lat, z = load_elevation(etopo_path)
     z = prepare_elevation(lon, lat, z)
+    area_km2 = basin_area_km2(basin)
 
     for spec in SPECS:
         layout = make_layout(spec)
-        fig = build_map(
+        fig, ax = build_map(
             spec,
             layout,
             subjects,
@@ -880,8 +1211,25 @@ def main() -> None:
         # 注意: 不用 tight_layout / bbox_inches="tight";
         # cartopy 0.25 在非矩形投影上绘制经纬网时会触发 gridliner 用未闭合
         # 顶点构造多边形的 GEOSException, 且 tight bbox 会裁掉地图边缘(项目已踩过).
-        save_svg(fig, spec.out_svg, dpi=args.dpi)
-        print(f"地图已保存: {spec.out_svg}")
+        frame = figure_frame(fig, ax)
+        doc = GeoDoc(frame)
+        collect_labels(doc, ax, spec, area_km2)
+        collect_graticule(doc, ax, spec.extent)
+        doc.set_relief(
+            relief_from_cmap(
+                ELEV_CMAP,
+                title="高程 / 水深",
+                unit="m",
+                vmin=ELEV_VMIN,
+                vmax=ELEV_VMAX,
+                ticks=RELIEF_TICKS,
+            )
+        )
+        collect_legend(doc, spec)
+        collect_suggestions(doc, spec, area_km2)
+        # save_map 写裁到地图框的纯底图与同名 geo.json(miko 契约里的 base.svg + geo).
+        svg_path, geo_path = save_map(fig, spec.out_svg, doc, dpi=args.dpi)
+        print(f"底图与 geo 已保存: {svg_path} + {geo_path}")
         if not args.show:
             plt.close(fig)
 

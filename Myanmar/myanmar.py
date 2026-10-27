@@ -6,8 +6,10 @@
 是什么: 读取本地 NOAA ETOPO 2022 缅甸区域高程, 用兰勃特等角圆锥投影绘制全国
 地形图, 叠加 Natural Earth 10m 国界(仅陆上段, 半透明红色)与邻国国界(灰虚线),
 并画出主要城市点; 海岸线不单独绘制, 海陆界线由地形配色在 0 m 处的跳变表达.
-只绘制地理要素, 不绘制任何文字/图例/色标/标题/比例尺/指北针.
-完整说明(投影选择、数据来源、运行方式)见 ``docs/maps/myanmar.md``.
+文字与版面由前端接管, 本脚本同时产出同名的 geo.json: 底图只画地理要素, 地名/
+色标/标题/来源只以 ``GeoDoc`` 数据形式登记, 不再画任何文字; 字段与口径见
+``docs/reference/geo.md``. 完整说明(投影选择、数据来源、运行方式)见
+``docs/maps/myanmar.md``.
 """
 
 from __future__ import annotations
@@ -35,7 +37,11 @@ from cartopy_file.data import configure_cartopy
 
 configure_cartopy()
 
-from cartopy_file.output import apply_svg_output, save_svg
+from cartopy_file.output import apply_svg_output
+
+# 底图 + geo.json 出图: save_map 同时写裁到地图框的 SVG 与同名 geo.json,
+# 见 docs/reference/geo.md.
+from cartopy_file.geo import GeoDoc, figure_frame, relief_from_cmap, save_map
 
 # 国界与海岸线重合时只保留国界: 用共享剪枝工具裁掉沿海段, 见 docs/reference/overlap.md.
 from cartopy_file.overlap import cut, overlap_mask
@@ -157,13 +163,61 @@ COAST_CLIP_MIN_LEN = 0.03
 NEIGHBOR_GAP_DEG = 0.06
 
 
+# 邻国与海域名称: (经度, 纬度, 文字). 这是改前成品上的地名, 现在只登记到
+# geo.labels, 不再画文字; 坐标仍是 PlateCarree 经纬度(与旧版文字的落点一致).
+COUNTRY_LABELS = [
+    (99.6, 29.9, "中国"),
+    (89.2, 25.4, "印度"),
+    (89.6, 22.8, "孟加拉国"),
+    (101.3, 16.0, "泰国"),
+    (103.4, 19.6, "老挝"),
+]
+SEA_LABELS = [
+    (89.8, 15.8, "孟加拉湾"),
+    (96.8, 9.3, "安达曼海"),
+]
+# 国名: 单独放在国土中北部, 用深红色与红色国界呼应; 位置避开城市地名防压盖.
+# 旧版不用 fontweight="bold"(本机 CJK 可变字体只能取到默认实例, 请求粗体会回退并告警),
+# 靠更大的字号和深红色突出国名.
+COUNTRY_NAME = (95.6, 23.5, "缅甸")
+
 # 城市点: (经度, 纬度, 名称, 是否首都).
-# 首都用星形标记, 其余用圆点, 便于快速定位; 名称不绘制, 留给后续 geo.json 初始标注.
+# 首都用星形标记, 其余用圆点, 便于快速定位; 城名只登记到 geo.labels, 不再绘制.
 CITIES = [
     (96.10, 19.75, "内比都", True),
     (96.16, 16.87, "仰光", False),
     (96.08, 21.98, "曼德勒", False),
 ]
+# 城名相对城点的偏移(度): 改前成品的文字落点, 现在只用来算 geo.labels 的锚点.
+CITY_LABEL_DX = 0.18
+CITY_LABEL_DY = -0.05
+
+# 地名样式: 邻国名 13pt 深灰 / 海域 12pt 斜体深蓝 / 国名 22pt 深红 / 城名 10pt 黑;
+# 白描边保证文字在彩色地形与红色国界上仍可读, 宽度交给前端 halo.
+COLOR_COUNTRY = "#333333"
+COLOR_SEA = "#1f4e79"
+COLOR_COUNTRY_NAME = "#8b0000"
+HALO = {"color": "#ffffff", "width_pt": 3.0}
+
+# 标题/副标题/来源: 旧版标题与底部来源文字的版面文案, 现在只作
+# geo.suggestions 的默认值; 第一行是国家与数据源, 第二行是投影与参数.
+TITLE = "缅甸联邦共和国全境地形图"
+SUBTITLE = (
+    "NOAA ETOPO 2022 | 兰勃特等角圆锥投影"
+    "(中央经线 96.5°E, 标准纬线 10°N / 27°N)"
+)
+SOURCE = "数据: NOAA NCEI ETOPO 2022 (15 弧秒) | 边界: Natural Earth 10m"
+
+# 高程色标刻度: 旧成品色标上标出的整千值, 前端 colorbar 直接复用.
+RELIEF_TICKS = (-4000, -2000, 0, 2000, 4000)
+
+# 经纬网样式: 与 add_gridlines 画出的线同源(gray / 0.6pt 实线 / 0.55 不透明度).
+GRATICULE_STYLE = {
+    "stroke": "#808080",
+    "width_pt": 0.6,
+    "dash": None,
+    "opacity": 0.55,
+}
 
 # 输出路径(脚本同目录), 见 docs/reference/output.md.
 OUT_SVG = ROOT / "myanmar_topography_etopo2022_lambert_conformal.svg"
@@ -268,6 +322,103 @@ def add_city_markers(ax: plt.Axes) -> None:
             )
 
 
+def add_gridlines(ax: plt.Axes) -> None:
+    """经纬网: 经度每 3°, 纬度每 5°, 只画网线, 不画刻度文字.
+
+    线位置只取画框内 3°/5° 的整倍数; 改前这些刻度文字由 matplotlib 画, 现在改由
+    前端按 geo.graticule 排版, 因此 draw_labels=False.
+    """
+    gl = ax.gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=False,
+        linewidth=GRATICULE_STYLE["width_pt"],
+        color="gray",
+        alpha=GRATICULE_STYLE["opacity"],
+        linestyle="-",
+        zorder=4,
+    )
+    gl.xlocator = mticker.FixedLocator(np.arange(87, 107, 3))
+    gl.ylocator = mticker.FixedLocator(np.arange(5, 32, 5))
+
+
+# ============================
+# geo.json 收集
+# ============================
+def collect_labels(doc: GeoDoc, ax: plt.Axes) -> None:
+    """把改前成品上的地名整理成 geo.labels(位置/字号/颜色/锚点/halo), 不画文字.
+
+    顺序沿用旧图: 邻国名 -> 海域名 -> 国名 -> 城名; 前端 scene 按 order 叠放.
+    """
+    for lon, lat, text in COUNTRY_LABELS:
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="country", font_size_pt=13.0, color=COLOR_COUNTRY,
+            ha="center", va="center", halo=HALO,
+        )
+    for lon, lat, text in SEA_LABELS:
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="sea", font_size_pt=12.0, color=COLOR_SEA,
+            ha="center", va="center", italic=True, halo=HALO,
+        )
+    lon, lat, text = COUNTRY_NAME
+    doc.add_label(
+        ax, lon, lat, text,
+        kind="country", font_size_pt=22.0, color=COLOR_COUNTRY_NAME,
+        ha="center", va="center", halo=HALO,
+    )
+    for lon, lat, text, _is_capital in CITIES:
+        # 城名用左下对齐贴住城点: 旧版是 (城点 + 平移) + ha="left".
+        doc.add_label(
+            ax, lon + CITY_LABEL_DX, lat + CITY_LABEL_DY, text,
+            kind="city", font_size_pt=10.0, color="#000000",
+            ha="left", va="center", halo=HALO,
+        )
+
+
+def collect_graticule(doc: GeoDoc, ax: plt.Axes) -> None:
+    """把经纬刻度(值/文字/与地图框边线的交点)登记进 geo; 网线已由 add_gridlines 画好."""
+    doc.add_graticule(
+        ax,
+        tuple(EXTENT),
+        lon_step=3.0,
+        lat_step=5.0,
+        lon_side="bottom",
+        lat_side="left",
+        style=GRATICULE_STYLE,
+    )
+
+
+def collect_relief(doc: GeoDoc) -> None:
+    """登记高程色标数据: 与底图同一套色带/范围, 刻度取改前成品色标上的值."""
+    doc.set_relief(
+        relief_from_cmap(
+            ELEV_CMAP,
+            title="高程 / 水深",
+            unit="m",
+            vmin=ELEV_VMIN,
+            vmax=ELEV_VMAX,
+            ticks=RELIEF_TICKS,
+        )
+    )
+
+
+def collect_suggestions(doc: GeoDoc) -> None:
+    """默认文案: 标题/副标题/来源/色标标题, 只给前端预填, 不参与底图合成.
+
+    改前成品没有图例与图注, 所以不写 legend_title/notes/area_annotation;
+    写了反而会让前端初始化出一块旧图没有的版面.
+    """
+    doc.set_suggestions(
+        {
+            "title": TITLE,
+            "subtitle": SUBTITLE,
+            "source": SOURCE,
+            "colorbar_title": "高程 / 水深",
+        }
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -347,26 +498,22 @@ def main() -> None:
     draw_borders(ax, world)
     add_city_markers(ax)
 
-    # 经纬网: 经度每 3°, 纬度每 5°, 位置由 locator 固定; 只画网线, 不画刻度文字.
-    gl = ax.gridlines(
-        crs=ccrs.PlateCarree(),
-        draw_labels=False,
-        linewidth=0.6,
-        color="gray",
-        alpha=0.55,
-        linestyle="-",
-        zorder=4,
-    )
-    gl.xlocator = mticker.FixedLocator(np.arange(87, 107, 3))
-    gl.ylocator = mticker.FixedLocator(np.arange(5, 32, 5))
+    add_gridlines(ax)
 
+    # 量地图框 -> 收集 geo -> 保存裁到地图框的底图与同名 geo.json.
     # 注意: 这里既不能用 plt.tight_layout()/constrained_layout, 也不能用
-    # bbox_inches="tight".
-    # 原因: cartopy 0.25 在非矩形投影上绘制经纬网时, 布局引擎触发的提前绘制
-    # 会让 gridliner 用未闭合的边界顶点构造多边形, 抛 shapely GEOSException;
-    # 而 bbox_inches="tight" 又会把地图的包围盒算错, 导致图片被裁掉一截.
-    save_svg(fig, OUT_SVG, dpi=args.dpi)
-    print(f"地图已保存: {OUT_SVG}")
+    # bbox_inches="tight". 原因: cartopy 0.25 在非矩形投影上让布局引擎提前绘制
+    # 经纬网时, gridliner 会用未闭合的边界顶点构造多边形, 抛 shapely GEOSException;
+    # 而 bbox_inches 会引入第二套坐标, 让 geo 的锚点与底图对不上 —— 裁剪交给
+    # save_map 只改根标签的 viewBox.
+    frame = figure_frame(fig, ax)
+    doc = GeoDoc(frame)
+    collect_labels(doc, ax)
+    collect_graticule(doc, ax)
+    collect_relief(doc)
+    collect_suggestions(doc)
+    svg_path, geo_path = save_map(fig, OUT_SVG, doc, dpi=args.dpi)
+    print(f"底图与 geo 已保存: {svg_path} + {geo_path}")
 
     if args.show:
         plt.show()

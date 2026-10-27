@@ -1,7 +1,7 @@
 # 缅甸全境地形图 (Myanmar/myanmar.py)
 
 - 源码: [`Myanmar/myanmar.py`](../../Myanmar/myanmar.py)
-- 产物: `myanmar_topography_etopo2022_lambert_conformal.svg`(与脚本同目录)
+- 产物: `myanmar_topography_etopo2022_lambert_conformal.svg`(与脚本同目录), 每张图另出同名 `.geo.json`
 
 ## 是什么
 

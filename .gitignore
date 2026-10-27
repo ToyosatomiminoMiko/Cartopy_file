@@ -3,5 +3,6 @@ prompt.md
 **/data
 *.png
 *.svg
+*.geo.json
 *.PNG
 *.SVG

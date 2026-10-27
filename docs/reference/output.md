@@ -5,7 +5,7 @@
 
 ## 是什么
 
-项目统一的出图入口: 把 Figure 保存为**单个自包含的纯几何 SVG**, 不再输出 PNG. 本模块只做
+项目统一的 SVG 出口: 把 Figure 保存为**单个自包含的纯几何 SVG**, 不再输出 PNG. 本模块只做
 三件事: 固定 SVG 相关的 rcParams、强制 `.svg` 后缀、把 Figure 写成一个文件.
 
 - `apply_svg_output()`: 导入 matplotlib 之后调用一次, 固定 `svg.image_inline`、`svg.hashsalt`
@@ -15,7 +15,9 @@
 本模块**不再处理文字/字体/标签布局**: 文字外置、字体子集与 `@font-face` 内嵌、手工标签布局
 (`labels.json`)与新增标注都已移除, 也不再读 `fonttools`. 产物里是否出现文字只取决于调用方,
 项目脚本的约定是**不写任何文字**——地名、标题、图例、色标、刻度、注与来源由 `miko_svg_editor`
-的前端排版接管(迁移中).
+的前端排版接管. 脚本不直接调 `save_svg()`, 而是走
+[`cartopy_file.geo.save_map()`](geo.md): 它先调本模块写出整张 Figure, 再把根标签裁到地图框,
+并写一个同名的 `.geo.json` 给前端建默认排版.
 
 ## 关键行为
 
@@ -38,20 +40,19 @@
 
 ## 用法
 
+脚本里通常不直接调本模块, 而是用 [`geo.save_map()`](geo.md) 一次写底图 + geo:
+
 ```python
-from cartopy_file.data import prepare_matplotlib_env
+from cartopy_file.geo import GeoDoc, figure_frame, save_map
 
-prepare_matplotlib_env()  # 必须在导入 matplotlib 之前
-
-import matplotlib.pyplot as plt  # noqa: E402
-from cartopy_file.output import apply_svg_output, save_svg  # noqa: E402
-
-apply_svg_output()
-
-fig = plt.figure(...)
-...
-save_svg(fig, "map.svg", dpi=300)
+fig, ax = build_map(...)
+frame = figure_frame(fig, ax)
+doc = GeoDoc(frame)
+# ... 往里登记 labels / graticule / relief / legend / suggestions ...
+save_map(fig, "map.svg", doc, dpi=300)  # 写 map.svg + map.geo.json
 ```
+
+只需要一张不带 geo 的 SVG 时才直接调 `save_svg(fig, path, dpi=...)`.
 
 ## 注意事项
 
@@ -60,7 +61,8 @@ save_svg(fig, "map.svg", dpi=300)
   matplotlib 每次重建字体缓存;
 - 产物不入库: `.gitignore` 忽略 `*.svg`, `save_svg()` 只负责写文件, 成品按需生成、不随仓库提交;
 - 产物是纯几何地图是项目约定, 不是本模块自动剥离文字: 脚本不要调用 `ax.text()`, 也不要画
-  图例、色标、标题、刻度文字、比例尺或指北针;
+  图例、色标、标题、刻度文字、比例尺或指北针; 这些信息的「该在哪/是什么」改由
+  [`cartopy_file.geo`](geo.md) 登记进 geo.json;
 - `save_svg()` 不再接受文字/字体/标签布局相关的参数(如 `embed_text`、`placements`), 这些能力
   已随 `labels.py`、`svgtext.py`、`fonts.py` 一起删除;
 - 确定性以同一环境为前提: 换 matplotlib 版本或改 rcParams 后, 同样的数据可能写出不同的字节.

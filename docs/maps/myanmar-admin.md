@@ -1,7 +1,7 @@
 # 缅甸省/邦级行政区划图 (Myanmar/myanmar_admin.py)
 
 - 源码: [`Myanmar/myanmar_admin.py`](../../Myanmar/myanmar_admin.py)
-- 产物: `myanmar_administrative_divisions_bilingual.svg`(与脚本同目录)
+- 产物: `myanmar_administrative_divisions_bilingual.svg`(与脚本同目录), 每张图另出同名 `.geo.json`
 
 ## 是什么
 

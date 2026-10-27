@@ -1,8 +1,9 @@
 # Cartopy_file
 
-四组地图(缅甸、苏联、乌克兰、伏尔加河流域)的 cartopy 绘图脚本, 共用一套可安装的 `cartopy_file` 包. 产物统一
-为单个自包含的**纯几何** SVG: 只有地理图形, 不含文字、图例、色标、标题与刻度文字; 文字与版面由
-`miko_svg_editor` 的前端排版接管(迁移中).
+四组地图(缅甸、苏联、乌克兰、伏尔加河流域)的 cartopy 绘图脚本, 共用一套可安装的 `cartopy_file` 包. 每张图
+产出两个文件: 裁到地图框的**纯几何底图** `.svg`(只有地理图形, 不含文字、图例、色标、标题与刻度文字)和
+同名 `.geo.json`(地图框、经纬刻度、初始标注候选、色标、图例与默认文案). 文字与版面由
+`miko_svg_editor` 的前端排版接管, geo.json 让前端知道每个地名该放在哪、刻度/图例/色标用什么口径.
 
 ## 安装
 
@@ -30,6 +31,8 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 
 ## 出图
 
+每张图除 `.svg` 底图外, 还写一个同名的 `<stem>.geo.json`, 前端(`miko_svg_editor`)用它建默认排版.
+
 | 脚本 | 产物(与脚本同目录) |
 | --- | --- |
 | `Myanmar/myanmar.py` | `myanmar_topography_etopo2022_lambert_conformal.svg` |
@@ -41,16 +44,19 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 
 每张图的前置数据、可用选项与设计取舍见 [docs/index.md](docs/index.md) 里的图种页.
 
-产物统一由 [src/cartopy_file/output.py](src/cartopy_file/output.py) 保存: 只是一张纯几何地图, 海岸线、
-国界、河流、湖泊与填色都是矢量, 不含文字、图例、色标、标题和刻度文字. 文字与版面(标题/图例/色标/
-刻度/注/来源)由 `miko_svg_editor` 的前端排版接管, 迁移尚未完成. 唯一的栅格是山体晕渲, 以 base64
-内嵌在同一个 `.svg` 里, 所以产物始终是单个自包含文件(`--dpi` 只影响晕渲像素密度, 默认 300). 出图
-不写时间戳、内部 id 固定, 同一份数据重复运行得到相同内容. 实现与理由见
+产物由 [src/cartopy_file/geo.py](src/cartopy_file/geo.py) 统一保存: SVG 是纯几何底图, 海岸线、国界、
+河流、湖泊与填色都是矢量, 不含文字、图例、色标、标题和刻度文字; 保存时只把根标签的 viewBox 裁到
+地图框. 同名 `.geo.json` 按 `miko_svg_editor` 的 `mapdoc-geo` v1 契约写: `base`(底图 sha256/viewBox/
+尺寸)、`graticule`(经纬刻度)、`labels`(地名候选: 名称/坐标/角度/字号/颜色/halo)、`relief`(色标)、
+`legend`(图例)与 `suggestions`(标题/副标题/注/来源). 字段与口径见
+[docs/reference/geo.md](docs/reference/geo.md). 唯一的栅格是山体晕渲, 以 base64 内嵌在同一个
+`.svg` 里, 所以底图始终是单个自包含文件(`--dpi` 只影响晕渲像素密度, 默认 300). 出图不写时间戳、
+内部 id 固定, 同一份数据重复运行得到相同内容. 实现与理由见
 [docs/reference/output.md](docs/reference/output.md).
 
-产物不入库: `.gitignore` 忽略 `*.svg` / `*.png`, 仓内不放成品文件, 需要时按上表跑脚本生成.
-脚本已改为只画纯几何, 但改造后还没有重出产物; 产物形态的目标(`base.svg + geo.json`)与前端
-排版的衔接见 `miko_svg_editor` 的 `docs/CARTOPY-MIGRATION.md`.
+产物不入库: `.gitignore` 忽略 `*.svg` / `*.geo.json` / `*.png`, 仓内不放成品文件, 需要时按上表跑
+脚本生成. 与前端排版的衔接(契约字段、字体嵌入等)见 `miko_svg_editor` 的
+`docs/CARTOPY-MIGRATION.md`.
 
 `AmericaArmy/` 只剩早期演示脚本 `main.py` 与基地点位 `data.geojson`, 早期手工上传的两张底图
 素材已删除; `main.py` 只画图不落盘, 不在维护范围.

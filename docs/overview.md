@@ -12,7 +12,7 @@ Cartopy_file/
 ├── docs/                   本目录: 概念 / 图种 / 参考三层
 ├── data/                   cartopy 共用的 Natural Earth 底图缓存(不入库)
 ├── download_data.py        共用底图预取 + 全项目数据清单检查
-├── src/cartopy_file/       共享包: data / output / relief / overlap
+├── src/cartopy_file/       共享包: data / geo / output / relief / overlap
 ├── Myanmar/                缅甸图种: 3 张图 + 数据准备脚本 + data/
 ├── USSR/                   苏联图种
 ├── Ukraine/                乌克兰图种
@@ -36,15 +36,15 @@ Cartopy_file/
 
 ```
 download_data.py ──► data/cartopy/ ─┐
-各图 download_*/prepare_* ──► <图种>/data/ ──┴──► 绘图脚本(只读本地) ──► .svg
+各图 download_*/prepare_* ──► <图种>/data/ ──┴──► 绘图脚本(只读本地) ──► .svg + .geo.json
 ```
 
 绘图脚本不联网: 数据在首次准备时下载一次, 之后出图只读本地文件; 要素缺缓存时 cartopy 会在
 渲染中临时联网, 所以共用底图要用 `download_data.py` 预取. 详见
 [`data-preparation.md`](data-preparation.md).
 
-产物是纯几何 `.svg`, 由脚本按需生成、不提交; 文字与版面迁到 `miko_svg_editor` 的前端排版
-(迁移中), 产物形态的目标见 [README](../README.md).
+产物是裁到地图框的纯几何 `.svg` 与同名 `.geo.json`, 由脚本按需生成、不提交; 文字与版面迁到
+`miko_svg_editor` 的前端排版, geo.json 提供前端建默认排版所需的标注/刻度/色标/图例/文案.
 
 ## 共享包模块
 
@@ -54,7 +54,8 @@ download_data.py ──► data/cartopy/ ─┐
 | 模块 | 内容 | 参考页 |
 | --- | --- | --- |
 | `data` | 数据目录与 cartopy/matplotlib 缓存定位 | [`reference/data.md`](reference/data.md) |
-| `output` | 唯一的纯几何 SVG 出图入口 | [`reference/output.md`](reference/output.md) |
+| `geo` | 底图裁剪、geo.json(标注/刻度/色标/图例/文案) | [`reference/geo.md`](reference/geo.md) |
+| `output` | 唯一的纯几何 SVG 出口 | [`reference/output.md`](reference/output.md) |
 | `relief` | 高程读取、配色与山体晕渲、海陆底色 | [`reference/relief.md`](reference/relief.md) |
 | `overlap` | 边界重合剪枝(按子模块导入) | [`reference/overlap.md`](reference/overlap.md) |
 

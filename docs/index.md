@@ -40,6 +40,7 @@
 | 页面 | 模块 |
 | --- | --- |
 | [reference/data.md](reference/data.md) | `cartopy_file.data`: 数据目录与缓存定位 |
+| [reference/geo.md](reference/geo.md) | `cartopy_file.geo`: 底图裁剪、geo.json 与前端契约 |
 | [reference/output.md](reference/output.md) | `cartopy_file.output`: 纯几何 SVG 出图 |
 | [reference/relief.md](reference/relief.md) | `cartopy_file.relief`: 高程、晕渲、海陆底色 |
 | [reference/overlap.md](reference/overlap.md) | `cartopy_file.overlap`: 边界重合剪枝 |

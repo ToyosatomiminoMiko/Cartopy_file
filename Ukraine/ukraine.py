@@ -5,7 +5,8 @@
 
 是什么: 以 ETOPO 2022 地形晕渲为底图绘制乌克兰全图, 叠加 1991/2014/2022 三种边界口径、
 第聂伯河梯级水库水面与邻国地貌/水系参照; 只绘制地理要素, 不绘制任何文字/图例/色标/
-标题/比例尺/指北针.
+标题/比例尺/指北针. 文字与版面由前端接管, 本脚本同时产出同名 geo.json, 契约见
+``docs/reference/geo.md``.
 完整说明: ``docs/maps/ukraine.md``(设计要点/数据来源/运行方式).
 """
 
@@ -41,7 +42,17 @@ from cartopy_file.data import configure_cartopy, natural_earth_paths
 
 configure_cartopy()
 
-from cartopy_file.output import apply_svg_output, save_svg
+from cartopy_file.output import apply_svg_output
+
+# 底图 + geo.json 出图: save_map 同时写裁到地图框的 SVG 与同名 geo.json,
+# 见 docs/reference/geo.md.
+from cartopy_file.geo import (
+    GeoDoc,
+    figure_frame,
+    projected_angle,
+    relief_from_cmap,
+    save_map,
+)
 
 # 产物统一为 SVG, 见 docs/reference/output.md.
 apply_svg_output()
@@ -134,10 +145,11 @@ COLOR_KHARKIV = "#ef6c00"    # 2014 宣布的哈尔科夫人民共和国(未控�
 COLOR_2022 = "#7b1fa2"       # 2022 俄方宣称边界: 紫
 COLOR_OBLAST = "#5f6b73"     # 州界(背景参考线)
 COLOR_RIVER = "#3f7fb5"      # 一般河流(Natural Earth 10m)
-COLOR_RIVER_MAIN = "#2d6ea6"  # 第聂伯河/顿河等干流: 比一般河流深一档
+COLOR_RIVER_MAIN = "#2d6ea6"  # 第聂伯河/顿河等干流及其河名: 比一般河流深一档
 COLOR_WATER = "#b3d2ea"      # 梯级水库水面填充
 COLOR_WATER_EDGE = "#4a7fb0"  # 水面轮廓
 COLOR_NEIGHBOR = "#8a8a8a"   # 邻国国界
+COLOR_MOUNTAIN = "#6d4a33"   # 山系标注文字: 深棕
 COLOR_REFERENCE = "#555555"  # 境外参照(德左/罗斯托夫): 中性灰, 不参与主题配色
 # 境外参照区(德左)填色透明度: 比 2014 控制区(0.22~0.24)略深, 因为它没有
 # 控制线/边界线可依靠, 只有这一层填色; 但也不能更深 —— 灰色压过地形会让人
@@ -163,28 +175,126 @@ LAND_KEEP_DEG = 0.15
 # "外国陆地"时必须把这部分剔掉, 否则克里米亚的利曼/沙嘴岸段会被当成接壤.
 CRIMEA_BOX = (32.0, 44.3, 37.0, 46.5)
 
-# 城市点: (经度, 纬度, 是否首都).
-# 首都用星形, 其余用白心圆点; 只画地理符号, 不画城名.
+# 国家标注: (经度, 纬度, 文字). 放在画面中离边界线/城市较远的位置.
+COUNTRY_LABELS = [
+    (37.0, 52.55, "俄罗斯"),
+    (27.6, 52.9, "白俄罗斯"),
+    (22.2, 51.9, "波兰"),
+    (21.6, 48.8, "斯洛伐克"),
+    (21.6, 47.95, "匈牙利"),
+    (24.7, 45.5, "罗马尼亚"),
+    (28.3, 47.6, "摩尔多瓦"),
+]
+SEA_LABELS = [
+    (34.2, 44.25, "黑海"),
+    (36.7, 46.35, "亚速海"),
+]
+# 山系标注: (经度, 纬度, 文字, 走向起点经度, 起点纬度, 终点经度, 终点纬度).
+# 后四个数只用来求文字旋转角: 取山脊走向上两点, 在投影平面里算屏幕方向;
+# 直接拿经纬度差算 atan2 会偏(兰勃特投影下经线是斜的, 1° 经度对应的
+# 地面距离还随纬度变). 文字位置手工放在山体上, 不压国界/河名/城市.
+MOUNTAIN_LABELS = [
+    # 乌克兰喀尔巴阡山: 西北-东南走向, 文字压在乔尔诺霍拉一带的山体上.
+    (24.32, 48.42, "喀尔巴阡山", 22.80, 49.15, 25.40, 47.95),
+    # 大高加索山西端: 在图幅右下角(索契以东), 山脊同样是西北-东南走向.
+    (40.42, 43.86, "高加索山", 38.20, 44.65, 41.30, 43.35),
+]
+# 河流名称: (经度, 纬度, 文字, 走向起点经度, 起点纬度, 终点经度, 终点纬度).
+# 位置都放在河岸陆地上而不是水面上: 这张图要表达第聂伯河"河宽沿程变化",
+# 河名压在水面上会用白色描边遮掉一段水面; 顿河同理不压河道线.
+RIVER_LABELS = [
+    # 第聂伯河: 克列缅丘格水库东北岸的陆地, 与水面留出几像素间隙.
+    (33.30, 49.60, "第聂伯河", 31.70, 49.62, 33.05, 49.10),
+    # 顿河: 下游罗斯托夫段北岸陆地. 这一段在图幅内够长, 且离顿巴斯最近.
+    (40.15, 47.42, "顿河", 39.80, 47.20, 40.47, 47.45),
+]
+# 城市: (经度, 纬度, 名称, 是否首都, 经度偏移, 纬度偏移, 对齐方式).
+# 偏移都在 0.1~0.3°(约 10~25 km)量级, 只用于让文字离开边界线与其它标注.
+# 赫尔松城正好卡在第聂伯河(东)、第聂伯-布格河口(西南)与米科拉伊夫州界
+# (西北)之间, 横向 0.6° 宽的标签放不下: 往东压河, 往西压河口; 所以放在城点
+# 西北的陆地上并右对齐, 只跨过州界, 不压任何水面.
+# 顿涅茨克/卢甘斯克两城的标签单独调整过: 两个"人民共和国"的名称移到其宣称
+# 全境中心后, 会分别落在顿涅茨克城点与卢甘斯克城点附近, 城名必须让开;
+# 同时城名原本会压住 2014 接触线(顿涅茨克)或压住共和国名称(卢甘斯克).
+# 符号与城名分开: 城市点在本脚本画(见 add_place_markers), 城名只以 geo.labels
+# 交给前端(见 collect_labels).
 CITIES = [
-    (30.523, 50.450, True),
-    (36.230, 49.993, False),
-    (30.732, 46.482, False),
-    (35.046, 48.464, False),
-    (37.802, 48.015, False),
-    (39.307, 48.574, False),
-    (35.139, 47.838, False),
-    (32.617, 46.640, False),
-    (37.556, 47.096, False),
-    (34.102, 44.952, False),
-    (33.522, 44.606, False),
-    (24.031, 49.842, False),
+    (30.523, 50.450, "基辅", True, 0.20, 0.12, "left"),
+    (36.230, 49.993, "哈尔科夫", False, 0.16, 0.12, "left"),
+    (30.732, 46.482, "敖德萨", False, 0.16, -0.12, "left"),
+    (35.046, 48.464, "第聂伯罗", False, 0.16, 0.12, "left"),
+    # 顿涅茨克: 城点东南侧的 NGCA 空处, 文字整体在接触线以东, 不与线相交.
+    (37.802, 48.015, "顿涅茨克", False, 0.10, -0.16, "left"),
+    # 卢甘斯克: 城点正南, 避开北面的共和国名称与更北的 2014 接触线.
+    (39.307, 48.574, "卢甘斯克", False, 0.00, -0.19, "center"),
+    (35.139, 47.838, "扎波罗热", False, 0.16, 0.14, "left"),
+    (32.617, 46.640, "赫尔松", False, 0.16, -0.10, "left"),
+    (37.556, 47.096, "马里乌波尔", False, -0.16, -0.06, "right"),
+    (34.102, 44.952, "辛菲罗波尔", False, 0.16, 0.12, "left"),
+    (33.522, 44.606, "塞瓦斯托波尔", False, -0.16, 0.10, "right"),
+    (24.031, 49.842, "利沃夫", False, 0.16, 0.12, "left"),
 ]
 
-# 境外参照点: (经度, 纬度). 顿河畔罗斯托夫(39.72E/47.23N)用灰圈白心点,
-# 与乌克兰境内城市(黑边白心)区分; 只作位置参照, 不画城名.
+# 境外参照城市: 灰点 + 灰字, 与乌克兰境内城市(白底黑边 + 黑色城名)区分.
+# 为什么单独列一张表: 这些城市不在乌克兰境内, 不能并进 CITIES —— 否则读图
+# 会把它们当成乌克兰城市(城市样式在本图里默认"位于乌克兰").
+# (经度, 纬度, 名称, 名称经度偏移, 名称纬度偏移).
+# 顿河畔罗斯托夫(39.72E / 47.23N)是俄南部军区司令部驻地、顿河下游交通枢纽,
+# 在顿巴斯以东约 100 km. 城点取在顿河右岸的城区, 但 NE 10m 的河道线在这个
+# 纬度上几乎穿过城点, 白心灰圈的城点会压住一小段河道线 —— 城市符号盖住河道
+# 是常见画法, 不影响判读. 城名放到城点东南(下、右各让一点)的空旷草原上:
+# 北侧是顿河河道与已经标好的"顿河"河名, 西侧是塔甘罗格湾与顿河三角洲, 只有
+# 东南方向是空白.
 REFERENCE_CITIES = [
-    (39.72, 47.23),
+    (39.72, 47.23, "顿河畔罗斯托夫", 0.06, -0.13),
 ]
+# 境外参照区域: 德左是摩尔多瓦境内德涅斯特河东岸的狭长地带(俄方军事存在),
+# 紧邻敖德萨州; 地带宽度只有 0.1~0.5°(最窄约 10 km), 正式名称"德涅斯特河沿岸
+# 摩尔达维亚共和国"共 15 字, 最长一行 8 字要 1.17° 宽, 塞不进去, 硬放会用白
+# 描边把 1991 国界(红线)和德涅斯特河(蓝线)一起盖掉. 所以名称分两行放在地带
+# 东侧敖德萨州的空地上(30.30E / 47.14N).
+# (文字经度, 文字纬度, 文字, 字号, 指引线起点经度, 起点纬度, 终点经度, 终点纬度).
+# 后四个数是旧图那条"从文字块左缘水平指回地带内部"的指引线端点: 契约 v1 的
+# labels 没有 leader 字段, 指引线暂不画(端点留给 v2 迁移), 本脚本只登记名字.
+# 指引线端点为什么在 29.42E: 47.14°N 处地带西缘(德涅斯特河)约 29.29E、东缘
+# (国界)约 29.58E, 29.42E 离填色边界最近也有 0.13°(约 26 px), 端点小灰点不会
+# 碰到填色边缘.
+REFERENCE_REGIONS = [
+    (30.30, 47.14, "德涅斯特河沿岸\n摩尔达维亚共和国", 7.0, 29.72, 47.14, 29.42, 47.14),
+]
+
+# 图标题: 第一行点题, 第二行交代地形、投影与参数; 前端把 title/subtitle 渲染成
+# 标题块, 本脚本只登记文本(见 collect_suggestions).
+TITLE = "乌克兰全图：1991 / 2014 / 2022 年边界"
+SUBTITLE = "NOAA ETOPO 2022 地形 | 兰勃特等角圆锥投影（中央经线 31°E，标准纬线 45°N / 52°N）"
+
+# 右栏口径说明: 旧图是一整块 fig.text 折行文案, 这里拆成一行一个字符串, 前端按行
+# 排版; 内容(注 1~注 5)与旧图逐字一致.
+NOTES = [
+    "注 1：2014 年顿巴斯接触线以 OCHA 2021 年 GCA/NGCA 界线近似",
+    "（明斯克协议线，2015 年后基本稳定），位置误差约 1–2 km。",
+    "注 2：2022 年边界为俄方 2022-09 单方面宣称的赫尔松州、扎波罗热州、",
+    "顿涅茨克人民共和国、卢甘斯克人民共和国全境，并非实际控制线。",
+    "注 3：卢甘斯克、顿涅茨克两「人民共和国」于 2014 年宣布，",
+    "名称标注在各自宣称全境范围内（顿涅茨克形心被城点与接触线占据，",
+    "名称向北让开）；实际控制范围见蓝色填充与接触线。",
+    "哈尔科夫人民共和国只有 2014 年的宣称，图中按其宣称范围",
+    "(哈尔科夫州)画出，未实际控制。",
+    "注 4：哈尔科夫州界（橙）南段与 2022 年宣称边界（紫）完全重合，",
+    "重合段只画紫线；紫/橙线与 1991 国界重合处只画红色 1991 线。",
+    "1991 国界只画陆上段；海岸线不单独画，",
+    "海陆界线由地形配色在 0 m 处的跳变表达。",
+    "注 5：德涅斯特河沿岸摩尔达维亚共和国（德左）位于摩尔多瓦境内",
+    "德涅斯特河东岸，1990 年单方面宣布独立、未获国际承认，",
+    "俄方有军事存在；灰色填色与灰字仅为位置参照，不表示乌方立场。",
+]
+
+# 数据来源: 放画面底部, 只作为 suggestions.source 交给前端.
+SOURCE = (
+    "地形: NOAA NCEI ETOPO 2022（15″） | 边界: GADM 4.1 · OCHA/HDX 2021 HNO GCA-NGCA · "
+    "Natural Earth 10m | 水系: OpenStreetMap（ODbL）· Natural Earth 10m | "
+    "投影: Lambert Conformal Conic"
+)
 
 OUT_SVG = ROOT / "ukraine_borders_1991_2014_2022_lambert_conformal.svg"
 
@@ -706,9 +816,10 @@ def draw_borders(
 def add_place_markers(ax: plt.Axes) -> None:
     """城市点符号: 首都星形, 其余白心圆点; 境外参照点用灰圈白心.
 
-    只画地理符号: 城名、境外狭长区域的名称与指引线都属于排版文字, 不在本脚本绘制.
+    只画地理符号: 城名、境外狭长区域的名称与指引线都属于排版文字, 不在本脚本绘制,
+    城名的落点/样式以 geo.labels 登记(见 collect_labels).
     """
-    for lon, lat, is_capital in CITIES:
+    for lon, lat, _name, is_capital, _dx, _dy, _align in CITIES:
         if is_capital:
             ax.plot(
                 lon, lat, marker="*", markersize=15,
@@ -721,7 +832,7 @@ def add_place_markers(ax: plt.Axes) -> None:
                 markerfacecolor="white", markeredgecolor="black", markeredgewidth=0.9,
                 transform=ccrs.PlateCarree(), zorder=9.8,
             )
-    for lon, lat in REFERENCE_CITIES:
+    for lon, lat, _name, _dx, _dy in REFERENCE_CITIES:
         ax.plot(
             lon, lat, marker="o", markersize=3.6,
             markerfacecolor="white", markeredgecolor=COLOR_REFERENCE, markeredgewidth=1.0,
@@ -746,6 +857,235 @@ def add_gridlines(ax: plt.Axes) -> None:
     )
     gl.xlocator = mticker.FixedLocator(np.arange(20, 45, 5))
     gl.ylocator = mticker.FixedLocator(np.arange(45, 55, 5))
+
+
+# ============================
+# geo.json 收集
+# ============================
+# 文字描边: 白边保证汉字压在深色地形/彩色填充上仍可读; 宽度沿用旧图
+# path_effects.withStroke(linewidth=2.8) 的 2.8 pt.
+HALO = {"color": "#ffffff", "width_pt": 2.8}
+
+# 色标刻度: 旧图色标没设固定刻度, matplotlib 默认刻度落在 -2500~2500 范围内的
+# 就是整千的这五个(超出范围的 ±3000 不显示).
+RELIEF_TICKS = (-2000, -1000, 0, 1000, 2000)
+
+# 经纬网样式: 与 add_gridlines 画出的线同源(gray=#808080 / 0.5 pt / 点线 /
+# alpha 0.45); 点线在 0.5 pt 线宽下的 dash 为 0.5 pt 实 + 0.825 pt 虚
+# (matplotlib (1, 1.65) x 线宽).
+GRATICULE_STYLE = {
+    "stroke": "#808080",
+    "width_pt": 0.5,
+    "dash": [0.5, 0.825],
+    "opacity": 0.45,
+}
+
+
+def collect_labels(doc: GeoDoc, ax: plt.Axes) -> None:
+    """把旧成品上的 33 条文字整理成 geo.labels(位置/角度/字号/颜色/锚点/halo), 不画文字.
+
+    顺序按旧图 zorder 升序登记(前端 scene 按 order 叠放): 国名/海名(9.0)、
+    山系(9.2)、河名(9.4)、主题区域名与境外参照(9.5)、城市(9.9).
+    旧图把文字直接画在图上, 这里只给落点与样式, 文字本身由前端排版.
+    """
+    # 邻国名称.
+    for lon, lat, text in COUNTRY_LABELS:
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="country", font_size_pt=12.5, color="#3a3a3a",
+            ha="center", va="center", halo=HALO,
+        )
+
+    # 海域名称: 蓝色斜体.
+    for lon, lat, text in SEA_LABELS:
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="sea", font_size_pt=11.5, color="#1f4e79",
+            ha="center", va="center", italic=True, halo=HALO,
+        )
+
+    # 邻国山系: 棕色斜体, 旋转到与山脊走向平行.
+    for lon, lat, text, lon1, lat1, lon2, lat2 in MOUNTAIN_LABELS:
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="highland", font_size_pt=11.0, color=COLOR_MOUNTAIN,
+            ha="center", va="center",
+            rotation_deg=projected_angle(PROJECTION, lon1, lat1, lon2, lat2),
+            italic=True, halo=HALO,
+        )
+
+    # 干流名称: 与干流同色, 沿河道方向旋转; 位置在岸上, 不压水面(理由见 RIVER_LABELS).
+    for lon, lat, text, lon1, lat1, lon2, lat2 in RIVER_LABELS:
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="river", name=text, font_size_pt=10.5, color=COLOR_RIVER_MAIN,
+            ha="center", va="center",
+            rotation_deg=projected_angle(PROJECTION, lon1, lat1, lon2, lat2),
+            italic=True, halo=HALO,
+        )
+
+    # 2014 年宣布的"人民共和国": 卢甘斯克/顿涅茨克是实际控制区(蓝), 哈尔科夫只有
+    # 宣称(橙). 文字用两行, 避免横跨边界线. 落点按"宣称全境"取中心, 不再挤在
+    # 2014 实际控制区(蓝色填充)里:
+    #   - 卢甘斯克州宣称全境(约 37.85~40.22E, 47.82~50.09N)的形心在 39.03E/48.98N,
+    #     图上是州中部的开阔地; 再向北 0.03° 是为了让白描边与 2014 接触线北缘的
+    #     尖峰(48.78N 附近)留出间隙, 相对形心只偏 3 km, 可忽略;
+    #   - 顿涅茨克州宣称全境的形心(37.67E/48.05N)恰好落在顿涅茨克城点上, 2014
+    #     接触线又绕城而过, 所以整体北移到接触线以北的州内空处(37.70E/48.65N),
+    #     仍在全境中轴线上, 只向北让开约 0.6°(约 67 km) —— 这是不遮接触线、不遮
+    #     城点、不遮州界的最小让步.
+    doc.add_label(
+        ax, 39.03, 49.02, "卢甘斯克\n人民共和国",
+        kind="area", id_kind="republic", name="卢甘斯克人民共和国",
+        font_size_pt=8.8, color="#0d47a1",
+        ha="center", va="center", linespacing=1.3, halo=HALO,
+    )
+    doc.add_label(
+        ax, 37.70, 48.65, "顿涅茨克\n人民共和国",
+        kind="area", id_kind="republic", name="顿涅茨克人民共和国",
+        font_size_pt=8.8, color="#0d47a1",
+        ha="center", va="center", linespacing=1.3, halo=HALO,
+    )
+    # 哈尔科夫: 纬度比州界折角高一截 —— 第二行的白描边原本正压在 2022 宣称边界
+    # 由南北向折向西南的那一段上, 上移后折角完整露出.
+    doc.add_label(
+        ax, 36.80, 49.50, "哈尔科夫人民共和国",
+        kind="area", id_kind="republic", name="哈尔科夫人民共和国",
+        font_size_pt=9.4, color=COLOR_KHARKIV, italic=True,
+        ha="center", va="center", linespacing=1.35, halo=HALO,
+    )
+
+    # 2022 年俄方宣称的两个州(顿/卢两州已由上面的"人民共和国"标注覆盖): 位置都
+    # 放在远离第聂伯河/水库水面的州内陆地 —— 扎波罗热州在中东部草原, 赫尔松州在
+    # 锡瓦什以北的左岸草原, 避免文字压住河宽变化的重点区域.
+    doc.add_label(
+        ax, 34.11, 46.52, "赫尔松州\n（俄宣称全境）",
+        kind="area", id_kind="region", name="赫尔松州",
+        font_size_pt=9.4, color=COLOR_2022,
+        ha="center", va="center", linespacing=1.35, halo=HALO,
+    )
+    doc.add_label(
+        ax, 35.65, 47.08, "扎波罗热州\n（俄宣称全境）",
+        kind="area", id_kind="region", name="扎波罗热州",
+        font_size_pt=9.4, color=COLOR_2022,
+        ha="center", va="center", linespacing=1.35, halo=HALO,
+    )
+    doc.add_label(
+        ax, 34.55, 45.40, "克里米亚\n（2014年俄实际控制）",
+        kind="area", id_kind="region", name="克里米亚",
+        font_size_pt=9.6, color="#0d47a1",
+        ha="center", va="center", linespacing=1.35, halo=HALO,
+    )
+
+    # 境外参照城市: 灰色, 字号比境内城市(9.0)小一档, 只作定位参照.
+    for lon, lat, name, dx, dy in REFERENCE_CITIES:
+        doc.add_label(
+            ax, lon + dx, lat + dy, name,
+            kind="city", name=name, font_size_pt=8.4, color=COLOR_REFERENCE,
+            ha="left", va="center", halo=HALO,
+        )
+
+    # 境外狭长区域名: 旧图用一条细指引线从文字块左缘指回德左地带; 契约 v1 的
+    # labels 没有 leader 字段, 指引线暂不画(端点坐标留在 REFERENCE_REGIONS),
+    # 只登记名字, 等 v2 的 labels[].leader 落地后由前端画.
+    for lon, lat, text, size, _x1, _y1, _x2, _y2 in REFERENCE_REGIONS:
+        doc.add_label(
+            ax, lon, lat, text,
+            kind="area", id_kind="region", name="".join(text.split()),
+            font_size_pt=size, color=COLOR_REFERENCE,
+            ha="center", va="center", linespacing=1.25, halo=HALO,
+        )
+
+    # 城市: 文字跟着点位偏移; 首都与一般城市同字号, 只靠符号区分.
+    for lon, lat, name, _is_capital, dx, dy, align in CITIES:
+        doc.add_label(
+            ax, lon + dx, lat + dy, name,
+            kind="city", name=name, font_size_pt=9.0, color="#000000",
+            ha=align, va="center", halo=HALO,
+        )
+
+
+def collect_graticule(doc: GeoDoc, ax: plt.Axes) -> None:
+    """把经纬刻度(值/文字/与地图框边线的交点)登记进 geo; 网线已由 add_gridlines 画好.
+
+    步长与 add_gridlines 的 FixedLocator 同源(经度 5°、纬度 5°), 旧图只标底边经度
+    与左边纬度; 画框内落在整倍数上的刻度由 GeoDoc 反查边线交点.
+    """
+    doc.add_graticule(
+        ax,
+        tuple(EXTENT),
+        lon_step=5.0,
+        lat_step=5.0,
+        lon_side="bottom",
+        lat_side="left",
+        style=GRATICULE_STYLE,
+    )
+
+
+def collect_legend(doc: GeoDoc) -> None:
+    """图例数据: 5 条, 文案与线型/填色沿用旧图.
+
+    多行标签的兼容写法: v1 契约的 label 只能是单行字符串, 这里把第二行直接并在
+    label 末尾(括号串), 完整分行数组放 label_lines(v2 预留字段, 前端 v1 校验会
+    忽略), 第二行不丢.
+    2022 边界旧图是点划线(6, 2.0, 1.6, 2.0), v1 的 legend.dash 只有 [实, 虚] 两项,
+    这里简化成 [6, 2](点划的"点"留给前端 v2 的样式表).
+    """
+    entries = [
+        {
+            "label": "1991 年国际承认边界（含克里米亚，仅陆上段）",
+            "shape": "line",
+            "stroke": COLOR_1991,
+            "width_pt": 2.7,
+            "opacity": COLOR_1991_ALPHA,
+        },
+        {
+            "label": "2014 年实际控制线（克里米亚 · 顿巴斯接触线）",
+            "shape": "line",
+            "stroke": COLOR_2014,
+            "width_pt": 2.1,
+        },
+        {
+            # 旧图是 Patch(edgecolor="none"): 只填色、不描边.
+            "label": "2014 年俄方实际控制区（示意填色）",
+            "shape": "rect",
+            "stroke": None,
+            "width_pt": 0.0,
+            "fill": COLOR_2014_FILL,
+            "opacity": 0.24,
+        },
+        {
+            "label": "2014 年宣布的「哈尔科夫人民共和国」（未实际控制）",
+            "label_lines": ["2014 年宣布的「哈尔科夫人民共和国」", "（未实际控制）"],
+            "shape": "line",
+            "stroke": COLOR_KHARKIV,
+            "width_pt": 2.0,
+            "dash": [6.0, 3.0],
+        },
+        {
+            "label": "2022 年俄方宣称四州全境边界（单方面宣称，非控制线）",
+            "label_lines": ["2022 年俄方宣称四州全境边界", "（单方面宣称，非控制线）"],
+            "shape": "line",
+            "stroke": COLOR_2022,
+            "width_pt": 2.1,
+            "dash": [6.0, 2.0],
+        },
+    ]
+    doc.set_legend("图 例", entries)
+
+
+def collect_suggestions(doc: GeoDoc) -> None:
+    """默认文案: 标题/副标题/右栏注/来源, 只给前端预填, 不参与底图合成."""
+    doc.set_suggestions(
+        {
+            "title": TITLE,
+            "subtitle": SUBTITLE,
+            "notes": NOTES,
+            "source": SOURCE,
+            "legend_title": "图 例",
+            "colorbar_title": "高程 / 水深",
+        }
+    )
 
 
 # ============================
@@ -907,11 +1247,30 @@ def main() -> None:
     add_gridlines(ax)
 
     # 注意: 不用 tight_layout / bbox_inches="tight".
-    # 原因: cartopy 0.25 在非矩形投影上绘制经纬网时, 布局引擎触发的提前绘制会让
-    # gridliner 用未闭合顶点构造多边形, 抛 shapely GEOSException; bbox_inches="tight"
-    # 又会把地图的包围盒算错, 导致图片被裁掉一截(项目里 myanmar.py 已踩过这个坑).
-    save_svg(fig, OUT_SVG, dpi=args.dpi)
-    print(f"地图已保存: {OUT_SVG}")
+    # 原因: 地图框的位置/尺寸由 figure_frame 量出并写进 geo.base, 底图只改根标签
+    # 的 viewBox 来裁到地图框; tight_layout 会重排坐标区(底图与 geo 对不上),
+    # bbox_inches="tight" 会引入第二套坐标系、把地图包围盒算错(项目里踩过这个坑).
+    frame = figure_frame(fig, ax)
+    doc = GeoDoc(frame)
+    collect_labels(doc, ax)
+    collect_graticule(doc, ax)
+    doc.set_relief(
+        relief_from_cmap(
+            ELEV_CMAP,
+            title="高程 / 水深",
+            unit="m",
+            vmin=ELEV_VMIN,
+            vmax=ELEV_VMAX,
+            ticks=RELIEF_TICKS,
+        )
+    )
+    collect_legend(doc)
+    collect_suggestions(doc)
+    # save_map 写裁到地图框的纯底图与同名 geo.json(miko 契约里的 base.svg + geo).
+    svg_path, geo_path = save_map(fig, OUT_SVG, doc, dpi=args.dpi)
+    print(f"底图与 geo 已保存: {svg_path} + {geo_path}")
+    if not args.show:
+        plt.close(fig)
 
     if args.show:
         plt.show()

@@ -1,7 +1,7 @@
 # 乌克兰全图 (Ukraine/ukraine.py)
 
 - 源码: [`Ukraine/ukraine.py`](../../Ukraine/ukraine.py)
-- 产物: `ukraine_borders_1991_2014_2022_lambert_conformal.svg`(与脚本同目录)
+- 产物: `ukraine_borders_1991_2014_2022_lambert_conformal.svg`(与脚本同目录), 每张图另出同名 `.geo.json`
 
 ## 是什么
 

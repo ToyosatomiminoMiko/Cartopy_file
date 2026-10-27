@@ -6,7 +6,10 @@
 是什么: 绘制缅甸省/邦级行政区划图, 七邦冷色、七省暖色、内比都联邦区中性色加
 斜线, 叠加河流与 ETOPO 2022 地形晕渲, 并画出各行政区中心点;
 国界用半透明红色、只画陆上段, 海岸线不单独绘制.
-只绘制地理要素, 不绘制任何文字/图例/色标/标题/比例尺/指北针.
+只绘制地理要素: 文字/图例/色标/标题/刻度文字/比例尺/指北针都不画进底图,
+而是以数据形式写进同名 ``<产物>.geo.json``; 文字与版面由前端接管, 本脚本同时
+产出同名 geo.json, 字段与裁剪口径见 ``docs/reference/geo.md``. 比例尺、指北针
+属契约非目标, 本图不产出.
 完整说明(配色、投影、数据来源、运行方式)见 ``docs/maps/myanmar-admin.md``.
 """
 
@@ -38,12 +41,21 @@ from cartopy_file.data import configure_cartopy
 
 configure_cartopy()
 
-from cartopy_file.output import apply_svg_output, save_svg
+# 底图 + geo.json 出图: save_map 同时写裁到地图框的 SVG 与同名 geo.json,
+# 见 docs/reference/geo.md.
+from cartopy_file.geo import (
+    GeoDoc,
+    figure_frame,
+    relief_from_cmap,
+    save_map,
+)
 
 # 国界/海岸线吻合处只画一条线: 用共享剪枝工具, 见 docs/reference/overlap.md.
 from cartopy_file.overlap import cut, overlap_mask
 
 # 产物统一为 SVG, 见 docs/reference/output.md.
+from cartopy_file.output import apply_svg_output
+
 apply_svg_output()
 # 斜线填充过密会在成品尺寸下糊成深色块, 这里保持项目里一致的细线.
 plt.rcParams["hatch.linewidth"] = 0.5
@@ -125,6 +137,113 @@ RELIEF_CMAP = mcolors.LinearSegmentedColormap.from_list(
 )
 RELIEF_VMIN, RELIEF_VMAX = 0, 4200
 RELIEF_ALPHA = 0.55
+# 色标刻度: 旧图没有数字色标(只在图例里示意晕渲), 这里取整千米, 供前端色标组件使用.
+RELIEF_TICKS = (0, 1000, 2000, 3000, 4000)
+
+# ============================
+# 标注数据(只登记进 geo, 底图不画文字)
+# ============================
+# 旧版双语文字是中文、英文两条独立 annotate: 英文行统一用这个灰色且 halo 收窄,
+# 不跟随中文行的配色; 这里保留同一口径, 前端的默认排版才能与旧成品一致.
+EN_LABEL_COLOR = "#303030"
+
+# 行政区名标签位置(经度, 纬度). 多数放在单元内部; 面积很小的单元
+# (内比都联邦区、仰光省、孟邦)单独给 callout 锚点, 避免文字压住边界和中心点.
+ADMIN_LABELS: dict[str, tuple[float, float]] = {
+    "kachin": (97.05, 27.05),
+    "sagaing": (94.68, 25.15),
+    "chin": (93.55, 23.42),
+    "shan": (98.62, 22.20),
+    "mandalay": (95.95, 21.00),
+    "magway": (94.30, 20.95),
+    "bago": (96.35, 18.60),
+    "ayeyarwady": (95.10, 17.62),
+    "rakhine": (93.52, 19.00),
+    "kayah": (97.45, 19.25),
+    "kayin": (97.90, 18.35),
+    "mon": (97.55, 15.65),
+    "tanintharyi": (98.56, 12.95),
+    "yangon": (96.45, 16.15),
+    "npt": (96.45, 20.16),
+}
+# 旧版从 ADMIN_LABELS 里给 npt/yangon/mon 引一条细线到实际区域; 契约 v2 的
+# labels[].leader 尚未输出(非目标), 这里只保留锚点数据, 不画引线也不生成字段.
+ADMIN_LABEL_ANCHORS: dict[str, tuple[float, float]] = {
+    "npt": (96.12, 19.74),
+    "yangon": (96.35, 16.93),
+    "mon": (97.78, 16.10),
+}
+
+# 行政中心标签相对标记点的偏移(单位: 磅), 以及水平对齐方式.
+# ha 决定标签往哪一侧展开, 手工调整是为了避开相邻中心点、河流和边界.
+CAPITAL_OFFSETS: dict[str, tuple[float, float, str]] = {
+    "kachin": (7, 4, "left"),
+    "kayah": (7, 4, "left"),
+    "kayin": (7, 4, "left"),
+    "chin": (-7, 3, "right"),
+    "mon": (7, -5, "left"),
+    "rakhine": (7, 3, "left"),
+    "shan": (7, -5, "left"),
+    "ayeyarwady": (-7, -5, "right"),
+    "bago": (7, 5, "left"),
+    "magway": (7, -6, "left"),
+    "mandalay": (7, 5, "left"),
+    "sagaing": (7, 4, "left"),
+    "tanintharyi": (7, 4, "left"),
+    "yangon": (-7, -7, "right"),
+    "npt": (-9, 7, "right"),
+}
+
+# 邻国、海域标注: (经度, 纬度, 中文, 英文). 只作为定位参照, 不参与颜色编码.
+NEIGHBOUR_LABELS = [
+    (99.85, 28.30, "中国", "CHINA"),
+    (92.20, 26.40, "印度", "INDIA"),
+    (91.55, 23.55, "孟加拉国", "BANGLADESH"),
+    (99.45, 18.40, "泰国", "THAILAND"),
+    (100.80, 20.55, "老挝", "LAOS"),
+]
+SEA_LABELS = [
+    (91.45, 15.20, "孟加拉湾", "BAY OF BENGAL"),
+    (96.45, 10.20, "安达曼海", "ANDAMAN SEA"),
+]
+# 两条大江的名称与落点(经度, 纬度): 位置避开了主要行政区名和行政中心点.
+RIVER_LABELS = [
+    (95.12, 18.45, "伊洛瓦底江", "Irrawaddy River"),
+    (98.55, 20.55, "萨尔温江", "Salween River"),
+]
+
+TITLE_ZH = "缅甸联邦共和国行政区划图"
+TITLE_EN = "ADMINISTRATIVE DIVISIONS OF THE REPUBLIC OF THE UNION OF MYANMAR"
+SUBTITLE = (
+    "七邦（冷色）· 七省（暖色）· 内比都联邦区　　"
+    "7 States (cool colours) · 7 Regions (warm colours) · Naypyidaw Union Territory"
+)
+SOURCE = (
+    "行政区划: GADM 4.1 / OpenStreetMap (ODbL)　|　"
+    "国界: 行政区合并轮廓(仅陆上段)　|　河流·海岸线剪枝: Natural Earth 10m　|　"
+    "地形: NOAA ETOPO 2022　|　投影: Lambert Conformal Conic"
+)
+
+# 经纬网样式: 与 add_gridlines 画出的线同源(实线 0.45pt / #6f6f6f / 透明度 0.38).
+GRATICULE_STYLE = {
+    "stroke": "#6f6f6f",
+    "width_pt": 0.45,
+    "dash": None,
+    "opacity": 0.38,
+}
+
+# 图例顺序按旧面板: 先 7 邦(冷色), 再 7 省(暖色), 最后联邦区; geojson 里的
+# 行政区顺序不是旧面板顺序, 所以单独列一份.
+LEGEND_STATE_KEYS = ("kachin", "kayah", "kayin", "chin", "mon", "rakhine", "shan")
+LEGEND_REGION_KEYS = (
+    "sagaing",
+    "magway",
+    "mandalay",
+    "bago",
+    "ayeyarwady",
+    "yangon",
+    "tanintharyi",
+)
 
 # 输出路径(脚本同目录), 见 docs/reference/output.md.
 OUT_SVG = ROOT / "myanmar_administrative_divisions_bilingual.svg"
@@ -369,6 +488,360 @@ def add_admin_centres(ax: plt.Axes, units) -> None:
             )
 
 
+# ============================
+# geo.json 收集(文字只登记, 不画)
+# ============================
+def _offset_lonlat(
+    ax: plt.Axes, lon: float, lat: float, dx_pt: float, dy_pt: float
+) -> tuple[float, float]:
+    """把「以磅为单位的文字偏移」换算成经纬度, 供 ``doc.add_label`` 使用.
+
+    为什么需要: 旧版用 annotate 的 offset points 排双语两行(行间距应与字号相关,
+    不随纬度变化), 而 geo.add_label 只接受经纬度; 先在显示坐标里加偏移, 再反投影
+    回经纬度, 落点就与旧版逐点一致.
+    """
+    transform = ccrs.PlateCarree()._as_mpl_transform(ax)
+    display_x, display_y = transform.transform((lon, lat))
+    scale = ax.figure.dpi / 72.0
+    projection_x, projection_y = ax.transData.inverted().transform(
+        (display_x + dx_pt * scale, display_y + dy_pt * scale)
+    )
+    out_lon, out_lat = ccrs.PlateCarree().transform_point(
+        projection_x, projection_y, ax.projection
+    )
+    return float(out_lon), float(out_lat)
+
+
+def _add_bilingual(
+    doc: GeoDoc,
+    ax: plt.Axes,
+    lon: float,
+    lat: float,
+    zh: str,
+    en: str,
+    *,
+    kind: str,
+    id_kind: str,
+    name: str,
+    size_zh: float,
+    size_en: float,
+    color_zh: str,
+    halo_pt: float,
+    dx: float = 0.0,
+    dy_zh: float = 4.0,
+    dy_en: float = -7.0,
+    ha: str = "center",
+) -> None:
+    """登记一对中文/英文标签: 旧版两条 annotate 的落点与样式, 改成两条 add_label.
+
+    为什么英文单独一条: 旧版 en 是独立文字(字号更小、位置另给、id 带 ``-en``),
+    前端要能分别拖动/改样式; 英文行颜色与 halo 也按旧版统一收窄(见 EN_LABEL_COLOR).
+    """
+    zh_lon, zh_lat = _offset_lonlat(ax, lon, lat, dx, dy_zh)
+    doc.add_label(
+        ax,
+        zh_lon,
+        zh_lat,
+        zh,
+        kind=kind,
+        id_kind=id_kind,
+        name=name,
+        font_size_pt=size_zh,
+        color=color_zh,
+        ha=ha,
+        va="center",
+        halo={"color": "#ffffff", "width_pt": halo_pt},
+    )
+    en_lon, en_lat = _offset_lonlat(ax, lon, lat, dx, dy_en)
+    doc.add_label(
+        ax,
+        en_lon,
+        en_lat,
+        en,
+        kind=kind,
+        id_kind=id_kind,
+        name=f"{name}-en",
+        font_size_pt=size_en,
+        color=EN_LABEL_COLOR,
+        ha=ha,
+        va="center",
+        halo={"color": "#ffffff", "width_pt": halo_pt * 0.8},
+    )
+
+
+def collect_labels(doc: GeoDoc, ax: plt.Axes, units) -> None:
+    """把旧版图上的全部地名登记成 geo.labels(38 对, 中英各一条, 共 76 条).
+
+    为什么按 zorder 升序登记: 契约的 ``order`` 是原图绘制顺序(前端 scene 按它
+    叠放); 旧图 zorder 依次是邻国/海域 11、行政区名 13、行政中心与河名 14,
+    同一 zorder 内按插入顺序, 所以这里先国名/海名, 再行政区名, 再行政中心,
+    最后河名, 与旧成品 SVG 的绘制顺序一致.
+    """
+    # 邻国名称.
+    for lon, lat, zh, en in NEIGHBOUR_LABELS:
+        _add_bilingual(
+            doc,
+            ax,
+            lon,
+            lat,
+            zh,
+            en,
+            kind="country",
+            id_kind="country",
+            name=zh,
+            size_zh=12.0,
+            size_en=8.4,
+            color_zh="#4a4a4a",
+            halo_pt=3.4,
+            dy_zh=4.0,
+            dy_en=-7.0,
+        )
+
+    # 海域名称.
+    for lon, lat, zh, en in SEA_LABELS:
+        _add_bilingual(
+            doc,
+            ax,
+            lon,
+            lat,
+            zh,
+            en,
+            kind="sea",
+            id_kind="sea",
+            name=zh,
+            size_zh=11.5,
+            size_en=8.0,
+            color_zh="#1c5f8a",
+            halo_pt=3.2,
+            dy_zh=3.5,
+            dy_en=-6.5,
+        )
+
+    # 行政区名: id 前缀保留旧版的 state/region/union(用 id_kind), 契约 kind 记 area.
+    for unit in units:
+        key = unit["key"]
+        lon, lat = ADMIN_LABELS[key]
+        is_union = unit["kind"] == "union"
+        small = key in {"kayah", "mon", "yangon", "npt"}
+        # 内比都的英文全名太长, 在图上压到隔壁单元; 用 U.T. 缩写,
+        # 图例和标题里保留全称 Naypyidaw Union Territory.
+        display_en = "Naypyidaw U.T." if is_union else unit["name_en"]
+        size_zh = 8.8 if is_union else (10.3 if small else (10.8 if unit["kind"] == "state" else 10.5))
+        size_en = 6.4 if is_union else (6.9 if small else 7.8)
+        _add_bilingual(
+            doc,
+            ax,
+            lon,
+            lat,
+            unit["name_zh"],
+            display_en,
+            kind="area",
+            id_kind=unit["kind"],
+            name=key,
+            size_zh=size_zh,
+            size_en=size_en,
+            color_zh="#111111",
+            halo_pt=3.2,
+            dy_zh=4.2,
+            dy_en=-7.0,
+        )
+
+    # 行政中心: 联邦区标签已经用行政区名表达, 不再重复写一次 "内比都".
+    for unit in units:
+        if unit["kind"] == "union":
+            continue
+        key = unit["key"]
+        dx, dy, ha = CAPITAL_OFFSETS[key]
+        _add_bilingual(
+            doc,
+            ax,
+            unit["capital_lon"],
+            unit["capital_lat"],
+            unit["capital_zh"],
+            unit["capital_en"],
+            kind="city",
+            id_kind="city",
+            name=unit["capital_zh"],
+            size_zh=8.0,
+            size_en=6.5,
+            color_zh="#111111",
+            halo_pt=2.6,
+            dx=dx,
+            dy_zh=dy + 2.6,
+            dy_en=dy - 5.0,
+            ha=ha,
+        )
+
+    # 两条大江的河名.
+    for lon, lat, zh, en in RIVER_LABELS:
+        _add_bilingual(
+            doc,
+            ax,
+            lon,
+            lat,
+            zh,
+            en,
+            kind="river",
+            id_kind="river",
+            name=zh,
+            size_zh=9.0,
+            size_en=6.8,
+            color_zh="#0d47a1",
+            halo_pt=2.8,
+            dy_zh=3.5,
+            dy_en=-6.0,
+        )
+
+
+def collect_graticule(doc: GeoDoc, ax: plt.Axes) -> None:
+    """登记经纬刻度(值/文字/与地图框边线的交点), 网线已由 main 画好."""
+    doc.add_graticule(
+        ax,
+        EXTENT,
+        lon_step=2.0,
+        lat_step=5.0,
+        lon_side="bottom",
+        lat_side="left",
+        style=GRATICULE_STYLE,
+    )
+
+
+def collect_relief(doc: GeoDoc) -> None:
+    """登记地形色标: 与 add_relief 的晕渲同一条色带(0~4200 m), 刻度取整千米."""
+    doc.set_relief(
+        relief_from_cmap(
+            RELIEF_CMAP,
+            title="高程",
+            unit="m",
+            vmin=RELIEF_VMIN,
+            vmax=RELIEF_VMAX,
+            ticks=RELIEF_TICKS,
+        )
+    )
+
+
+def collect_legend(doc: GeoDoc, units) -> None:
+    """把旧版自绘的 7 邦/7 省色块面板改成 geo.legend.entries(按旧面板顺序平铺).
+
+    为什么分组不单独出条目: 图例条目只能表达「一条符号」, 旧面板的「邦 / 省 /
+    联邦区」分组标题和三行图例文字无法在 v1 里表达; 这里把分组语义留在
+    suggestions.notes(七邦冷色/七省暖色), 条目按旧面板顺序逐个列出行政区并保留
+    中英名, 色块沿用旧面板的不透明填充与白色描边, 联邦区保留斜线(hatch 是契约
+    v2 预留字段, v1 前端会忽略).
+    """
+    units_by_key = {unit["key"]: unit for unit in units}
+    entries: list[dict] = []
+    for keys, colors in (
+        (LEGEND_STATE_KEYS, STATE_COLORS),
+        (LEGEND_REGION_KEYS, REGION_COLORS),
+    ):
+        for key in keys:
+            unit = units_by_key[key]
+            entries.append(
+                {
+                    "label": f"{unit['name_zh']} {unit['name_en']}",
+                    "label_lines": [unit["name_zh"], unit["name_en"]],
+                    "shape": "rect",
+                    "stroke": "#ffffff",
+                    "width_pt": 0.6,
+                    "fill": colors[key],
+                    "opacity": 1.0,
+                }
+            )
+
+    union = next(unit for unit in units if unit["kind"] == "union")
+    entries.append(
+        {
+            "label": f"{union['name_zh']} {union['name_en']}",
+            "label_lines": ["联邦区 Union Territory", union["name_zh"], union["name_en"]],
+            "shape": "rect",
+            "stroke": "#6b4e00",
+            "width_pt": 1.0,
+            "fill": UNION_COLOR,
+            "opacity": 1.0,
+            "hatch": "////",
+        }
+    )
+
+    # 旧面板下半部分的符号与线型, 顺序与图例面板一致; 说明文字放在条目标签里.
+    entries.extend(
+        [
+            {
+                "label": "联邦首都 Union capital",
+                "label_lines": ["联邦首都", "Union capital"],
+                "shape": "point",
+                "stroke": "#111111",
+                "width_pt": 0.7,
+                "fill": "#ffd200",
+                "marker": "star",
+            },
+            {
+                "label": "行政中心 Administrative centre",
+                "label_lines": ["行政中心", "Administrative centre"],
+                "shape": "point",
+                "stroke": "#111111",
+                "width_pt": 0.9,
+                "fill": "#ffffff",
+                "marker": "circle",
+            },
+            {
+                "label": "河流 River",
+                "label_lines": ["河流", "River"],
+                "shape": "line",
+                "stroke": "#1565c0",
+                "width_pt": 2.25,
+            },
+            {
+                "label": "邦/省界 State & region boundary",
+                "label_lines": ["邦/省界", "State & region boundary"],
+                "shape": "line",
+                "stroke": BOUNDARY_COLOR,
+                "width_pt": 1.05,
+            },
+            {
+                "label": "国界 International boundary",
+                "label_lines": ["国界", "International boundary"],
+                "shape": "line",
+                "stroke": COLOR_BORDER,
+                "width_pt": BORDER_WIDTH,
+                "opacity": BORDER_ALPHA,
+            },
+            {
+                "label": "邻国国界 Neighbour boundary",
+                "label_lines": ["邻国国界", "Neighbour boundary"],
+                "shape": "line",
+                "stroke": COLOR_NEIGHBOR,
+                "width_pt": 0.45,
+                "dash": [5.0, 3.0],
+            },
+        ]
+    )
+    doc.set_legend("图例", entries)
+
+
+def collect_suggestions(doc: GeoDoc) -> None:
+    """默认文案: 旧版标题/副标题/注/来源, 只作前端预填, 不参与合成.
+
+    旧版图例面板里的分组标题与说明(七邦冷色/七省暖色、双语说明、7 邦·7 省·1
+    联邦区)无法作为图例条目表达, 一并放进 notes 交给前端排版.
+    """
+    doc.set_suggestions(
+        {
+            "title": TITLE_ZH,
+            "subtitle": TITLE_EN,
+            "notes": [
+                SUBTITLE,
+                "地名均为中文 + English 双语（All place names are bilingual）",
+                "7 邦 · 7 省 · 1 联邦区",
+            ],
+            "source": SOURCE,
+            "area_annotation": [],
+            "legend_title": "图例",
+            "colorbar_title": "高程",
+        }
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stride", type=int, default=None, help="ETOPO 采样步长; 缺省选分辨率最高的一个")
@@ -407,7 +880,9 @@ def main() -> None:
     if country_border is None:
         raise ValueError("行政区并集没有外环, 无法确定国界")
     border_zone = country_border.buffer(BORDER_ZONE_DEG)
-    # 画布偏竖长: 投影后缅甸国土宽高比约 0.56.
+
+    # 画布偏竖长: 投影后缅甸国土宽高比约 0.56. 地图区位置与旧版相同(右侧原来
+    # 放图例面板的那一条留白保留); save_map 只按地图框裁根标签, 留白不进底图.
     fig = plt.figure(figsize=(13, 17), facecolor="white")
     ax = fig.add_axes([0.075, 0.045, 0.655, 0.855], projection=PROJECTION)
     ax.set_anchor("C")
@@ -419,7 +894,8 @@ def main() -> None:
     add_country_outline(ax, country_border)
     add_admin_centres(ax, units)
 
-    # 经纬网: 经度每 2°, 纬度每 5°, 位置由 locator 固定; 只画网线, 不画刻度文字.
+    # 经纬网: 经度每 2°, 纬度每 5°, 位置由 locator 固定; 只画网线, 不画刻度文字
+    # (刻度数值与文字由前端按 geo.graticule 排版).
     gl = ax.gridlines(
         crs=ccrs.PlateCarree(),
         draw_labels=False,
@@ -436,11 +912,21 @@ def main() -> None:
     ax.spines["geo"].set_linewidth(0.8)
     ax.spines["geo"].set_edgecolor("#333333")
 
+    # 地图框必须在 set_extent 之后量: figure_frame 会先 apply_aspect,
+    # 否则拿到的是 aspect 修正前的矩形, 裁剪框会与地图错位.
+    frame = figure_frame(fig, ax)
+    doc = GeoDoc(frame)
+    collect_labels(doc, ax, units)
+    collect_graticule(doc, ax)
+    collect_relief(doc)
+    collect_legend(doc, units)
+    collect_suggestions(doc)
+
     # 注意: 不能用 tight_layout/constrained_layout/bbox_inches="tight";
     # cartopy 的 gridliner 在非矩形投影上提前绘制时会触发 GEOS 异常或裁掉画面,
     # 与项目内 myanmar.py 的处理保持一致.
-    save_svg(fig, OUT_SVG, dpi=args.dpi)
-    print(f"地图已保存: {OUT_SVG}")
+    svg_path, geo_path = save_map(fig, OUT_SVG, doc, dpi=args.dpi)
+    print(f"底图与 geo 已保存: {svg_path} + {geo_path}")
 
     if args.show:
         plt.show()
