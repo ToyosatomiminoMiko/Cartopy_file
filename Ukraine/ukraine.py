@@ -49,7 +49,6 @@ from cartopy_file.output import apply_svg_output
 from cartopy_file.geo import (
     GeoDoc,
     figure_frame,
-    projected_angle,
     relief_from_cmap,
     save_map,
 )
@@ -149,7 +148,9 @@ COLOR_RIVER_MAIN = "#2d6ea6"  # 第聂伯河/顿河等干流及其河名: 比一
 COLOR_WATER = "#b3d2ea"      # 梯级水库水面填充
 COLOR_WATER_EDGE = "#4a7fb0"  # 水面轮廓
 COLOR_NEIGHBOR = "#8a8a8a"   # 邻国国界
-COLOR_MOUNTAIN = "#6d4a33"   # 山系标注文字: 深棕
+# 地名样式(颜色/斜体/描边/字重/行高等)由前端 role 表统一决定, 生成端只登记 role;
+# 山系文字的深棕、境外参照文字的灰色不再作为「标注颜色」常量存在(参照点与填色的
+# 几何颜色 COLOR_REFERENCE 仍保留).
 COLOR_REFERENCE = "#555555"  # 境外参照(德左/罗斯托夫): 中性灰, 不参与主题配色
 # 境外参照区(德左)填色透明度: 比 2014 控制区(0.22~0.24)略深, 因为它没有
 # 控制线/边界线可依靠, 只有这一层填色; 但也不能更深 —— 灰色压过地形会让人
@@ -189,24 +190,22 @@ SEA_LABELS = [
     (34.2, 44.25, "黑海"),
     (36.7, 46.35, "亚速海"),
 ]
-# 山系标注: (经度, 纬度, 文字, 走向起点经度, 起点纬度, 终点经度, 终点纬度).
-# 后四个数只用来求文字旋转角: 取山脊走向上两点, 在投影平面里算屏幕方向;
-# 直接拿经纬度差算 atan2 会偏(兰勃特投影下经线是斜的, 1° 经度对应的
-# 地面距离还随纬度变). 文字位置手工放在山体上, 不压国界/河名/城市.
+# 山系标注: (经度, 纬度, 文字). 旧版后四个数是山脊走向参考点, 用来在投影平面里
+# 求文字旋转角; 旋转改由前端处理(默认 0), 生成端不再存这些参考点.
 MOUNTAIN_LABELS = [
-    # 乌克兰喀尔巴阡山: 西北-东南走向, 文字压在乔尔诺霍拉一带的山体上.
-    (24.32, 48.42, "喀尔巴阡山", 22.80, 49.15, 25.40, 47.95),
-    # 大高加索山西端: 在图幅右下角(索契以东), 山脊同样是西北-东南走向.
-    (40.42, 43.86, "高加索山", 38.20, 44.65, 41.30, 43.35),
+    # 乌克兰喀尔巴阡山: 位置压在乔尔诺霍拉一带的山体上.
+    (24.32, 48.42, "喀尔巴阡山"),
+    # 大高加索山西端: 在图幅右下角(索契以东).
+    (40.42, 43.86, "高加索山"),
 ]
-# 河流名称: (经度, 纬度, 文字, 走向起点经度, 起点纬度, 终点经度, 终点纬度).
-# 位置都放在河岸陆地上而不是水面上: 这张图要表达第聂伯河"河宽沿程变化",
-# 河名压在水面上会用白色描边遮掉一段水面; 顿河同理不压河道线.
+# 河流名称: (经度, 纬度, 文字). 位置都放在河岸陆地上而不是水面上: 这张图要表达
+# 第聂伯河"河宽沿程变化", 河名压在水面上会用描边遮掉一段水面; 顿河同理不压河道线.
+# 旧版的河道走向参考点只服务旋转, 已随前端接管旋转而删除.
 RIVER_LABELS = [
     # 第聂伯河: 克列缅丘格水库东北岸的陆地, 与水面留出几像素间隙.
-    (33.30, 49.60, "第聂伯河", 31.70, 49.62, 33.05, 49.10),
+    (33.30, 49.60, "第聂伯河"),
     # 顿河: 下游罗斯托夫段北岸陆地. 这一段在图幅内够长, 且离顿巴斯最近.
-    (40.15, 47.42, "顿河", 39.80, 47.20, 40.47, 47.45),
+    (40.15, 47.42, "顿河"),
 ]
 # 城市: (经度, 纬度, 名称, 是否首都, 经度偏移, 纬度偏移, 对齐方式).
 # 偏移都在 0.1~0.3°(约 10~25 km)量级, 只用于让文字离开边界线与其它标注.
@@ -254,8 +253,9 @@ REFERENCE_CITIES = [
 # 描边把 1991 国界(红线)和德涅斯特河(蓝线)一起盖掉. 所以名称分两行放在地带
 # 东侧敖德萨州的空地上(30.30E / 47.14N).
 # (文字经度, 文字纬度, 文字, 字号, 指引线起点经度, 起点纬度, 终点经度, 终点纬度).
-# 后四个数是旧图那条"从文字块左缘水平指回地带内部"的指引线端点: 契约 v1 的
-# labels 没有 leader 字段, 指引线暂不画(端点留给 v2 迁移), 本脚本只登记名字.
+# 后四个数是旧图那条"从文字块左缘水平指回地带内部"的指引线端点: 契约 v2 的
+# labels 仍没有 leader 字段, 指引线暂不画(端点保留在数据表里, 等前端支持再启用),
+# 本脚本只登记名字.
 # 指引线端点为什么在 29.42E: 47.14°N 处地带西缘(德涅斯特河)约 29.29E、东缘
 # (国界)约 29.58E, 29.42E 离填色边界最近也有 0.13°(约 26 px), 端点小灰点不会
 # 碰到填色边缘.
@@ -862,10 +862,6 @@ def add_gridlines(ax: plt.Axes) -> None:
 # ============================
 # geo.json 收集
 # ============================
-# 文字描边: 白边保证汉字压在深色地形/彩色填充上仍可读; 宽度沿用旧图
-# path_effects.withStroke(linewidth=2.8) 的 2.8 pt.
-HALO = {"color": "#ffffff", "width_pt": 2.8}
-
 # 色标刻度: 旧图色标没设固定刻度, matplotlib 默认刻度落在 -2500~2500 范围内的
 # 就是整千的这五个(超出范围的 ±3000 不显示).
 RELIEF_TICKS = (-2000, -1000, 0, 1000, 2000)
@@ -882,53 +878,33 @@ GRATICULE_STYLE = {
 
 
 def collect_labels(doc: GeoDoc, ax: plt.Axes) -> None:
-    """把旧成品上的 33 条文字整理成 geo.labels(位置/角度/字号/颜色/锚点/halo), 不画文字.
+    """把旧成品上的 33 条地名整理成 geo.labels(role/位置/字号/锚点), 不画文字、不存样式.
 
     顺序按旧图 zorder 升序登记(前端 scene 按 order 叠放): 国名/海名(9.0)、
-    山系(9.2)、河名(9.4)、主题区域名与境外参照(9.5)、城市(9.9).
-    旧图把文字直接画在图上, 这里只给落点与样式, 文字本身由前端排版.
+    山系(9.2)、河名(9.4)、主题区域名与境外参照(9.5)、城市(9.9). 颜色/斜体/描边/
+    旋转都改由前端 role 表决定, 这里只给落点、字号与语义角色.
     """
     # 邻国名称.
     for lon, lat, text in COUNTRY_LABELS:
-        doc.add_label(
-            ax, lon, lat, text,
-            kind="country", font_size_pt=12.5, color="#3a3a3a",
-            ha="center", va="center", halo=HALO,
-        )
+        doc.add_label(ax, lon, lat, text, role="country", font_size_pt=12.5)
 
-    # 海域名称: 蓝色斜体.
+    # 海域名称.
     for lon, lat, text in SEA_LABELS:
-        doc.add_label(
-            ax, lon, lat, text,
-            kind="sea", font_size_pt=11.5, color="#1f4e79",
-            ha="center", va="center", italic=True, halo=HALO,
-        )
+        doc.add_label(ax, lon, lat, text, role="sea", font_size_pt=11.5)
 
-    # 邻国山系: 棕色斜体, 旋转到与山脊走向平行.
-    for lon, lat, text, lon1, lat1, lon2, lat2 in MOUNTAIN_LABELS:
-        doc.add_label(
-            ax, lon, lat, text,
-            kind="highland", font_size_pt=11.0, color=COLOR_MOUNTAIN,
-            ha="center", va="center",
-            rotation_deg=projected_angle(PROJECTION, lon1, lat1, lon2, lat2),
-            italic=True, halo=HALO,
-        )
+    # 邻国山系.
+    for lon, lat, text in MOUNTAIN_LABELS:
+        doc.add_label(ax, lon, lat, text, role="highland", font_size_pt=11.0)
 
-    # 干流名称: 与干流同色, 沿河道方向旋转; 位置在岸上, 不压水面(理由见 RIVER_LABELS).
-    for lon, lat, text, lon1, lat1, lon2, lat2 in RIVER_LABELS:
-        doc.add_label(
-            ax, lon, lat, text,
-            kind="river", name=text, font_size_pt=10.5, color=COLOR_RIVER_MAIN,
-            ha="center", va="center",
-            rotation_deg=projected_angle(PROJECTION, lon1, lat1, lon2, lat2),
-            italic=True, halo=HALO,
-        )
+    # 干流名称: 位置在岸上, 不压水面(理由见 RIVER_LABELS).
+    for lon, lat, text in RIVER_LABELS:
+        doc.add_label(ax, lon, lat, text, role="river", name=text, font_size_pt=10.5)
 
     # 2014 年宣布的"人民共和国": 卢甘斯克/顿涅茨克是实际控制区(蓝), 哈尔科夫只有
-    # 宣称(橙). 文字用两行, 避免横跨边界线. 落点按"宣称全境"取中心, 不再挤在
-    # 2014 实际控制区(蓝色填充)里:
+    # 宣称(橙), 两者的强调色由 role 区分(accent-3 / accent-4). 文字用两行, 避免
+    # 横跨边界线. 落点按"宣称全境"取中心, 不再挤在 2014 实际控制区(蓝色填充)里:
     #   - 卢甘斯克州宣称全境(约 37.85~40.22E, 47.82~50.09N)的形心在 39.03E/48.98N,
-    #     图上是州中部的开阔地; 再向北 0.03° 是为了让白描边与 2014 接触线北缘的
+    #     图上是州中部的开阔地; 再向北 0.03° 是为了让文字描边与 2014 接触线北缘的
     #     尖峰(48.78N 附近)留出间隙, 相对形心只偏 3 km, 可忽略;
     #   - 顿涅茨克州宣称全境的形心(37.67E/48.05N)恰好落在顿涅茨克城点上, 2014
     #     接触线又绕城而过, 所以整体北移到接触线以北的州内空处(37.70E/48.65N),
@@ -936,23 +912,20 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes) -> None:
     #     城点、不遮州界的最小让步.
     doc.add_label(
         ax, 39.03, 49.02, "卢甘斯克\n人民共和国",
-        kind="area", id_kind="republic", name="卢甘斯克人民共和国",
-        font_size_pt=8.8, color="#0d47a1",
-        ha="center", va="center", linespacing=1.3, halo=HALO,
+        role="area-accent-3", id_kind="republic", name="卢甘斯克人民共和国",
+        font_size_pt=8.8,
     )
     doc.add_label(
         ax, 37.70, 48.65, "顿涅茨克\n人民共和国",
-        kind="area", id_kind="republic", name="顿涅茨克人民共和国",
-        font_size_pt=8.8, color="#0d47a1",
-        ha="center", va="center", linespacing=1.3, halo=HALO,
+        role="area-accent-3", id_kind="republic", name="顿涅茨克人民共和国",
+        font_size_pt=8.8,
     )
-    # 哈尔科夫: 纬度比州界折角高一截 —— 第二行的白描边原本正压在 2022 宣称边界
+    # 哈尔科夫: 纬度比州界折角高一截 —— 第二行的文字描边原本正压在 2022 宣称边界
     # 由南北向折向西南的那一段上, 上移后折角完整露出.
     doc.add_label(
         ax, 36.80, 49.50, "哈尔科夫人民共和国",
-        kind="area", id_kind="republic", name="哈尔科夫人民共和国",
-        font_size_pt=9.4, color=COLOR_KHARKIV, italic=True,
-        ha="center", va="center", linespacing=1.35, halo=HALO,
+        role="area-accent-4", id_kind="republic", name="哈尔科夫人民共和国",
+        font_size_pt=9.4,
     )
 
     # 2022 年俄方宣称的两个州(顿/卢两州已由上面的"人民共和国"标注覆盖): 位置都
@@ -960,48 +933,42 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes) -> None:
     # 锡瓦什以北的左岸草原, 避免文字压住河宽变化的重点区域.
     doc.add_label(
         ax, 34.11, 46.52, "赫尔松州\n（俄宣称全境）",
-        kind="area", id_kind="region", name="赫尔松州",
-        font_size_pt=9.4, color=COLOR_2022,
-        ha="center", va="center", linespacing=1.35, halo=HALO,
+        role="area-accent-1", id_kind="region", name="赫尔松州",
+        font_size_pt=9.4,
     )
     doc.add_label(
         ax, 35.65, 47.08, "扎波罗热州\n（俄宣称全境）",
-        kind="area", id_kind="region", name="扎波罗热州",
-        font_size_pt=9.4, color=COLOR_2022,
-        ha="center", va="center", linespacing=1.35, halo=HALO,
+        role="area-accent-1", id_kind="region", name="扎波罗热州",
+        font_size_pt=9.4,
     )
     doc.add_label(
         ax, 34.55, 45.40, "克里米亚\n（2014年俄实际控制）",
-        kind="area", id_kind="region", name="克里米亚",
-        font_size_pt=9.6, color="#0d47a1",
-        ha="center", va="center", linespacing=1.35, halo=HALO,
+        role="area-accent-3", id_kind="region", name="克里米亚",
+        font_size_pt=9.6,
     )
 
-    # 境外参照城市: 灰色, 字号比境内城市(9.0)小一档, 只作定位参照.
+    # 境外参照城市: 字号比境内城市(9.0)小一档, 只作定位参照(role=city-reference).
     for lon, lat, name, dx, dy in REFERENCE_CITIES:
         doc.add_label(
             ax, lon + dx, lat + dy, name,
-            kind="city", name=name, font_size_pt=8.4, color=COLOR_REFERENCE,
-            ha="left", va="center", halo=HALO,
+            role="city-reference", name=name, font_size_pt=8.4, ha="left",
         )
 
-    # 境外狭长区域名: 旧图用一条细指引线从文字块左缘指回德左地带; 契约 v1 的
-    # labels 没有 leader 字段, 指引线暂不画(端点坐标留在 REFERENCE_REGIONS),
-    # 只登记名字, 等 v2 的 labels[].leader 落地后由前端画.
+    # 境外狭长区域名: 旧图用一条细指引线从文字块左缘指回德左地带; 契约 v2 的
+    # labels 仍没有 leader 字段, 指引线暂不画(端点坐标留在 REFERENCE_REGIONS),
+    # 只登记名字; 样式由 role=area-muted 决定.
     for lon, lat, text, size, _x1, _y1, _x2, _y2 in REFERENCE_REGIONS:
         doc.add_label(
             ax, lon, lat, text,
-            kind="area", id_kind="region", name="".join(text.split()),
-            font_size_pt=size, color=COLOR_REFERENCE,
-            ha="center", va="center", linespacing=1.25, halo=HALO,
+            role="area-muted", id_kind="region", name="".join(text.split()),
+            font_size_pt=size,
         )
 
     # 城市: 文字跟着点位偏移; 首都与一般城市同字号, 只靠符号区分.
     for lon, lat, name, _is_capital, dx, dy, align in CITIES:
         doc.add_label(
             ax, lon + dx, lat + dy, name,
-            kind="city", name=name, font_size_pt=9.0, color="#000000",
-            ha=align, va="center", halo=HALO,
+            role="city", name=name, font_size_pt=9.0, ha=align,
         )
 
 
@@ -1025,11 +992,11 @@ def collect_graticule(doc: GeoDoc, ax: plt.Axes) -> None:
 def collect_legend(doc: GeoDoc) -> None:
     """图例数据: 5 条, 文案与线型/填色沿用旧图.
 
-    多行标签的兼容写法: v1 契约的 label 只能是单行字符串, 这里把第二行直接并在
-    label 末尾(括号串), 完整分行数组放 label_lines(v2 预留字段, 前端 v1 校验会
-    忽略), 第二行不丢.
-    2022 边界旧图是点划线(6, 2.0, 1.6, 2.0), v1 的 legend.dash 只有 [实, 虚] 两项,
-    这里简化成 [6, 2](点划的"点"留给前端 v2 的样式表).
+    多行标签的兼容写法: 图例条目的 label 约定是单行字符串, 这里把第二行直接并在
+    label 末尾(括号串), 完整分行数组放 label_lines(图例条目的扩展字段, 前端不
+    识别时忽略), 第二行不丢.
+    2022 边界旧图是点划线(6, 2.0, 1.6, 2.0), legend.dash 只有 [实, 虚] 两项,
+    这里简化成 [6, 2](点划的"点"留给前端样式表).
     """
     entries = [
         {

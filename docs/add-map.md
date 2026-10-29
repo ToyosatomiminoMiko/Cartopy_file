@@ -35,6 +35,10 @@ OUT_SVG = ROOT / "<product>.svg"
   `ax.text()`, 也不要画图例/色标/比例尺/指北针; 这些信息的「放在哪/是什么」改成往
   `GeoDoc` 里登记(见 [reference/geo.md](reference/geo.md) 与 Volga/volga.py 的
   `collect_labels` / `collect_graticule` / `collect_legend` / `collect_suggestions`);
+- 新增标注时**只选一个 role**(枚举见 [reference/geo.md](reference/geo.md), 唯一真源是
+  `miko_svg_editor` 的 `src/config/text-style.ts`), 再给 text/坐标/锚点/字号; **不要写**
+  `color` / `halo` / `italic` / `rotation_deg` / `lines` / `kind` —— 样式由前端 role 表决定,
+  旋转也由前端处理;
 - `main()` 用 argparse 提供 `--stride` / `--dpi` / `--show`(与现有图种一致), 高程文件路径
   支持 `<NAME>_ETOPO_PATH` 环境变量; 建图函数返回 `(fig, ax)`, 最后用
   `figure_frame(fig, ax)` + `GeoDoc` + `save_map(fig, OUT_SVG, doc, dpi=args.dpi)` 同时写

@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
@@ -51,7 +51,6 @@ from cartopy_file.output import apply_svg_output
 from cartopy_file.geo import (
     GeoDoc,
     figure_frame,
-    projected_angle,
     relief_from_cmap,
     save_map,
 )
@@ -158,15 +157,9 @@ COLOR_RIVER = "#5c93bf"        # 支流
 COLOR_RIVER_TRUNK = "#2d6ea6"  # 干流(高等级/大流量河段)
 COLOR_WATER = "#b9d7ee"        # 梯级水库水面
 COLOR_WATER_EDGE = "#4a7fb0"
-COLOR_HIGHLAND = "#7a6450"     # 丘陵/山地标注: 棕灰斜体
-COLOR_COUNTRY = "#3a3a3a"      # 邻国名称
-COLOR_SEA = "#1f4e79"          # 海域名称
-COLOR_NOTE = "#333333"
 
-# 地名光晕: 地形/填色/河网叠在文字下面时, 白描边保证可读; 宽度交给前端 halo,
-# 前端按地图缩放比换算到纸面(见 miko 的 makeLabelItem).
-HALO = {"color": "#ffffff", "width_pt": 3.0}
-HALO_WIDE = {"color": "#ffffff", "width_pt": 3.6}
+# 地名样式(颜色/斜体/描边/字重/行高等)由前端 role 表统一决定, 生成端只登记 role 与
+# 字号; 这里不再定义任何标注专用颜色常量.
 
 # 周边八个联邦主体共和国(GADM NAME_1): 流域直接覆盖/紧邻的民族共和国.
 # 流域图不画行政区; 共和国图只保留前六个, 科米与卡尔梅克不画.
@@ -227,15 +220,15 @@ CITIES = [
     (50.836, 61.668, "瑟克特夫卡尔", "rep", 0.10, 0.10, "left"),
 ]
 
-# 河名: (经度, 纬度, 文字, 旋转参考点1经度, 纬度, 参考点2经度, 纬度).
-# 文字放在河道旁的陆地上, 旋转方向与河道在投影平面内的走向一致(见 projected_angle).
+# 河名: (经度, 纬度, 文字). 文字放在河道旁的陆地上; 旋转由前端处理, 生成端不再存
+# 河道走向参考点(旧版用它算投影平面内的旋转角).
 RIVER_LABELS = [
-    (43.05, 56.10, "伏尔加河", 42.40, 56.20, 44.00, 56.10),
-    (45.35, 49.90, "伏尔加河", 45.80, 50.60, 44.80, 49.10),
-    (53.40, 55.35, "卡马河", 54.20, 55.30, 52.40, 55.40),
-    (41.55, 54.85, "奥卡河", 40.80, 54.50, 42.40, 55.10),
-    (56.30, 54.15, "别拉亚河", 56.40, 53.60, 56.10, 54.80),
-    (50.20, 57.45, "维亚特卡河", 50.60, 57.70, 49.70, 57.10),
+    (43.05, 56.10, "伏尔加河"),
+    (45.35, 49.90, "伏尔加河"),
+    (53.40, 55.35, "卡马河"),
+    (41.55, 54.85, "奥卡河"),
+    (56.30, 54.15, "别拉亚河"),
+    (50.20, 57.45, "维亚特卡河"),
 ]
 
 # 邻国名称: 只标画框内可见的三个邻国.
@@ -252,12 +245,13 @@ SEA_LABELS = [
     (36.80, 46.05, "亚速海"),
 ]
 
-# 地貌名称: (经度, 纬度, 文字, 旋转角度). 旋转角度 0 表示水平.
+# 地貌名称: (经度, 纬度, 文字). 旧版给乌拉尔山配了 78° 的走向旋转, 现在旋转由
+# 前端处理, 生成端只登记位置与字号.
 HIGHLAND_LABELS = [
-    (33.10, 57.55, "瓦尔代丘陵", 0),
-    (46.90, 52.20, "伏尔加高地", 0),
-    (47.40, 48.60, "里海低地", 0),
-    (59.30, 56.80, "乌拉尔山", 78),
+    (33.10, 57.55, "瓦尔代丘陵"),
+    (46.90, 52.20, "伏尔加高地"),
+    (47.40, 48.60, "里海低地"),
+    (59.30, 56.80, "乌拉尔山"),
 ]
 
 # 河网分级: Natural Earth 10m 河流的 scalerank(数值越小越主要)分三档.
@@ -307,9 +301,6 @@ class MapSpec:
     area_label_in_map: bool
     republics: tuple[str, ...] = ()
     hidden_subjects: frozenset[str] = frozenset()
-    # 河名 -> 额外旋转角(度): 卡马河参考点由东指西, 屏幕角约 -180°, 文字倒置,
-    # 统一再转 180° 让它正向可读.
-    river_label_extra_rotation: dict[str, float] = field(default_factory=dict)
 
 
 SPEC_BASIN = MapSpec(
@@ -320,7 +311,6 @@ SPEC_BASIN = MapSpec(
     out_svg=ROOT / "volga_basin_topography_etopo2022_lambert_conformal.svg",
     draw_admin=False,
     area_label_in_map=False,
-    river_label_extra_rotation={"卡马河": 180.0},
 )
 
 SPEC_REPUBLICS = MapSpec(
@@ -333,7 +323,6 @@ SPEC_REPUBLICS = MapSpec(
     area_label_in_map=True,
     republics=REPUBLICS_SHOWN,
     hidden_subjects=REPUBLICS_HIDDEN,
-    river_label_extra_rotation={"卡马河": 180.0},
 )
 
 SPECS = (SPEC_BASIN, SPEC_REPUBLICS)
@@ -911,11 +900,11 @@ def collect_graticule(doc: GeoDoc, ax: plt.Axes, extent: tuple[float, float, flo
 
 
 def collect_labels(doc: GeoDoc, ax: plt.Axes, spec: MapSpec, basin_area_km2: float) -> None:
-    """把改前成品上的文字整理成 geo.labels(位置/角度/字号/颜色/锚点/halo), 不画文字.
+    """把旧成品上的地名整理成 geo.labels(role/位置/字号/锚点), 不画文字、不存样式.
 
     顺序按旧图的 zorder 升序登记(前端 scene 按 order 叠放): 国名/海名/地貌(9.0)、
     图内流域名(9.2)、共和国名(9.3)、河名(9.4)、城市(10.1). 画框外的候选跳过,
-    与改前用 in_extent 过滤文字的行为一致.
+    与改前用 in_extent 过滤文字的行为一致; 颜色/斜体/描边/旋转由前端 role 表决定.
     """
     extent = spec.extent
 
@@ -923,31 +912,19 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, spec: MapSpec, basin_area_km2: flo
     for lon, lat, text in COUNTRY_LABELS:
         if not in_extent(lon, lat, extent):
             continue
-        doc.add_label(
-            ax, lon, lat, text,
-            kind="country", font_size_pt=12.0, color=COLOR_COUNTRY,
-            ha="center", va="center", halo=HALO,
-        )
+        doc.add_label(ax, lon, lat, text, role="country", font_size_pt=12.0)
 
     # 海域名称.
     for lon, lat, text in SEA_LABELS:
         if not in_extent(lon, lat, extent):
             continue
-        doc.add_label(
-            ax, lon, lat, text,
-            kind="sea", font_size_pt=11.0, color=COLOR_SEA,
-            ha="center", va="center", italic=True, halo=HALO,
-        )
+        doc.add_label(ax, lon, lat, text, role="sea", font_size_pt=11.0)
 
-    # 地貌名: 棕灰斜体; 乌拉尔山按山脊走向旋转.
-    for lon, lat, text, rotation in HIGHLAND_LABELS:
+    # 地貌名.
+    for lon, lat, text in HIGHLAND_LABELS:
         if not in_extent(lon, lat, extent):
             continue
-        doc.add_label(
-            ax, lon, lat, text,
-            kind="highland", font_size_pt=10.0, color=COLOR_HIGHLAND,
-            ha="center", va="center", rotation_deg=rotation, italic=True, halo=HALO,
-        )
+        doc.add_label(ax, lon, lat, text, role="highland", font_size_pt=10.0)
 
     # 图内流域名: 只有共和国图在图上写「伏尔加河流域 / 面积」; 流域图的同一块
     # 文字在旧版是图外面板, 现在由 geo.suggestions.area_annotation 带给前端.
@@ -955,11 +932,11 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, spec: MapSpec, basin_area_km2: flo
         doc.add_label(
             ax, 42.55, 51.95,
             f"伏尔加河流域\n约 {basin_area_km2 / 1e4:.0f} 万 km²",
-            kind="area", name="流域", font_size_pt=15.0, color=COLOR_BASIN_EDGE,
-            ha="center", va="center", linespacing=1.35, italic=True, halo=HALO_WIDE,
+            role="area-basin", name="流域", font_size_pt=15.0,
         )
 
-    # 共和国名: 蓝紫色, 字号按共和国轮廓大小分两档(小共和国 10.5, 大共和国 12.5).
+    # 共和国名: 字号按共和国轮廓大小分两档(小共和国 10.5, 大共和国 12.5);
+    # id 前缀保留旧的 label-republic-*.
     for name in spec.republics:
         lon, lat, text = REPUBLIC_LABELS[name]
         if not in_extent(lon, lat, extent):
@@ -967,29 +944,23 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, spec: MapSpec, basin_area_km2: flo
         size = 10.5 if name in SMALL_REPUBLICS else 12.5
         doc.add_label(
             ax, lon, lat, text,
-            kind="area", id_kind="republic", name=name, font_size_pt=size,
-            color=COLOR_REPUBLIC_EDGE, ha="center", va="center",
-            linespacing=1.15, halo=HALO,
+            role="area-accent-1", id_kind="republic", name=name, font_size_pt=size,
         )
 
-    # 河名: 与干流同色, 沿河道方向旋转; 同一条河标两段时 id 加 1 起算序号.
+    # 河名: 同一条河标两段时 id 加 1 起算序号; 旋转由前端处理.
     river_counts: dict[str, int] = {}
-    for _, _, text, *_ in RIVER_LABELS:
+    for _, _, text in RIVER_LABELS:
         river_counts[text] = river_counts.get(text, 0) + 1
     river_seen: dict[str, int] = {}
-    for lon, lat, text, lon1, lat1, lon2, lat2 in RIVER_LABELS:
+    for lon, lat, text in RIVER_LABELS:
         river_seen[text] = river_seen.get(text, 0) + 1
         if not in_extent(lon, lat, extent):
             continue
-        rotation = projected_angle(PROJECTION, lon1, lat1, lon2, lat2) + float(
-            spec.river_label_extra_rotation.get(text, 0.0)
-        )
         doc.add_label(
             ax, lon, lat, text,
-            kind="river", name=text,
+            role="river", name=text,
             index=river_seen[text] if river_counts[text] > 1 else None,
-            font_size_pt=9.8, color=COLOR_RIVER_TRUNK, ha="center", va="center",
-            rotation_deg=rotation, italic=True, halo=HALO,
+            font_size_pt=9.8,
         )
 
     # 城市: 文字跟着点位偏移; 字号按城市等级分三档.
@@ -999,8 +970,7 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, spec: MapSpec, basin_area_km2: flo
             continue
         doc.add_label(
             ax, lon + dx, lat + dy, name,
-            kind="city", name=name, font_size_pt=sizes[kind], color="#000000",
-            ha=align, va="center", halo=HALO,
+            role="city", name=name, font_size_pt=sizes[kind], ha=align,
         )
 
 

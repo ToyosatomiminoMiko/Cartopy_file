@@ -10,8 +10,8 @@ graticule/labels/relief/legend/suggestions 的结构与枚举是否合法; 有�
 
 为什么: 前端(miko_svg_editor)按同一份契约解析产物, 字段写错了要到合成阶段才报;
 出图后先跑一遍这个检查, 能在本仓内定位问题. 完整契约见
-``docs/reference/geo.md`` 与 miko 的 PAGE-EDITOR.md §3; 这里只做结构级校验, 不判断
-标注位置是否美观、也不校验颜色/字体的视觉效果.
+``docs/reference/geo.md`` 与 miko 的 PAGE-EDITOR.md §3(``mapdoc-geo`` v2); 这里只做
+结构级校验, 不判断标注位置是否美观, 也不校验文字样式(样式由前端 role 表决定).
 
 用法:
     python tools/check_geo.py [<产物>.svg ...]
@@ -28,8 +28,27 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# 与 docs/reference/geo.md / 契约 §3 一致的枚举.
-LABEL_KINDS = {"country", "sea", "highland", "river", "city", "area", "other"}
+# 与 docs/reference/geo.md / 契约 §3 一致的枚举. 角色枚举的唯一真源是 miko_svg_editor
+# 的 src/config/text-style.ts 里的 MAP_LABEL_ROLES; 这里只是镜像, 顺序与它一致.
+LABEL_ROLES = (
+    "country",
+    "country-name",
+    "sea",
+    "city",
+    "city-reference",
+    "river",
+    "highland",
+    "area",
+    "area-muted",
+    "area-accent-1",
+    "area-accent-2",
+    "area-accent-3",
+    "area-accent-4",
+    "area-basin",
+)
+LABEL_ROLE_SET = frozenset(LABEL_ROLES)
+# v2 已删除的 v1 字段: 出现即说明产物没重新生成(旧契约的产物要拒绝).
+REMOVED_LABEL_KEYS = ("kind", "lines", "color", "italic", "halo", "rotation_deg")
 TEXT_ANCHORS = {"start", "middle", "end"}
 SIDES_LON = {"bottom", "top"}
 SIDES_LAT = {"left", "right"}
@@ -107,8 +126,8 @@ def check_product(svg_path: Path) -> list[str]:
         return errors + ["geo 顶层必须是对象"]
     if geo.get("format") != "mapdoc-geo":
         errors.append(f"geo.format 必须是 mapdoc-geo, 得到 {geo.get('format')!r}")
-    if geo.get("version") != 1:
-        errors.append(f"geo.version 必须是 1, 得到 {geo.get('version')!r}")
+    if geo.get("version") != 2:
+        errors.append(f"geo.version 必须是 2, 得到 {geo.get('version')!r}")
     base = geo.get("base")
     if not isinstance(base, dict):
         errors.append("geo.base 缺失")
@@ -164,30 +183,32 @@ def check_product(svg_path: Path) -> list[str]:
             if not isinstance(label, dict):
                 errors.append(f"{path} 必须是对象")
                 continue
-            for key in ("id", "kind", "text", "x", "y"):
+            for key in ("id", "role", "text", "x", "y", "anchor", "font_size_pt", "order"):
                 if key not in label:
                     errors.append(f"{path} 缺少 {key}")
+            for key in REMOVED_LABEL_KEYS:
+                if key in label:
+                    errors.append(f"{path}.{key} 是 v1 字段, v2 已删除(产物需重新生成)")
             if not isinstance(label.get("id"), str) or not label.get("id"):
                 errors.append(f"{path}.id 必须是非空字符串")
             elif label["id"] in seen:
                 errors.append(f"{path}.id 重复: {label['id']}")
             else:
                 seen.add(label["id"])
-            if label.get("kind") not in LABEL_KINDS:
-                errors.append(f"{path}.kind 必须是 {'|'.join(sorted(LABEL_KINDS))} 之一")
-            for key in ("x", "y", "rotation_deg", "font_size_pt"):
-                if key in label and not _number(label.get(key)):
+            if label.get("role") not in LABEL_ROLE_SET:
+                errors.append(f"{path}.role 必须是 {'|'.join(LABEL_ROLES)} 之一")
+            if not isinstance(label.get("text"), str):
+                errors.append(f"{path}.text 必须是字符串")
+            for key in ("x", "y", "font_size_pt"):
+                if not _number(label.get(key)):
                     errors.append(f"{path}.{key} 必须是数字")
-            if "anchor" in label and label.get("anchor") not in TEXT_ANCHORS:
+            if _number(label.get("font_size_pt")) and not label["font_size_pt"] > 0:
+                errors.append(f"{path}.font_size_pt 必须 > 0")
+            if label.get("anchor") not in TEXT_ANCHORS:
                 errors.append(f"{path}.anchor 必须是 start|middle|end")
-            if "color" in label and not COLOR_RE.fullmatch(str(label.get("color"))):
-                errors.append(f"{path}.color 必须是 #rrggbb")
-            halo = label.get("halo")
-            if halo is not None:
-                if not isinstance(halo, dict) or not COLOR_RE.fullmatch(str(halo.get("color", ""))):
-                    errors.append(f"{path}.halo.color 必须是 #rrggbb")
-                if not _number(halo.get("width_pt")) or not halo["width_pt"] > 0:
-                    errors.append(f"{path}.halo.width_pt 必须 > 0")
+            order = label.get("order")
+            if not isinstance(order, int) or isinstance(order, bool):
+                errors.append(f"{path}.order 必须是整数")
     relief = geo.get("relief")
     if relief is not None:
         if not isinstance(relief, dict):

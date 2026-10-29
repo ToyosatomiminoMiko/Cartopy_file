@@ -181,16 +181,17 @@ CITIES = [
     (97.562, 20.925, "莱林", "town", 0.04, -0.10),
 ]
 
-# 大区域/邻国标注: (经度, 纬度, 文字, 字号, 颜色).
-# 这些是旧成品画在图内的字, 现在只登记成 geo.labels(kind=area), 不再绘制.
+# 大区域标注: (经度, 纬度, 文字, 字号, role).
+# 这些是旧成品画在图内的字, 现在只登记成 geo.labels, 不再绘制; 颜色/斜体/描边由
+# 前端 role 表决定, 这里只挑语义角色(强调色按旧图的色系分组).
 REGION_LABELS = [
-    (98.30, 23.72, "缅甸联邦第一特区", 13.5, "#4a1486"),
-    (98.25, 23.08, "MNDAA 实控区\n(大致范围)", 9.5, "#4a1486"),
-    (97.00, 23.34, "德昂邦", 14, "#005a32"),
-    (97.00, 23.12, "(TNLA 控制)", 9.5, "#005a32"),
-    (98.60, 24.00, "原果敢自治区", 9, "#3f007d"),
-    (98.99, 22.60, "佤邦", 16, "#045a8d"),
-    (99.79, 21.73, "掸邦东部\n第四特区", 10.0, "#a63603"),
+    (98.30, 23.72, "缅甸联邦第一特区", 13.5, "area-accent-1"),
+    (98.25, 23.08, "MNDAA 实控区\n(大致范围)", 9.5, "area-accent-1"),
+    (97.00, 23.34, "德昂邦", 14, "area-accent-2"),
+    (97.00, 23.12, "(TNLA 控制)", 9.5, "area-accent-2"),
+    (98.60, 24.00, "原果敢自治区", 9, "area-accent-1"),
+    (98.99, 22.60, "佤邦", 16, "area-accent-3"),
+    (99.79, 21.73, "掸邦东部\n第四特区", 10.0, "area-accent-4"),
 ]
 # 邻国标注必须落在该国境内. 本画框里老挝的可见部分, 是中老国界以南、
 # 湄公河(缅老国界)以东的那一块(约 19.4~21.2°N, 100.6~101.5°E).
@@ -198,13 +199,13 @@ REGION_LABELS = [
 # 于是"老挝"两字落进了云南勐腊境内. 现取 101.25/20.45: 距最近国界约 80 km,
 # 距画框东界 0.25°(约 26 km), 2 字居中也完整落在框内.
 AREA_LABELS = [
-    (99.05, 24.62, "中国 云南省", 13, "#444444"),
-    (101.25, 20.45, "老挝", 12, "#444444"),
-    (100.60, 19.35, "泰国", 12, "#444444"),
-    (96.75, 23.78, "掸邦", 13, "#666666"),
-    (95.72, 22.45, "曼德勒省", 11, "#666666"),
-    (97.18, 19.32, "克耶邦", 11, "#666666"),
-    (99.02, 20.30, "佤邦(南)", 13, "#045a8d"),
+    (99.05, 24.62, "中国 云南省", 13, "country"),
+    (101.25, 20.45, "老挝", 12, "country"),
+    (100.60, 19.35, "泰国", 12, "country"),
+    (96.75, 23.78, "掸邦", 13, "area-muted"),
+    (95.72, 22.45, "曼德勒省", 11, "area-muted"),
+    (97.18, 19.32, "克耶邦", 11, "area-muted"),
+    (99.02, 20.30, "佤邦(南)", 13, "area-accent-3"),
 ]
 # 两条大江的强调线所对应的 Natural Earth name_en, 以及河名标注位置.
 # 位置都放在河道东/西侧的空地上, 离河心线约 0.3°(30~40 km), 不压河道本身;
@@ -215,11 +216,8 @@ RIVER_LABELS = [
     (98.33, 21.55, "萨尔温江"),
 ]
 
-# 地名光晕: 白描边保证文字压在地形/填色/河网上仍可读; 宽度交给前端 halo 字段,
-# 前端按地图缩放比换算到纸面.
-HALO = {"color": "#ffffff", "width_pt": 3.0}
-HALO_RIVER = {"color": "#ffffff", "width_pt": 3.2}
-
+# 地名样式(颜色/斜体/描边/行高等)由前端 role 表统一决定, 生成端只登记 role 与字号;
+# 河名的旧「更大白描边」随之取消.
 # 图标题/副标题/注/来源: 旧版是画在图外的 figure 级文字, 现在拆成 geo.suggestions
 # 的默认文案, 由前端建默认排版时填入, 不参与底图合成.
 TITLE = "缅甸掸邦特区与地方武装控制区地形图（2026年10月）"
@@ -563,43 +561,37 @@ def add_gridlines(ax: plt.Axes) -> None:
 # geo.json 收集
 # ============================
 def collect_labels(doc: GeoDoc, ax: plt.Axes) -> None:
-    """把旧成品图内的文字整理成 geo.labels(位置/字号/颜色/锚点/halo), 不画文字.
+    """把旧成品图内的文字整理成 geo.labels(role/位置/字号/锚点), 不画文字、不存样式.
 
     顺序按旧图 zorder 升序登记(前端 scene 按 order 叠放): 邻国/省邦注记(8) →
-    特区/区域名(9) → 河名(9.5) → 城市(11). id 沿用旧前缀: 邻国类用 area、
+    特区/区域名(9) → 河名(9.5) → 城市(11). id 沿用旧前缀: 邻国/省邦用 area、
     特区/区域名用 region、河名 river、城名 city, 便于旧布局文件迁移.
     """
     # 邻国/省邦注: 旧图 label-area-<slug>.
-    for lon, lat, text, size, color in AREA_LABELS:
+    for lon, lat, text, size, role in AREA_LABELS:
         doc.add_label(
             ax, lon, lat, text,
-            kind="area", id_kind="area", name=label_slug(text),
-            font_size_pt=size, color=color, ha="center", va="center", halo=HALO,
+            role=role, id_kind="area", name=label_slug(text), font_size_pt=size,
         )
 
-    # 特区/区域名: 旧图 label-region-<slug>; 契约 kind 枚举里没有 region, 归到 area.
-    for lon, lat, text, size, color in REGION_LABELS:
+    # 特区/区域名: 旧图 label-region-<slug>; 前端按区域家族处理, 样式仍由 role 决定.
+    for lon, lat, text, size, role in REGION_LABELS:
         doc.add_label(
             ax, lon, lat, text,
-            kind="area", id_kind="region", name=label_slug(text),
-            font_size_pt=size, color=color, ha="center", va="center", halo=HALO,
+            role=role, id_kind="region", name=label_slug(text), font_size_pt=size,
         )
 
-    # 两条大江的河名: 与干流同色, 用稍大的白描边, 压在彩色区域上也能读.
+    # 两条大江的河名.
     for lon, lat, text in RIVER_LABELS:
-        doc.add_label(
-            ax, lon, lat, text,
-            kind="river", name=text, font_size_pt=10.5, color="#1565c0",
-            ha="center", va="center", halo=HALO_RIVER,
-        )
+        doc.add_label(ax, lon, lat, text, role="river", name=text, font_size_pt=10.5)
 
     # 城市名: 位置跟着点位偏移; 字号按城市等级分两档, 普通城镇居中对齐.
     for lon, lat, name, kind, dx, dy in CITIES:
         doc.add_label(
             ax, lon + dx, lat + dy, name,
-            kind="city", name=name,
-            font_size_pt=9.0 if kind == "town" else 10.5, color="#000000",
-            ha="center" if kind == "town" else "left", va="center", halo=HALO,
+            role="city", name=name,
+            font_size_pt=9.0 if kind == "town" else 10.5,
+            ha="center" if kind == "town" else "left",
         )
 
 

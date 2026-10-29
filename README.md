@@ -46,9 +46,11 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 
 产物由 [src/cartopy_file/geo.py](src/cartopy_file/geo.py) 统一保存: SVG 是纯几何底图, 海岸线、国界、
 河流、湖泊与填色都是矢量, 不含文字、图例、色标、标题和刻度文字; 保存时只把根标签的 viewBox 裁到
-地图框. 同名 `.geo.json` 按 `miko_svg_editor` 的 `mapdoc-geo` v1 契约写: `base`(底图 sha256/viewBox/
-尺寸)、`graticule`(经纬刻度)、`labels`(地名候选: 名称/坐标/角度/字号/颜色/halo)、`relief`(色标)、
-`legend`(图例)与 `suggestions`(标题/副标题/注/来源). 字段与口径见
+地图框. 同名 `.geo.json` 按 `miko_svg_editor` 的 `mapdoc-geo` **v2** 契约写: `base`(底图 sha256/
+viewBox/尺寸)、`graticule`(经纬刻度)、`labels`(地名候选: id/role/文字/坐标/锚点/字号/顺序)、
+`relief`(色标)、`legend`(图例)与 `suggestions`(标题/副标题/注/来源). 标注样式(颜色/描边/斜体/
+字重/字距/行高)不在地图产物里, 由 `miko_svg_editor/src/config/text-style.ts` 的角色表统一决定;
+旧 v1 产物已被版本校验拒绝, 需要重新生成. 字段与口径见
 [docs/reference/geo.md](docs/reference/geo.md). 唯一的栅格是山体晕渲, 以 base64 内嵌在同一个
 `.svg` 里, 所以底图始终是单个自包含文件(`--dpi` 只影响晕渲像素密度, 默认 300). 出图不写时间戳、
 内部 id 固定, 同一份数据重复运行得到相同内容. 实现与理由见

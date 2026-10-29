@@ -176,9 +176,9 @@ SEA_LABELS = [
     (89.8, 15.8, "孟加拉湾"),
     (96.8, 9.3, "安达曼海"),
 ]
-# 国名: 单独放在国土中北部, 用深红色与红色国界呼应; 位置避开城市地名防压盖.
-# 旧版不用 fontweight="bold"(本机 CJK 可变字体只能取到默认实例, 请求粗体会回退并告警),
-# 靠更大的字号和深红色突出国名.
+# 国名: 单独放在国土中北部, 用 role=country-name 让前端给深红色; 位置避开城市
+# 地名防压盖. 旧版不用 fontweight="bold"(本机 CJK 可变字体只能取到默认实例),
+# 靠更大的字号突出国名, 字号仍是本脚本的数据(22pt).
 COUNTRY_NAME = (95.6, 23.5, "缅甸")
 
 # 城市点: (经度, 纬度, 名称, 是否首都).
@@ -192,12 +192,8 @@ CITIES = [
 CITY_LABEL_DX = 0.18
 CITY_LABEL_DY = -0.05
 
-# 地名样式: 邻国名 13pt 深灰 / 海域 12pt 斜体深蓝 / 国名 22pt 深红 / 城名 10pt 黑;
-# 白描边保证文字在彩色地形与红色国界上仍可读, 宽度交给前端 halo.
-COLOR_COUNTRY = "#333333"
-COLOR_SEA = "#1f4e79"
-COLOR_COUNTRY_NAME = "#8b0000"
-HALO = {"color": "#ffffff", "width_pt": 3.0}
+# 地名样式(颜色/斜体/描边/字重/行高等)由前端 role 表统一决定, 生成端只登记 role;
+# 本脚本保留的只有字号这一层数据: 邻国名 13pt / 海域 12pt / 国名 22pt / 城名 10pt.
 
 # 标题/副标题/来源: 旧版标题与底部来源文字的版面文案, 现在只作
 # geo.suggestions 的默认值; 第一行是国家与数据源, 第二行是投影与参数.
@@ -345,34 +341,23 @@ def add_gridlines(ax: plt.Axes) -> None:
 # geo.json 收集
 # ============================
 def collect_labels(doc: GeoDoc, ax: plt.Axes) -> None:
-    """把改前成品上的地名整理成 geo.labels(位置/字号/颜色/锚点/halo), 不画文字.
+    """把旧成品上的地名整理成 geo.labels(role/位置/字号/锚点), 不画文字、不存样式.
 
     顺序沿用旧图: 邻国名 -> 海域名 -> 国名 -> 城名; 前端 scene 按 order 叠放.
     """
     for lon, lat, text in COUNTRY_LABELS:
-        doc.add_label(
-            ax, lon, lat, text,
-            kind="country", font_size_pt=13.0, color=COLOR_COUNTRY,
-            ha="center", va="center", halo=HALO,
-        )
+        doc.add_label(ax, lon, lat, text, role="country", font_size_pt=13.0)
     for lon, lat, text in SEA_LABELS:
-        doc.add_label(
-            ax, lon, lat, text,
-            kind="sea", font_size_pt=12.0, color=COLOR_SEA,
-            ha="center", va="center", italic=True, halo=HALO,
-        )
+        doc.add_label(ax, lon, lat, text, role="sea", font_size_pt=12.0)
     lon, lat, text = COUNTRY_NAME
-    doc.add_label(
-        ax, lon, lat, text,
-        kind="country", font_size_pt=22.0, color=COLOR_COUNTRY_NAME,
-        ha="center", va="center", halo=HALO,
-    )
+    # id 前缀由 role 家族映射成 country(见 geo.py 的 _ID_PREFIX), 保留旧的
+    # label-country-缅甸.
+    doc.add_label(ax, lon, lat, text, role="country-name", font_size_pt=22.0)
     for lon, lat, text, _is_capital in CITIES:
         # 城名用左下对齐贴住城点: 旧版是 (城点 + 平移) + ha="left".
         doc.add_label(
             ax, lon + CITY_LABEL_DX, lat + CITY_LABEL_DY, text,
-            kind="city", font_size_pt=10.0, color="#000000",
-            ha="left", va="center", halo=HALO,
+            role="city", font_size_pt=10.0, ha="left",
         )
 
 

@@ -143,9 +143,8 @@ RELIEF_TICKS = (0, 1000, 2000, 3000, 4000)
 # ============================
 # 标注数据(只登记进 geo, 底图不画文字)
 # ============================
-# 旧版双语文字是中文、英文两条独立 annotate: 英文行统一用这个灰色且 halo 收窄,
-# 不跟随中文行的配色; 这里保留同一口径, 前端的默认排版才能与旧成品一致.
-EN_LABEL_COLOR = "#303030"
+# 双语文字的中文、英文是两条独立标注(位置/字号不同); 样式统一后两者共用同一个
+# role, 颜色/描边/斜体都来自前端 role 表, 生成端不再有「英文行单独配色」这回事.
 
 # 行政区名标签位置(经度, 纬度). 多数放在单元内部; 面积很小的单元
 # (内比都联邦区、仰光省、孟邦)单独给 callout 锚点, 避免文字压住边界和中心点.
@@ -520,22 +519,20 @@ def _add_bilingual(
     zh: str,
     en: str,
     *,
-    kind: str,
+    role: str,
     id_kind: str,
     name: str,
     size_zh: float,
     size_en: float,
-    color_zh: str,
-    halo_pt: float,
     dx: float = 0.0,
     dy_zh: float = 4.0,
     dy_en: float = -7.0,
     ha: str = "center",
 ) -> None:
-    """登记一对中文/英文标签: 旧版两条 annotate 的落点与样式, 改成两条 add_label.
+    """登记一对中文/英文标签: 两条 add_label 共用一个 role, 只有位置/字号不同.
 
     为什么英文单独一条: 旧版 en 是独立文字(字号更小、位置另给、id 带 ``-en``),
-    前端要能分别拖动/改样式; 英文行颜色与 halo 也按旧版统一收窄(见 EN_LABEL_COLOR).
+    前端要能分别拖动; 样式统一后两条同 role, 颜色/描边/斜体都由前端 role 表决定.
     """
     zh_lon, zh_lat = _offset_lonlat(ax, lon, lat, dx, dy_zh)
     doc.add_label(
@@ -543,14 +540,11 @@ def _add_bilingual(
         zh_lon,
         zh_lat,
         zh,
-        kind=kind,
+        role=role,
         id_kind=id_kind,
         name=name,
         font_size_pt=size_zh,
-        color=color_zh,
         ha=ha,
-        va="center",
-        halo={"color": "#ffffff", "width_pt": halo_pt},
     )
     en_lon, en_lat = _offset_lonlat(ax, lon, lat, dx, dy_en)
     doc.add_label(
@@ -558,19 +552,16 @@ def _add_bilingual(
         en_lon,
         en_lat,
         en,
-        kind=kind,
+        role=role,
         id_kind=id_kind,
         name=f"{name}-en",
         font_size_pt=size_en,
-        color=EN_LABEL_COLOR,
         ha=ha,
-        va="center",
-        halo={"color": "#ffffff", "width_pt": halo_pt * 0.8},
     )
 
 
 def collect_labels(doc: GeoDoc, ax: plt.Axes, units) -> None:
-    """把旧版图上的全部地名登记成 geo.labels(38 对, 中英各一条, 共 76 条).
+    """把旧版图上的全部地名登记成 geo.labels(38 对, 中英各一条, 共 76 条; 同 role).
 
     为什么按 zorder 升序登记: 契约的 ``order`` 是原图绘制顺序(前端 scene 按它
     叠放); 旧图 zorder 依次是邻国/海域 11、行政区名 13、行政中心与河名 14,
@@ -586,13 +577,11 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, units) -> None:
             lat,
             zh,
             en,
-            kind="country",
+            role="country",
             id_kind="country",
             name=zh,
             size_zh=12.0,
             size_en=8.4,
-            color_zh="#4a4a4a",
-            halo_pt=3.4,
             dy_zh=4.0,
             dy_en=-7.0,
         )
@@ -606,18 +595,16 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, units) -> None:
             lat,
             zh,
             en,
-            kind="sea",
+            role="sea",
             id_kind="sea",
             name=zh,
             size_zh=11.5,
             size_en=8.0,
-            color_zh="#1c5f8a",
-            halo_pt=3.2,
             dy_zh=3.5,
             dy_en=-6.5,
         )
 
-    # 行政区名: id 前缀保留旧版的 state/region/union(用 id_kind), 契约 kind 记 area.
+    # 行政区名: id 前缀保留旧版的 state/region/union(用 id_kind), role 统一记 area.
     for unit in units:
         key = unit["key"]
         lon, lat = ADMIN_LABELS[key]
@@ -635,13 +622,11 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, units) -> None:
             lat,
             unit["name_zh"],
             display_en,
-            kind="area",
+            role="area",
             id_kind=unit["kind"],
             name=key,
             size_zh=size_zh,
             size_en=size_en,
-            color_zh="#111111",
-            halo_pt=3.2,
             dy_zh=4.2,
             dy_en=-7.0,
         )
@@ -659,13 +644,11 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, units) -> None:
             unit["capital_lat"],
             unit["capital_zh"],
             unit["capital_en"],
-            kind="city",
+            role="city",
             id_kind="city",
             name=unit["capital_zh"],
             size_zh=8.0,
             size_en=6.5,
-            color_zh="#111111",
-            halo_pt=2.6,
             dx=dx,
             dy_zh=dy + 2.6,
             dy_en=dy - 5.0,
@@ -681,13 +664,11 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, units) -> None:
             lat,
             zh,
             en,
-            kind="river",
+            role="river",
             id_kind="river",
             name=zh,
             size_zh=9.0,
             size_en=6.8,
-            color_zh="#0d47a1",
-            halo_pt=2.8,
             dy_zh=3.5,
             dy_en=-6.0,
         )
@@ -724,10 +705,10 @@ def collect_legend(doc: GeoDoc, units) -> None:
     """把旧版自绘的 7 邦/7 省色块面板改成 geo.legend.entries(按旧面板顺序平铺).
 
     为什么分组不单独出条目: 图例条目只能表达「一条符号」, 旧面板的「邦 / 省 /
-    联邦区」分组标题和三行图例文字无法在 v1 里表达; 这里把分组语义留在
+    联邦区」分组标题和三行图例文字无法在图例条目里表达; 这里把分组语义留在
     suggestions.notes(七邦冷色/七省暖色), 条目按旧面板顺序逐个列出行政区并保留
-    中英名, 色块沿用旧面板的不透明填充与白色描边, 联邦区保留斜线(hatch 是契约
-    v2 预留字段, v1 前端会忽略).
+    中英名, 色块沿用旧面板的不透明填充与白色描边, 联邦区保留斜线(hatch 是图例
+    条目的扩展字段, 前端不识别时忽略).
     """
     units_by_key = {unit["key"]: unit for unit in units}
     entries: list[dict] = []

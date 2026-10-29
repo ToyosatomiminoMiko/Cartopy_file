@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""geo.json(mapdoc-geo v1)生成: 地图框、经纬刻度、初始标注、色标、图例与默认文案.
+"""geo.json(mapdoc-geo v2)生成: 地图框、经纬刻度、初始标注、色标、图例与默认文案.
 
 是什么: 本模块把「前端排版需要知道、但底图 SVG 里不画」的元数据收集成一个
 ``<产物名>.geo.json``: 地图框 ``base``(裁到地图框后的 viewBox 与尺寸)、经纬刻度
@@ -11,26 +11,29 @@
 
 为什么: 底图按约定「不含任何文字」(miko_svg_editor 的 C2), 前端不知道地名该放在哪,
 也不知道刻度/色标/图例的口径. 这些数据只在 Cartopy 画图时天然存在(axes bbox、
-locator、文字 artist 的锚点与样式、legend handles、colorbar 的 norm/cmap), 由这里
-一次性收集比前端从成品 SVG 反推可靠. 字段与取值口径见 miko_svg_editor 的 PAGE-EDITOR.md §3
-(``mapdoc-geo`` v1).
+locator、文字 artist 的锚点、legend handles、colorbar 的 norm/cmap), 由这里一次性
+收集比前端从成品 SVG 反推可靠. 字段与取值口径见 miko_svg_editor 的 PAGE-EDITOR.md §3
+(``mapdoc-geo`` v2).
 
-关键口径:
+关键口径(v2):
 - 坐标单位是 SVG 用户单位(= pt, 1/72 英寸), 原点在原始 Figure 左上角, y 向下;
   底图 SVG 只改根标签的 viewBox/width/height 来裁到地图框, 坐标值本身不变,
   所以 geo 里的 x/y 可以直接对底图坐标使用;
-- ``labels[].x/y`` 是**第一行文字的基线锚点**(前端 textLayout 把 y 当基线, 后续行
-  按 ``font_size_pt * line_height`` 往下排), 不是 matplotlib 的 bbox 中心: 本模块把
-  ``va="center"`` 的锚点换算成基线(见 ``BASELINE_RATIO``);
-- ``labels[].rotation_deg`` 是 SVG 的旋转角(顺时针为正, 屏幕坐标 y 向下), 与
-  matplotlib 的 ``rotation``(逆时针为正)符号相反; id 规则沿用旧 ``labels.py`` 的
-  ``label-<kind>-<name>[-<index>]``, 便于旧布局文件迁移.
+- ``labels`` 只描述语义与摆放: ``role``(样式由前端 miko_svg_editor 的
+  ``src/config/text-style.ts`` 决定)、``text``、``x/y``、``anchor``、
+  ``font_size_pt`` 与 ``order``. 颜色/描边/斜体/字距/行高都不在生成端输出,
+  旋转也由前端处理(默认 0);
+- ``labels[].x`` 是文字块的水平锚点(``anchor`` 为 start 时指左端, middle 指中心,
+  end 指右端); ``labels[].y`` 是**文字块垂直中心**(底图坐标), 前端按固定行高把多行
+  文字排好后换算回第一行基线;
+- id 规则沿用旧 ``labels.py`` 的 ``label-<role 家族>-<name>[-<index>]``: 角色家族见
+  ``_ID_PREFIX``(如 ``country-name`` 归到 ``country``), 便于旧布局文件迁移.
 
 依赖: ``cartopy_file.output.save_svg``(唯一 SVG 出口); 坐标换算走 cartopy 的
 PlateCarree->display 变换(与 ``GeoAxes.text`` 同一套, 实测与旧成品抽出的 geo 逐条
 对齐). 完整说明: 见 ``docs/reference/geo.md``.
-元信息: 2026-10, 迁移 miko_svg_editor 的 geo.json 契约; 契约见
-miko_svg_editor 的 PAGE-EDITOR.md §3 与本仓 ``docs/reference/geo.md``.
+元信息: 2026-10, 迁移 miko_svg_editor 的 geo.json 契约 v2; 角色/样式唯一真源是
+miko 的 ``src/config/text-style.ts``, 本模块只输出 role 与摆放数据.
 """
 
 from __future__ import annotations
@@ -46,16 +49,15 @@ from typing import Any, Sequence
 from .output import save_svg
 
 __all__ = [
-    "BASELINE_RATIO",
     "FORMAT",
     "GeoDoc",
-    "LABEL_KINDS",
+    "LABEL_ROLES",
+    "LABEL_ROLE_SET",
     "LABEL_PREFIX",
     "VERSION",
     "Frame",
     "figure_frame",
     "label_id",
-    "projected_angle",
     "relief_from_cmap",
     "save_map",
     "svg_point",
@@ -63,22 +65,48 @@ __all__ = [
 
 # 文件格式身份; 与 miko_svg_editor 的 mapdoc-geo 完全一致, 前端/Python 都按它校验.
 FORMAT = "mapdoc-geo"
-VERSION = 1
+VERSION = 2
 
-# 标签 id 前缀与类别枚举, 沿用旧 labels.py / 前端 §3; 前端按前缀认「这是地名」.
+# 标签 id 前缀; 前端按前缀认「这是地名」.
 LABEL_PREFIX = "label-"
-LABEL_KINDS = ("country", "sea", "highland", "river", "city", "area", "other")
-LABEL_KIND_SET = frozenset(LABEL_KINDS)
+# 语义角色枚举; 顺序与 miko_svg_editor 的 src/config/text-style.ts 的
+# MAP_LABEL_ROLES 完全一致(那边是唯一真源, 这里只镜像, 用于生成端自检与文档).
+# 样式(颜色/斜体/描边/字重/行高/字距)由前端 role 表决定, 生成端不存样式值.
+LABEL_ROLES = (
+    "country",
+    "country-name",
+    "sea",
+    "city",
+    "city-reference",
+    "river",
+    "highland",
+    "area",
+    "area-muted",
+    "area-accent-1",
+    "area-accent-2",
+    "area-accent-3",
+    "area-accent-4",
+    "area-basin",
+)
+LABEL_ROLE_SET = frozenset(LABEL_ROLES)
 
-# matplotlib 的 va 取值 -> 前端文字水平锚点; 垂直方向统一换算成第一行基线.
+# 角色 -> id 前缀(角色家族): 前端按 id 前缀归族(如 country-name 仍算 country),
+# 个别脚本可用 id_kind 覆盖(如共和国名要保留旧的 label-republic-*).
+_ID_PREFIX = {
+    "country-name": "country",
+    "city-reference": "city",
+    "area": "area",
+    "area-muted": "area",
+    "area-accent-1": "area",
+    "area-accent-2": "area",
+    "area-accent-3": "area",
+    "area-accent-4": "area",
+    "area-basin": "area",
+}
+
+# matplotlib 的 ha 取值 -> 前端文字水平锚点(anchor); 垂直方向不再换算基线,
+# y 直接是文字块垂直中心.
 _ANCHORS = {"left": "start", "center": "middle", "right": "end"}
-_LINE_ALIGN = {"start": "left", "middle": "center", "end": "right"}
-
-# va="center" 时, matplotlib 把文字 bbox 的垂直中心放在锚点上; 前端把 geo 的 y 当
-# 第一行基线. 对 DejaVu/Noto 这类常见字体, bbox 中心到基线的距离约为 0.36 em
-# (从旧成品抽出的 39 条 Volga 标签实测恒为 0.36 x 字号), 因此单行文字要把锚点
-# 下移 0.36 x 字号; 多行再按行距把首行基线移到整块中心之上 (见 _baseline_offset).
-BASELINE_RATIO = 0.36
 
 # 数字保留 3 位小数: geo 契约要求 3 位以内; 底图 viewBox 另按 6 位处理(见 _format_pt),
 # 两边都从同一份 Frame 生成, 这样 prepare 脚本逐值比对不会因舍入差报错.
@@ -118,8 +146,9 @@ def _format_pt(value: float) -> str:
 def label_id(kind: str, name: str, index: int | None = None) -> str:
     """拼一个跨版本稳定的标签 id: ``label-<kind>-<name>[-<index>]``.
 
-    与旧 ``labels.py`` 的规则一致, 手工布局文件(labels.json)迁移到 scene 时靠 id 对齐.
-    name 只去掉首尾空白, 不替换空格: 旧布局文件里的键就是这种写法, 改了反而对不上.
+    kind 是「角色家族」(见 ``_ID_PREFIX``), 不是 role 本身; 与旧 ``labels.py`` 的规则
+    一致, 手工布局文件迁移到 scene 时靠 id 对齐. name 只去掉首尾空白, 不替换空格:
+    旧布局文件里的键就是这种写法, 改了反而对不上.
     """
     if not kind or not name.strip():
         raise ValueError(f"label_id 需要非空的 kind/name: {kind!r} {name!r}")
@@ -191,61 +220,11 @@ def svg_point(ax, lon: float, lat: float) -> tuple[float, float]:
     return display_x * scale, fig.get_size_inches()[1] * 72.0 - display_y * scale
 
 
-def projected_angle(
-    projection, lon1: float, lat1: float, lon2: float, lat2: float
-) -> float:
-    """两点连线在投影平面里的方向角(matplotlib rotation, 逆时针为正, 度).
-
-    为什么在投影平面里算: matplotlib 的 rotation 是屏幕角; 兰勃特/方位投影下经线
-    并不竖直, 直接拿经纬度差算 atan2 会得到与屏幕不一致的角度, 河名会明显偏离河道.
-    """
-    x1, y1 = projection.transform_point(lon1, lat1, _plate_carree())
-    x2, y2 = projection.transform_point(lon2, lat2, _plate_carree())
-    return float(math.degrees(math.atan2(y2 - y1, x2 - x1)))
-
-
 def _plate_carree():
     """懒加载 PlateCarree, 避免本模块在纯数据脚本里也硬依赖 cartopy."""
     import cartopy.crs as ccrs
 
     return ccrs.PlateCarree()
-
-
-def _normalize_rotation(rotation_deg: float) -> float:
-    """归一到 (-180, 180], 与前端/抽取侧的 rotation_deg 口径一致."""
-    value = float(rotation_deg) % 360.0
-    if value > 180.0:
-        value -= 360.0
-    return _clean(value)
-
-
-def _baseline_offset(
-    va: str, font_size_pt: float, line_count: int, linespacing: float
-) -> float:
-    """锚点到首行基线的垂直偏移(底图坐标, 正值向下).
-
-    单行 va=center: 0.36 x 字号; 多行 va=center: 整块 bbox 居中, 首行基线在中心上方
-    ``(行数-1) x 行距 / 2`` 处, 所以再减去那一半. va=baseline 时锚点本身就是基线.
-    """
-    if va == "baseline":
-        return 0.0
-    if va != "center":
-        raise ValueError(f"不支持的垂直对齐 va={va!r}(只支持 center/baseline)")
-    return BASELINE_RATIO * font_size_pt - (line_count - 1) * linespacing * font_size_pt / 2.0
-
-
-def _offset_point(
-    origin: tuple[float, float], offset: float, rotation_deg: float
-) -> tuple[float, float]:
-    """把「沿文字向下 offset」的偏移量按 SVG 旋转角转到屏幕上.
-
-    旋转角是 SVG 的(顺时针为正, y 向下): 文字向下方向 = (sin(r), cos(r)) 的反向?
-    实测(乌拉尔山 +78° matplotlib -> SVG -78°)偏移量为 (0.36*字号*sin(-r), ...),
-    即 delta = (-offset*sin(r), offset*cos(r)).
-    """
-    radians = math.radians(rotation_deg)
-    x, y = origin
-    return x - offset * math.sin(radians), y + offset * math.cos(radians)
 
 
 def _fixed_ticks(lo: float, hi: float, step: float) -> list[float]:
@@ -426,8 +405,8 @@ def _legend_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "opacity": _clean(opacity),
         "marker": marker,
     }
-    # v2 预留字段: v1 契约没有多行图例与 hatch, 但旧图种确实用到; 这里原样带上,
-    # 前端 v1 校验会忽略未知键, 将来升 v2 时不用再回头改数据.
+    # 多行图例与 hatch: v2 契约的 legend 条目没有这两个键, 但本仓图种实际用到
+    # (缅甸行政区图的双语图例与联邦区斜线); 这里原样带上, 前端忽略未知键即可.
     if "label_lines" in entry:
         lines = entry["label_lines"]
         if not isinstance(lines, (list, tuple)) or not lines or not all(
@@ -442,20 +421,15 @@ def _legend_entry(entry: dict[str, Any]) -> dict[str, Any]:
 
 @dataclass
 class _Label:
-    """收集阶段的标签记录; 写盘时再转成 §3 的 dict."""
+    """收集阶段的标签记录; 写盘时再转成 §3 的 v2 dict(只含语义与摆放数据)."""
 
     id: str
-    kind: str
+    role: str
     text: str
-    lines: list[str]
     x: float
     y: float
-    rotation_deg: float
     anchor: str
     font_size_pt: float
-    color: str
-    italic: bool
-    halo: dict[str, Any] | None
     order: int
 
 
@@ -498,56 +472,38 @@ class GeoDoc:
         lat: float,
         text: str,
         *,
-        kind: str,
+        role: str,
         name: str | None = None,
         index: int | None = None,
         id_kind: str | None = None,
         font_size_pt: float,
-        color: str,
         ha: str = "center",
-        va: str = "center",
-        rotation_deg: float = 0.0,
-        linespacing: float = 1.2,
-        italic: bool = False,
-        halo: dict[str, Any] | None = None,
     ) -> None:
-        """登记一条地名候选(底图坐标), 不画文字.
+        """登记一条地名候选(底图坐标), 不画文字、不存样式.
 
-        text 里的换行会拆成 lines; x/y 输出第一行基线锚点(见模块 docstring);
-        rotation_deg 传 matplotlib 的 rotation(逆时针为正), 这里换算成 SVG 角.
+        text 里的换行原样保留(前端自己 split); x/y 是文字块的水平锚点与垂直中心,
+        不再换算基线. role 决定前端样式, 生成端只按 _ID_PREFIX 把它折成 id 前缀.
         """
-        if kind not in LABEL_KIND_SET:
-            raise ValueError(f"label kind 必须是 {LABEL_KINDS} 之一, 得到 {kind!r}")
+        if role not in LABEL_ROLE_SET:
+            raise ValueError(f"label role 必须是 {LABEL_ROLES} 之一, 得到 {role!r}")
         if ha not in _ANCHORS:
             raise ValueError(f"ha 必须是 {tuple(_ANCHORS)} 之一, 得到 {ha!r}")
-        if not _COLOR_RE.fullmatch(str(color)):
-            raise ValueError(f"label color 必须是 #rrggbb, 得到 {color!r}")
-        lines = text.split("\n")
-        anchor_x, anchor_y = svg_point(ax, lon, lat)
-        rotation_svg = _normalize_rotation(-float(rotation_deg))
-        offset = _baseline_offset(va, float(font_size_pt), len(lines), float(linespacing))
-        x, y = _offset_point((anchor_x, anchor_y), offset, rotation_svg)
-        if halo is not None:
-            if not isinstance(halo, dict) or not _COLOR_RE.fullmatch(str(halo.get("color"))):
-                raise ValueError(f"label halo 必须是 {{'color': '#rrggbb', 'width_pt': >0}}, 得到 {halo!r}")
-            if not float(halo.get("width_pt", 0.0)) > 0:
-                raise ValueError(f"label halo.width_pt 必须 > 0, 得到 {halo!r}")
+        if not float(font_size_pt) > 0:
+            raise ValueError(f"label font_size_pt 必须 > 0, 得到 {font_size_pt!r}")
+        x, y = svg_point(ax, lon, lat)
         self.labels.append(
             _Label(
-                id=label_id(id_kind or kind, name if name is not None else text, index),
-                kind=kind,
+                id=label_id(
+                    id_kind or _ID_PREFIX.get(role, role),
+                    name if name is not None else text,
+                    index,
+                ),
+                role=role,
                 text=text,
-                lines=lines,
                 x=_clean(x),
                 y=_clean(y),
-                rotation_deg=rotation_svg,
                 anchor=_ANCHORS[ha],
                 font_size_pt=_clean(float(font_size_pt)),
-                color=str(color).lower(),
-                italic=bool(italic),
-                halo=None
-                if halo is None
-                else {"color": str(halo["color"]).lower(), "width_pt": _clean(float(halo["width_pt"]))},
                 order=len(self.labels),
             )
         )
@@ -712,17 +668,12 @@ class GeoDoc:
             "labels": [
                 {
                     "id": label.id,
-                    "kind": label.kind,
+                    "role": label.role,
                     "text": label.text,
-                    "lines": label.lines,
                     "x": label.x,
                     "y": label.y,
-                    "rotation_deg": label.rotation_deg,
                     "anchor": label.anchor,
                     "font_size_pt": label.font_size_pt,
-                    "color": label.color,
-                    "italic": label.italic,
-                    "halo": label.halo,
                     "order": label.order,
                 }
                 for label in self.labels
