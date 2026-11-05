@@ -7,9 +7,11 @@
 
 ## 安装
 
-依赖声明在 `pyproject.toml`, 共享代码在 `src/cartopy_file/`. 用 uv 同步环境:
+依赖声明在 `pyproject.toml`, 共享代码在 `src/cartopy_file/`. 需要 Python 3.15+
+(`.python-version` 固定为 3.15). 用 uv 同步环境:
 
 ```bash
+export UV_CACHE_DIR="$PWD/data/uv-cache"   # 本机 /home 只读, uv 缓存要落在仓库内
 uv sync                # 新建/同步 .venv, 默认包含 dev 组
 uv pip install -e .    # 已有 .venv, 只把本项目以可编辑模式装进去
 ```
