@@ -5,13 +5,13 @@
 
 ## 是什么
 
-一张图的全部可配置事实: 画框、投影、画布、色带、经纬网、地名、城市点与文案. 全部是冻结
+一张图的全部可配置事实: 画框,投影,画布,色带,经纬网,地名,城市点与文案. 全部是冻结
 dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就枚举出所有实例的
 产物路径与数据依赖.
 
 本模块只放**类型与校验**(spec = 规格模型); 具体数值写在子项目的 `config.py` 里(config = 该
 子项目的配置实例), 与数据集清单放在同一个文件: 下载范围和绘图范围因此只有一个作者, 不会再
-出现「下载模块写一个画框、绘图模块又写一个」的问题. 分开的理由: 类型不随图种变, 所以留在
+出现「下载模块写一个画框,绘图模块又写一个」的问题. 分开的理由: 类型不随图种变, 所以留在
 共享包; 配置每个子项目一份, 新增子项目只加 `config.py`, 不用改这里.
 
 ## 关键行为
@@ -31,12 +31,12 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
   geo.json 的 `#rrggbb` 副本;
 - `Label`: `lon/lat/text/role/font_size_pt/name` 必填, `dx/dy`(度)是相对锚点的偏移,
   `ha` 是水平对齐. `text` 只放图上显示的文案(中文/换行都行), `name` 是 id 的标识符段,
-  必须是小写 ASCII slug(`check_slug`: 字母数字, 用 `-` `_` `.` 连接, 如 `belarus`、
+  必须是小写 ASCII slug(`check_slug`: 字母数字, 用 `-` `_` `.` 连接, 如 `belarus`,
   `black-sea`). 为什么分开: id 会被前端和旧布局文件当键引用, 不能随显示文案漂移,
   也不允许中文(旧产物的 `label-country-白俄罗斯` 就是在 text 兜底进 id 时产生的);
   `id_kind` 覆盖 id 的角色家族(如共和国名要 `republic`), 同样是 slug;
 - `LegendEntry`: 一条图例, `label`/`shape(line|rect|point)` 必填, 其余 `stroke`/`fill`
-  (`#rrggbb`)、`width_pt`、`opacity`、`dash`、`marker`(point 专用)、`hatch`、
+  (`#rrggbb`),`width_pt`,`opacity`,`dash`,`marker`(point 专用),`hatch`,
   `label_lines`(多行图例的分行文案)可选; 字段与 geo 的 `legend.entries` 一一对应;
 - `City`: 点标记的尺寸/填充/描边/边宽与是否首都(形状由 `layers.add_cities` 固定);
 - `Sheet`: 一张图. `out` 只是地图文件名(不带目录), 地图渲染到 `<子项目>/map/`, 文字信息
@@ -85,11 +85,11 @@ SHEET = Sheet(
     legend=(LegendEntry("国界", "line", stroke="#4a4a4a", width_pt=1.4),),
     legend_title="图例",
     title="缅甸联邦共和国全境地形图",
-    subtitle="…",
+    subtitle="...",
 )
 ```
 
-一个子项目出多张图时写 `SHEETS = (SHEET_A, SHEET_B)`; 工具(`download_data.py --check`、
+一个子项目出多张图时写 `SHEETS = (SHEET_A, SHEET_B)`; 工具(`download_data.py --check`,
 `tools/check_geo.py`)会把它们自动收进清单与自检范围.
 
 ## 注意事项
@@ -101,7 +101,7 @@ SHEET = Sheet(
   也在 `config.py` 里紧接着写, 不要跑到下载脚本里再写一遍;
 - `lon_ticks`/`lat_ticks` 是**产物级**的取值: 改它们会改变 SVG 字节. 只想要更密的刻度时,
   先确认这是设计变更而不是顺手重排;
-- `Sheet.out` 只写地图文件名、必须 `.svg` 结尾, 不能带目录; 一个 `SHEETS` 里 id 与产物名
+- `Sheet.out` 只写地图文件名,必须 `.svg` 结尾, 不能带目录; 一个 `SHEETS` 里 id 与产物名
   都不能重复;
 - 文案(`title/subtitle/notes`)只写纯文本; 色标标题只在 `relief` 存在时输出
   (`colorbar_title`), 不铺高程的图不要留一个空色标版面.

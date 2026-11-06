@@ -1,12 +1,12 @@
 # 数据层 (cartopy_file.datasets)
 
-- 源码: [`src/cartopy_file/datasets.py`](../../src/cartopy_file/datasets.py)、[`sources.py`](../../src/cartopy_file/sources.py)、[`fetch.py`](../../src/cartopy_file/fetch.py)
-- 导入: `from cartopy_file.datasets import Dataset, dataset_set`、`from cartopy_file.sources import source, ne_url, erddap_url`、`from cartopy_file import fetch`
+- 源码: [`src/cartopy_file/datasets.py`](../../src/cartopy_file/datasets.py),[`sources.py`](../../src/cartopy_file/sources.py),[`fetch.py`](../../src/cartopy_file/fetch.py)
+- 导入: `from cartopy_file.datasets import Dataset, dataset_set`,`from cartopy_file.sources import source, ne_url, erddap_url`,`from cartopy_file import fetch`
 
 ## 是什么
 
 数据层的三个模块: `sources` 登记外部数据源(URL 模板/版本/许可/署名), `fetch` 做下载与
-解压, `datasets` 描述「一个子项目要哪些数据、放哪、怎么校验」并与实例规格互相引用.
+解压, `datasets` 描述「一个子项目要哪些数据,放哪,怎么校验」并与实例规格互相引用.
 一页写清是因为它们只有一个用法: 在子项目的 `config.py` 里声明一份 `DATASETS`, 数据准备
 脚本与绘图脚本都从它取参数.
 
@@ -39,24 +39,24 @@
 
 ```
 <Sub>/data/raw/       下载原样: 原始 NetCDF / zip / GeoJSON
-<Sub>/data/derived/   由脚本加工出来的: 解压目录、生成的边界 GeoJSON
+<Sub>/data/derived/   由脚本加工出来的: 解压目录,生成的边界 GeoJSON
 data/cartopy/         全项目共用的 Natural Earth 缓存(由根目录 download_data.py 预取)
 ```
 
-`raw` 一次下载、永不改写; `derived` 可以随时删掉重算, 删它不会触发重新联网. 目录归属与脚本
+`raw` 一次下载,永不改写; `derived` 可以随时删掉重算, 删它不会触发重新联网. 目录归属与脚本
 一一对应: `download_*.py` 只写 `raw/`, `prepare_*.py` 只写 `derived/`(见
 [data-preparation.md](../data-preparation.md)).
 
 ### 版本怎么钉
 
-- 版本号写在 URL/文件名里的(GADM `gadm41_*`、ETOPO `ETOPO_2022_v1_15s`、HydroBASINS `v1c`)
+- 版本号写在 URL/文件名里的(GADM `gadm41_*`,ETOPO `ETOPO_2022_v1_15s`,HydroBASINS `v1c`)
   直接记录版本字符串;
 - **Natural Earth 是唯一的例外**: S3 下载地址不带版本号, 换版会原地覆盖同名文件. 所以:
   1. `Source.version` 记录当前使用的版本(5.1.1);
   2. 缓存里随 zip 解出来的 `*.VERSION.txt` 是唯一证据, 用 `Dataset.version_file` 指向它,
      `--check` 逐字比对(不符即报「版本不符」);
   3. 确实停在旧版本的数据(缅甸的河流副本是 5.0.0)在 `Dataset.version` 里显式钉住, 并写进
-     `note`, 而不是悄悄跟着共享缓存走——换版会改变河网几何, 必须单独评审;
+     `note`, 而不是悄悄跟着共享缓存走--换版会改变河网几何, 必须单独评审;
   4. 需要「内容也不许换」时用 `Dataset` 之外的 `fetch.download(..., expected_sha256=...)`,
      校验失败会删掉半成品并提示同步更新版本口径.
 
@@ -111,8 +111,8 @@ fetch.extract_zip(archive, dest_dir)
   已经把 `.README.html` / `.VERSION.txt` 也一起复制);
 - `DatasetSet.exists()` 用 glob 判定「就位」时必须真正取出匹配项(`next(iter(glob), None)`);
   `any(root.glob(p) for p in patterns)` 恒为真(生成器对象本身是 truthy), 会让 `--check`
-  把缺失一律当成就位——这是修过的历史 bug, 改动这段要做一次「移走文件应报 missing」的验证;
+  把缺失一律当成就位--这是修过的历史 bug, 改动这段要做一次「移走文件应报 missing」的验证;
 - 版本不符是失败而不是警告: 产物是「当前代码 + 当前数据」生成的, 换版后底图与文档就对不上了;
 - 「下载压缩包再解压」有两种登记方式: ① ``kind="zip"``, ``dest`` 指向解压目录(缅甸的河流副本);
-  ② 拆成两条——``kind="file"`` 的压缩包放 ``raw/`` + ``kind="derived"`` 的解压目录(伏尔加的
+  ② 拆成两条--``kind="file"`` 的压缩包放 ``raw/`` + ``kind="derived"`` 的解压目录(伏尔加的
   HydroBASINS). 同一子项目里选一种即可, 别一半一半, 否则 ``--check`` 会报出重复或对不上的项.

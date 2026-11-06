@@ -2,10 +2,10 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Download / resume / verify / extract helpers for the data-preparation scripts.
 
-是什么: 数据准备脚本共用的下载层: 断点续传、多镜像重试、内容魔数校验、解压、sha256.
-这里不 import matplotlib/cartopy, 也不认识任何具体数据集——「下什么、放哪」由各子项目
+是什么: 数据准备脚本共用的下载层: 断点续传,多镜像重试,内容魔数校验,解压,sha256.
+这里不 import matplotlib/cartopy, 也不认识任何具体数据集--「下什么,放哪」由各子项目
 ``config.py`` 的 ``DatasetSet`` 决定.
-完整说明(续传与校验的坑、为什么先写 .part)见 ``docs/reference/datasets.md``.
+完整说明(续传与校验的坑,为什么先写 .part)见 ``docs/reference/datasets.md``.
 """
 
 from __future__ import annotations

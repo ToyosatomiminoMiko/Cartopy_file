@@ -8,7 +8,7 @@
 ``northern_shan.py`` 绘图. 本文件是模块, 只导出 ``run()``, 由统一入口
 ``python Myanmar/main.py download`` 调用. 缓存路径与 Overpass 镜像都来自共享层: 路径取
 ``Myanmar/config.py`` 的 ``DATASETS``, 镜像取 ``cartopy_file.sources``.
-完整说明(数据来源、拼装原理、ODbL 许可)见 ``docs/maps/northern-shan.md``;
+完整说明(数据来源,拼装原理,ODbL 许可)见 ``docs/maps/northern-shan.md``;
 数据集层见 ``docs/reference/datasets.md``.
 """
 
@@ -72,7 +72,7 @@ RELATIONS: dict[int, tuple[str, str, str, str | None]] = {
     5996477: ("context", "克耶邦", "Kayah State", None),
 }
 
-# 原果敢自治区(2010–2023): 官方自治区由老街(Laukkai)、拱掌(Konkyan)
+# 原果敢自治区(2010–2023): 官方自治区由老街(Laukkai),拱掌(Konkyan)
 # 两个镇区组成. 2024 年第一特区扩编为 1 市 4 县后, 这两个镇区分别对应
 # 城区的"老街市"与"果敢县"; 把二者合并即还原原自治区范围(约 2000 km²).
 # 本图层不再额外请求 OSM, 而是由已下载的两个子关系派生.

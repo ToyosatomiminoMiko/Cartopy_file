@@ -3,12 +3,12 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Download the ETOPO 2022 subsets declared in the Myanmar dataset inventory.
 
-是什么: 按 ``Myanmar/config.py`` 里登记的 ETOPO 数据集(URL、下载范围、dest 命名约定)
+是什么: 按 ``Myanmar/config.py`` 里登记的 ETOPO 数据集(URL,下载范围,dest 命名约定)
 从 NOAA ERDDAP 下载区域高程子集; 目标文件已存在时跳过, 中断过可续传. 本文件是模块,
 只导出 ``run()``, 由统一入口 ``python Myanmar/main.py download`` 调用.
 Natural Earth 10m 国界不再由本脚本下载: 它由根目录 ``download_data.py`` 预取到全项目
 共享缓存 ``data/cartopy/``, 绘图脚本通过 cartopy 的缓存路径直接读取.
-完整说明(为什么用 ERDDAP、下载范围、--region/--stride 的含义)见
+完整说明(为什么用 ERDDAP,下载范围,--region/--stride 的含义)见
 ``docs/data-preparation.md`` 的 ETOPO 一节; 数据集层见 ``docs/reference/datasets.md``.
 """
 
@@ -92,9 +92,9 @@ def run(*, region: str = "myanmar", stride: int | None = None, force: bool = Fal
         "(data/cartopy/), 本脚本不再下载."
     )
     if region == "myanmar":
-        print("\n完成。现在可运行: python Myanmar/main.py render --sheet myanmar")
+        print("\n完成.现在可运行: python Myanmar/main.py render --sheet myanmar")
     else:
-        print("\n完成。现在可运行: python Myanmar/main.py render --sheet northern-shan")
+        print("\n完成.现在可运行: python Myanmar/main.py render --sheet northern-shan")
     return 0
 
 

@@ -4,7 +4,7 @@
 """检查产物是否满足「裁到地图框的纯底图 + geo.json」契约.
 
 是什么: 读 ``<子项目>/map/<产物>.svg`` 与 ``<子项目>/text/<产物>.geo.json``, 检查底图根标签
-(viewBox/width/height)、是否残留 ``<text>``、geo 的 format/version/base 是否与底图字节自洽,
+(viewBox/width/height),是否残留 ``<text>``,geo 的 format/version/base 是否与底图字节自洽,
 以及 graticule/labels/relief/legend/suggestions 的结构与枚举是否合法; 有错时打印中文错误并
 以退出码 1 结束.
 

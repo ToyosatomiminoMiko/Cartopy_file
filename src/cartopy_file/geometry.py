@@ -5,10 +5,10 @@
 
 是什么: 把「几何修到能画」「按确定性格式写 GeoJSON」「量面积/长度/顶点」这三类与图种无关的
 操作收在一处, 供各子项目的 prepare_*.py 与下载脚本共用.
-为什么: 这些函数原先在 Ukraine/Volga 各复制一份并已经开始漂移(坐标精度、面积算法、写文件
+为什么: 这些函数原先在 Ukraine/Volga 各复制一份并已经开始漂移(坐标精度,面积算法,写文件
 方式不一致); 放在这里只有一份实现, 数值阈值(小孔面积等)仍由各子项目按自己的图传参.
 只依赖 shapely/pyproj/pandas, 不 import matplotlib/cartopy, 所以数据准备脚本与工具都能用.
-完整说明(阈值怎么定、为什么统一写 GeoJSON、精度怎么选)见 ``docs/reference/geometry.md``.
+完整说明(阈值怎么定,为什么统一写 GeoJSON,精度怎么选)见 ``docs/reference/geometry.md``.
 """
 
 from __future__ import annotations

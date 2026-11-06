@@ -5,8 +5,8 @@
 
 ## 是什么
 
-把「底图不画、前端排版要知道」的元数据收集成文字信息 `<stem>.geo.json`, 并把
-Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem、分目录存放: 地图写到
+把「底图不画,前端排版要知道」的元数据收集成文字信息 `<stem>.geo.json`, 并把
+Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem,分目录存放: 地图写到
 `<子项目>/map/`, 文字信息写到 `<子项目>/text/`. 字段与取值口径沿用 `miko_svg_editor` 的
 `mapdoc-geo` **v2** 契约(`docs/PAGE-EDITOR.md` §3): `base` / `graticule` / `labels` /
 `relief` / `legend` / `suggestions`. 旧 **v1** 产物不再被接受, 编辑器会要求重新生成.
@@ -14,7 +14,7 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
 - `GeoDoc(frame)`: 收集器; 脚本按图层顺序调用 `add_label()` / `add_graticule()` /
   `set_relief()` / `set_legend()` / `set_suggestions()`;
 - `figure_frame(fig, ax)`: 量出地图坐标区在 Figure 里的矩形, 换算成 SVG pt 坐标;
-- `save_map(...)`: 保存 SVG → 把根标签裁到地图框 → 按最终字节算 `sha256` → 写调用方传入的
+- `save_map(...)`: 保存 SVG -> 把根标签裁到地图框 -> 按最终字节算 `sha256` -> 写调用方传入的
   文字信息路径. 两个产物路径都显式给出, 本模块不在 SVG 旁边自动写 geo.json.
 
 ## 关键行为
@@ -23,7 +23,7 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
    来裁到地图框, 因此 geo 里的 `x/y` 与底图坐标逐值一致(原点为原 Figure 左上角,
    y 向下, 单位 pt). `base.view_box` 与底图根标签由同一份 `Frame` 生成.
 2. **labels 只描述语义与摆放, 不含样式**: 生成端输出 `id / role / text / x / y /
-   anchor / font_size_pt / order`, 颜色、描边、斜体、字重、字距、行高全部由前端
+   anchor / font_size_pt / order`, 颜色,描边,斜体,字重,字距,行高全部由前端
    `miko_svg_editor/src/config/text-style.ts` 的角色表与全局常量决定; 旋转也由前端
    处理(默认 0). v1 的 `kind / lines / color / italic / halo / rotation_deg` 已删除.
 3. **x 是文字块的水平锚点**: `anchor=start` 时 x 指文字块左端, `middle` 时指中心,
@@ -41,7 +41,7 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
    ```
 
 6. **id 规则**: `label-<role 家族>-<name>[-<index>]`; 角色家族由 `_ID_PREFIX` 决定
-   (`country-name → country`, `city-reference → city`, `area* → area`, 其余 role 同名),
+   (`country-name -> country`, `city-reference -> city`, `area* -> area`, 其余 role 同名),
    `id_kind=` 可覆盖家族(如 `label-republic-tatarstan`). `<name>` **必须是小写 ASCII slug**
    (`spec.check_slug`): 字母数字, 用 `-` `_` `.` 连接, 例如 `label-country-belarus`;
    中文/换行/双语后缀只放在 `labels[].text` 里. 为什么: id 是前端与布局文件引用的键,
@@ -63,7 +63,7 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
    经纬度再插值, 不对投影做任何直线假设; `side` 由脚本决定(现有图都只标底边/左边).
 8. **色标 stops 从 colormap 等距采样 21 个**(与旧成品抽出的口径一致), 不导出
    matplotlib 内部锚点, 避免版本升级改变输出.
-9. **确定性**: `save_svg` 已固定 hashsalt / 不写时间戳; 本模块只改根标签属性、JSON 用
+9. **确定性**: `save_svg` 已固定 hashsalt / 不写时间戳; 本模块只改根标签属性,JSON 用
    固定缩进和字段顺序, 同样数据重复出图得到相同字节(以同一环境为前提).
 
 ## 用法
@@ -87,7 +87,7 @@ doc.set_relief(relief_from_cmap(ELEV_CMAP, title="高程 / 水深", unit="m",
                                 ticks=(-2000, -1000, 0, 500, 1000, 1500, 2000)))
 doc.set_legend("图例", [{"label": "国界", "shape": "line",
                         "stroke": "#4a4a4a", "width_pt": 1.4}])
-doc.set_suggestions({"title": "…", "subtitle": "…", "notes": ["…"],
+doc.set_suggestions({"title": "...", "subtitle": "...", "notes": ["..."],
                      "legend_title": "图例",
                      "colorbar_title": "高程 / 水深"})
 # 新图种不要手写 source: layers.suggestions(sheet, catalog) 会按数据集清单生成
@@ -115,12 +115,12 @@ save_map(fig, MAP_PATH, doc, geo_path=TEXT_PATH, dpi=args.dpi)
 - 多行标注只输出文字块中心: 前端用固定的行高(`1.2 x 字号`)排多行, 旧成品用的是
   matplotlib 的 `linespacing`(CJK 字体下实际行距更大); 因此两行以上标注的整块视觉中心
   可能与旧成品差 ≤1 pt, 这是「行高统一到前端」的必然取舍, 不在 geo 里存行距;
-- 契约里仍未定义的 `labels[].leader/lang`、`scale`、`north`、`area_labels` 不输出: 比例尺与
+- 契约里仍未定义的 `labels[].leader/lang`,`scale`,`north`,`area_labels` 不输出: 比例尺与
   指北针仍是非目标, 现有图种不产生这些信息(旧图的指引线端点保留在脚本数据表中);
-- 布局只有一种: 地图必须在 `<子项目>/map/` 下、文字信息必须在 `<子项目>/text/` 下; 只拿到
+- 布局只有一种: 地图必须在 `<子项目>/map/` 下,文字信息必须在 `<子项目>/text/` 下; 只拿到
   地图路径时用 `cartopy_file.spec.geo_path_for()` 反推 geo 路径, 地图不在 `map/` 下会直接
   报错, 不做「同级找同名 geo」的回退;
 - 产物不入库: `.gitignore` 忽略 `*.svg` 与 `*.geo.json`, 需要时按图种页的命令生成;
 - 出图后跑 `python tools/check_geo.py <子项目>/map/<产物>.svg`(或直接无参检查全部产物):
-  定位「根标签没裁、残留 `<text>`、sha 没更新、字段/枚举不合法、v1 旧字段残留」这类结构错误;
+  定位「根标签没裁,残留 `<text>`,sha 没更新,字段/枚举不合法,v1 旧字段残留」这类结构错误;
   它不做视觉判断, 前端标准校验仍以 miko 的 `mapdoc-geo` 实现为准.

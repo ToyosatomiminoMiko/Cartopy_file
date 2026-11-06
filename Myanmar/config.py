@@ -2,8 +2,8 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Myanmar subproject: dataset inventory and per-sheet render config.
 
-是什么: 缅甸子项目的唯一配置入口——数据集清单(从哪下、版本、下载范围、本地路径)与
-每张图的规格(画框、投影、色带、经纬网、地名、图例、图面配色、文案). 数据准备脚本与绘图
+是什么: 缅甸子项目的唯一配置入口--数据集清单(从哪下,版本,下载范围,本地路径)与
+每张图的规格(画框,投影,色带,经纬网,地名,图例,图面配色,文案). 数据准备脚本与绘图
 脚本都从这里取参数, 下载范围和绘图范围不会再各写一份; 图例与地图共用同一份颜色,
 改色时图例跟着变.
 完整说明(数据集层与实例规格层怎么分工)见 ``docs/reference/datasets.md`` 与
@@ -212,7 +212,7 @@ PROJECTION_LCC = Projection(
     },
 )
 
-# 高程/水深双色带: 水面到 -1 m, 陆地从 +1 m 起, 0 m 处直接跳变——本图不画海岸线,
+# 高程/水深双色带: 水面到 -1 m, 陆地从 +1 m 起, 0 m 处直接跳变--本图不画海岸线,
 # 海陆界线就靠这条跳变(理由见 docs/maps/myanmar.md).
 MYANMAR_RELIEF = Relief(
     vmin=-5000,
@@ -248,7 +248,7 @@ MYANMAR_RELIEF = Relief(
     unit="m",
 )
 
-# 经纬网: 经度每 3°、纬度每 5°; 取值写死成网线的精确位置(与改前 FixedLocator 一致).
+# 经纬网: 经度每 3°,纬度每 5°; 取值写死成网线的精确位置(与改前 FixedLocator 一致).
 GRATICULE_3X5 = Graticule(
     lon_step=3.0,
     lat_step=5.0,
@@ -494,9 +494,9 @@ STATE_COLORS = {
 }
 REGION_COLORS = {
     # 伊洛瓦底省与勃固省有很长的公共边界, 旧色 #ffb74d(浅橙) 与勃固省的
-    # #f9a825(琥珀) 色相几乎相同(约 36°)、亮度也接近, 半透明叠在米色地形上
+    # #f9a825(琥珀) 色相几乎相同(约 36°),亮度也接近, 半透明叠在米色地形上
     # 几乎分不出界线; 改用 #ff8a65(deep orange 300) 把色相拉到橙红一侧,
-    # 两者色差放大到约 3 倍, 同时与相邻的仰光省品红、若开邦青绿仍保持足够区分.
+    # 两者色差放大到约 3 倍, 同时与相邻的仰光省品红,若开邦青绿仍保持足够区分.
     "ayeyarwady": "#ff8a65",
     "bago": "#f9a825",
     "magway": "#d84315",
@@ -511,7 +511,7 @@ BOUNDARY_COLOR = "#2f2f2f"
 # 内比都联邦区: 中性浅色 + 斜线, 表示既不是邦也不是省.
 UNION_EDGE_COLOR = "#6b4e00"
 UNION_HATCH = "////"
-# 图例与地图共用的其它固定色: 行政单元描边、行政中心符号、河流强调线.
+# 图例与地图共用的其它固定色: 行政单元描边,行政中心符号,河流强调线.
 UNIT_EDGE_COLOR = "#ffffff"
 UNIT_EDGE_WIDTH = 0.6
 CAPITAL_FILL = "#ffd200"
@@ -624,11 +624,11 @@ ADMIN_LEGEND = (
 )
 
 # ============================
-# 行政区划图: 标注(双语各一条: 中文行在上、英文行在下)
+# 行政区划图: 标注(双语各一条: 中文行在上,英文行在下)
 # ============================
 # 旧版用 annotate 的 offset points 排版(中文行在锚点上方 4~4.2 pt, 英文行在下方
 # 5~7 pt, 行距与字号相关), 而 geo.labels 只认经纬度. 兰勃特投影在画框各处的比例
-# 不同, 所以不存在一个统一的换算系数: 下面的落点是按旧版每条磅偏移、在当处投影
+# 不同, 所以不存在一个统一的换算系数: 下面的落点是按旧版每条磅偏移,在当处投影
 # 比例下换算出来的经纬度(已含偏移, 不再是锚点), 换投影/画幅要重算, 见
 # docs/maps/myanmar-admin.md.
 # 行格式: (中文行经度, 中文行纬度, 英文行经度, 英文行纬度, 中文文案, 英文文案, id slug).
@@ -654,7 +654,7 @@ RIVER_LABELS = (
      "salween"),
 )
 # 行政区名: key -> (中文行经度, 中文行纬度, 英文行经度, 英文行纬度).
-# 多数放在单元内部; 面积很小的单元(内比都联邦区、仰光省、孟邦)用更小字号.
+# 多数放在单元内部; 面积很小的单元(内比都联邦区,仰光省,孟邦)用更小字号.
 ADMIN_LABEL_POSITIONS = {
     "kachin": (97.05028066, 27.13213977, 97.04953287, 26.91305850),
     "kayah": (97.45046254, 19.33314167, 97.44923011, 19.11142579),
@@ -673,7 +673,7 @@ ADMIN_LABEL_POSITIONS = {
     "npt": (96.44997553, 20.24310740, 96.45004074, 20.02147859),
 }
 # 行政中心名: key -> (中文行经度, 中文行纬度, 英文行经度, 英文行纬度, 水平对齐).
-# 旧版先按各中心的 (dx, dy) 磅偏移摆位, 中文行再 +2.6 pt、英文行 -5.0 pt.
+# 旧版先按各中心的 (dx, dy) 磅偏移摆位, 中文行再 +2.6 pt,英文行 -5.0 pt.
 CAPITAL_LABEL_POSITIONS = {
     "kachin": (97.54491001, 25.48850932, 97.54395577, 25.33924369, "left"),
     "kayah": (97.35291492, 19.79502882, 97.35216211, 19.64460697, "left"),
@@ -711,7 +711,7 @@ def _add_bilingual_label(
 ) -> None:
     """登记一对中文/英文标注: 两条共用一个 role 与 id_kind, 只有落点/字号不同.
 
-    为什么英文单独一条: 旧版 en 是独立文字(字号更小、位置另给), 前端要能分别拖动;
+    为什么英文单独一条: 旧版 en 是独立文字(字号更小,位置另给), 前端要能分别拖动;
     id 用同一个 slug 加 ``-en`` 后缀, 与旧版命名一致.
     """
     sink.append(
@@ -731,7 +731,7 @@ def _add_bilingual_label(
 def _build_admin_labels() -> tuple[Label, ...]:
     """按旧图叠放顺序建 76 条双语 Label: 邻国 -> 海域 -> 行政区 -> 行政中心 -> 河名.
 
-    顺序就是前端 scene 的叠放顺序(旧图 zorder 升序: 邻国/海域 11、行政区名 13、
+    顺序就是前端 scene 的叠放顺序(旧图 zorder 升序: 邻国/海域 11,行政区名 13,
     行政中心与河名 14), 同一 zorder 内按旧版插入顺序.
     """
     labels: list[Label] = []
@@ -804,7 +804,7 @@ ADMIN_RELIEF = Relief(
     zorder=2,
 )
 
-# 经纬网: 经度每 2°、纬度每 5°; 取值写死成改前 FixedLocator 的位置.
+# 经纬网: 经度每 2°,纬度每 5°; 取值写死成改前 FixedLocator 的位置.
 ADMIN_GRATICULE = Graticule(
     lon_step=2.0,
     lat_step=5.0,
@@ -847,9 +847,9 @@ SHEET_ADMIN = Sheet(
     title="缅甸联邦共和国行政区划图",
     subtitle="ADMINISTRATIVE DIVISIONS OF THE REPUBLIC OF THE UNION OF MYANMAR",
     notes=(
-        "七邦（冷色）· 七省（暖色）· 内比都联邦区　　"
+        "七邦(冷色)· 七省(暖色)· 内比都联邦区　　"
         "7 States (cool colours) · 7 Regions (warm colours) · Naypyidaw Union Territory",
-        "地名均为中文 + English 双语（All place names are bilingual）",
+        "地名均为中文 + English 双语(All place names are bilingual)",
         "7 邦 · 7 省 · 1 联邦区",
     ),
     colorbar_title="高程",
@@ -899,8 +899,8 @@ NORTHERN_SHAN_GRATICULE = Graticule(
 # 图面配色(绘图与图例共用这一份, 改色时图例与地图必须一起变)
 # ============================
 # 区域配色: 填充色 + 边界色. 透明度让下方地形仍可读.
-# 德昂邦用绿色: 第一特区(紫)、佤邦(蓝)、四特(橙)已占三色, 绿色是
-# 与三者色相距离最大、且不与环境色(山体晕渲)冲突的选择.
+# 德昂邦用绿色: 第一特区(紫),佤邦(蓝),四特(橙)已占三色, 绿色是
+# 与三者色相距离最大,且不与环境色(山体晕渲)冲突的选择.
 REGION_STYLES = {
     "sr1": {
         "fill": "#8c6bb1",
@@ -934,15 +934,15 @@ MNDAA_HATCH = "///"
 MNDAA_HATCH_COLOR = "#4a1486"
 
 # 国界: 用 OSM admin_level=2 数据(精度与区域边界一致); 颜色/透明度/线宽用
-# 共享的 COLOR_BORDER/BORDER_ALPHA/BORDER_WIDTH(与全国图、行政区图一致).
+# 共享的 COLOR_BORDER/BORDER_ALPHA/BORDER_WIDTH(与全国图,行政区图一致).
 
-# 原果敢自治区(第一特区前身): 与第一特区同色系、明显加深的填充, 用嵌套色块
-# 表示"含于第一特区辖区". 只填色、不描内边界, 以免粗线压住区内的河流;
+# 原果敢自治区(第一特区前身): 与第一特区同色系,明显加深的填充, 用嵌套色块
+# 表示"含于第一特区辖区". 只填色,不描内边界, 以免粗线压住区内的河流;
 # 不加第二种底纹的原因见 docs/maps/northern-shan.md.
 KOKANG_SAZ_FILL = "#54278f"
 KOKANG_SAZ_ALPHA = 0.32
 
-# 图例 / 绘图共用的其它固定色: 省/邦界、河流、特区首府点.
+# 图例 / 绘图共用的其它固定色: 省/邦界,河流,特区首府点.
 PROVINCE_EDGE_COLOR = "#7f7f7f"
 RIVER_COLOR = "#1f78b4"
 SHAN_CAPITAL_FILL = "#ffd200"
@@ -1174,7 +1174,7 @@ SHEET_NORTHERN_SHAN = Sheet(
     cities=NORTHERN_SHAN_CITIES,
     legend=NORTHERN_SHAN_LEGEND,
     legend_title=NORTHERN_SHAN_LEGEND_TITLE,
-    title="缅甸掸邦特区与地方武装控制区地形图（2026年10月）",
+    title="缅甸掸邦特区与地方武装控制区地形图(2026年10月)",
     subtitle=(
         "NOAA ETOPO 2022 | 边界: OpenStreetMap | 底图: Natural Earth 10m | "
         "兰勃特等角圆锥投影(中央经线 98.4°E)"

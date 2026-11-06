@@ -1,6 +1,6 @@
 # 新增图种或共享模块
 
-照着这个清单做, 新图种就能接进数据清单、文档和出图约定. 想看最小可运行例子, 读
+照着这个清单做, 新图种就能接进数据清单,文档和出图约定. 想看最小可运行例子, 读
 [`AmericaArmy/`](../AmericaArmy): `config.py`(数据与规格) + `main.py`(唯一入口) +
 `america_army.py`(draw 回调 + config 里声明的标签), 没有历史包袱.
 
@@ -8,9 +8,9 @@
 
 ### 1. 建目录与 `config.py`
 
-新目录 `<Name>/`, 里面至少三个文件: `config.py`(数据 + 规格)、`main.py`(唯一可执行入口)、
+新目录 `<Name>/`, 里面至少三个文件: `config.py`(数据 + 规格),`main.py`(唯一可执行入口),
 绘图模块(`<name>.py`). `config.py` 必须导出
-`DATASETS` 与 `SHEETS`, 工具(`download_data.py --check`、`tools/check_geo.py`)会自动收录,
+`DATASETS` 与 `SHEETS`, 工具(`download_data.py --check`,`tools/check_geo.py`)会自动收录,
 **不需要**再去改任何清单:
 
 ```python
@@ -38,7 +38,7 @@ DATASETS = dataset_set("缅甸", ROOT / "data", [
             version_file="ne_10m_admin_0_countries.VERSION.txt"),
 ])
 
-SHEET = Sheet(id="myanmar", out="myanmar_topography.svg", extent=EXTENT, …)
+SHEET = Sheet(id="myanmar", out="myanmar_topography.svg", extent=EXTENT, ...)
 SHEETS = sheets_of([SHEET])
 ```
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
 ```
 
 - 子命令按需要增减: 没有派生需求就没有 `prepare`, 没有下载就没有 `download`;
-- 所有选项(如 `--stride`、`--sheet`)在入口里定义, 模块只收关键字参数, 不自己解析命令行;
+- 所有选项(如 `--stride`,`--sheet`)在入口里定义, 模块只收关键字参数, 不自己解析命令行;
 - 入口 docstring 加 `完整说明: docs/...` 指针(`check_docs.py` 会校验每个 `.py` 都有文档指针).
 
 ### 3. 绘图模块
@@ -103,7 +103,7 @@ from cartopy_file.relief import find_etopo
 SHEET, DATASETS = config.SHEET, config.DATASETS
 
 def draw(ctx):          # 图种特有的图层, 顺序与改前成品一致
-    …
+    ...
     layers.add_cities(ctx.ax, SHEET.cities)
     layers.add_gridlines(ctx.ax, SHEET)
 
@@ -137,11 +137,11 @@ if __name__ == "__main__":
 
 - 文件名 `download_*.py`(下载原始数据)或 `prepare_*.py`(加工派生数据), 放同一目录;
 - **一个模块只做一件事**: `download_*.py` 只写 `data/raw/`(下载/解压/入库, 不加工),
-  `prepare_*.py` 只读 `raw/`、只写 `data/derived/`(不联网); 两者只导出 `run()`, 不带命令行
+  `prepare_*.py` 只读 `raw/`,只写 `data/derived/`(不联网); 两者只导出 `run()`, 不带命令行
   入口, 由入口的 `download` / `prepare` 子命令调用, 不互相 import 私有函数; 需要同时有两者时
   是入口的两个子命令, 见 [data-preparation.md](data-preparation.md) 的准备命令总表;
 - 下载一律走 [`cartopy_file.fetch`](../src/cartopy_file/fetch.py): `download()` 自带 `.part`
-  续传、重试、内容魔数校验与可选 sha256, `post()` 用于 Overpass 这类实时查询接口,
+  续传,重试,内容魔数校验与可选 sha256, `post()` 用于 Overpass 这类实时查询接口,
   `extract_zip()` 解压并留 `.unpacked` 标记; URL/目标路径来自 `config.py` 的 `Dataset`;
 - 幂等: 下载脚本文件已存在且非空就跳过, 提供 `--force` 覆盖; 派生脚本每次全量重建(产物可
   随时删), 不要各写一份下载循环;
@@ -174,7 +174,7 @@ python tools/check_docs.py                                     # 文档链接/�
   `sources`/`output`); 会拉进 matplotlib/cartopy 的模块(`geo`/`relief`/`layers`/`runner`)
   一律按子模块导入, 否则「数据准备脚本不 import matplotlib」和「工具不 import 绘图栈」两条
   约束会一起破掉;
-- 纯几何/纯数据模块(如 `overlap`、`geometry`、`spec`、`datasets`)不要 import matplotlib/cartopy;
+- 纯几何/纯数据模块(如 `overlap`,`geometry`,`spec`,`datasets`)不要 import matplotlib/cartopy;
 - 建 `docs/reference/<module>.md`(模板见 [conventions.md](conventions.md)), 并在
   [index.md](index.md) 与 [overview.md](overview.md) 的模块表里加一行;
 - 改了被多个图种调用的函数时, 先 `grep` 出全部调用点, 再逐个跑受影响的脚本验证.

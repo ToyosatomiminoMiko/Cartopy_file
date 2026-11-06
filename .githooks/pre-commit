@@ -1,0 +1,41 @@
+#!/bin/bash
+# .githooks/pre-commit -- 提交前把暂存文件里的中文全角标点转成半角.
+#
+# 原理与启用步骤见 tools/autorun.py 的模块 docstring 与 docs/conventions.md 的
+# "标点与提交钩子"一节. 快速启用(每个 clone 各做一次):
+#     git config --local core.hooksPath .githooks
+# 临时跳过: git commit --no-verify    卸载: git config --unset core.hooksPath
+#
+# 本 hook 也在修正范围内(工具对自己生效), 所以它自己的注释一律用半角标点书写:
+# 转换结果与原文一致, 不会每次提交都产生无意义的 diff.
+
+set -e
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "[fix-punctuation] 未找到 python3, 跳过标点修正(提交继续)" >&2
+  exit 0
+fi
+
+hook_staged=0
+
+# 找出本次已暂存,且不是删除的文件
+while IFS= read -r -d '' f; do
+  # 正在运行的 hook 不能当场改写自己: bash 是边读边执行脚本的, 执行途中重写自身
+  # 可能让后面的语句读错. 先记下来, 循环结束,脚本读完之后再处理.
+  # ("$f" -ef "$0" 用 inode 判断是否同一个文件, 不受相对/绝对路径影响)
+  if [ "$f" -ef "$0" ]; then
+    hook_staged=1
+    continue
+  fi
+  python3 "$root/tools/autorun.py" "$f"
+  git add -- "$f"
+done < <(git diff --cached --name-only -z --diff-filter=ACM)
+
+# 补上本 hook 自身(它也在修正范围内, 只是必须延后到脚本读完)
+if [ "$hook_staged" = 1 ]; then
+  python3 "$root/tools/autorun.py" "$0"
+  git add -- "$0"
+fi

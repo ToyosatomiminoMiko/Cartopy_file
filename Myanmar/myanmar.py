@@ -11,7 +11,7 @@
 ``docs/reference/geo.md``. 本文件是模块, 只导出 ``run()``, 由统一入口
 ``python Myanmar/main.py render`` 调用. 画框/色带/地名/文案与国界配色全部来自
 ``Myanmar/config.py``; geo.json 由 runner 缺省的 ``layers.standard_collect`` 按 Sheet 收集.
-完整说明(投影选择、数据来源、运行方式)见 ``docs/maps/myanmar.md``.
+完整说明(投影选择,数据来源,运行方式)见 ``docs/maps/myanmar.md``.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ def draw_borders(ax, world) -> None:
     跳变表达(见 config.py 的 MYANMAR_RELIEF). 国界面本身沿海岸闭合, 整圈画出来
     就等于又画了一条红色海岸线; 所以先按 Natural Earth 海岸线缓冲剪掉沿海段,
     红线在孟加拉湾/安达曼海岸收笔, 岸线交给颜色分界. 岛屿(安达曼海群岛等)
-    的边界整圈都贴着海岸线, 会被一并剪掉, 岛上只剩地形色斑 —— 这正是
+    的边界整圈都贴着海岸线, 会被一并剪掉, 岛上只剩地形色斑 -- 这正是
     「不画海岸线」的直接结果.
     """
     if world is None:

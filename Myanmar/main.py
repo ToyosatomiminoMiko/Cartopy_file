@@ -3,15 +3,15 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Myanmar subproject entry point: download / prepare / render / all.
 
-是什么: 缅甸子项目的唯一可执行入口. ``download`` 把 ETOPO 高程子集、OSM 特区边界/国界,
+是什么: 缅甸子项目的唯一可执行入口. ``download`` 把 ETOPO 高程子集,OSM 特区边界/国界,
 以及行政区派生所需的 GADM/NE 河流/OSM 内比都原始数据下载/入库到 ``Myanmar/data/raw/``;
 ``prepare`` 只读 ``raw/`` 重建 ``Myanmar/data/derived/myanmar_admin1.geojson``(不联网);
-``render`` 按 ``--sheet`` 出一到三张图, 地图进 ``Myanmar/map/``、文字信息进
+``render`` 按 ``--sheet`` 出一到三张图, 地图进 ``Myanmar/map/``,文字信息进
 ``Myanmar/text/``; ``all`` 依次跑前三个子命令.
 为什么只有一个入口: 全项目约定「一个子项目一个可执行文件, 其余 .py 只导出 run()」;
 参数解析与退出码归这里, 模块不再各自解析命令行; 子命令分派用懒导入, download 不加载
 matplotlib/cartopy, render 不加载下载栈.
-完整说明(三张图的投影/数据源/运行方式)见 ``docs/maps/myanmar.md``、
+完整说明(三张图的投影/数据源/运行方式)见 ``docs/maps/myanmar.md``,
 ``docs/maps/myanmar-admin.md`` 与 ``docs/maps/northern-shan.md``.
 """
 
@@ -47,12 +47,12 @@ def build_parser() -> argparse.ArgumentParser:
     """构造命令行: download / prepare / render / all 四个子命令."""
     parser = argparse.ArgumentParser(
         prog="python Myanmar/main.py",
-        description="缅甸子项目统一入口: 下载数据、重建派生 GeoJSON、出图.",
+        description="缅甸子项目统一入口: 下载数据,重建派生 GeoJSON,出图.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True, metavar="<子命令>")
 
     download = subparsers.add_parser(
-        "download", help="下载 ETOPO 子集、OSM 特区边界/国界与行政区原始数据"
+        "download", help="下载 ETOPO 子集,OSM 特区边界/国界与行政区原始数据"
     )
     download.add_argument(
         "--region",
@@ -126,7 +126,7 @@ def download(
     force: bool = False,
     skip_regions: bool = False,
 ) -> int:
-    """下载三组原始数据: ETOPO 子集、掸邦特区边界/国界、行政区派生所需的 GADM/河流/缓存.
+    """下载三组原始数据: ETOPO 子集,掸邦特区边界/国界,行政区派生所需的 GADM/河流/缓存.
 
     为什么行政区那三份也在这里下: ``prepare_admin_data.py`` 约定只读 ``raw/`` 不联网,
     「下载」这件事必须只有 download 一个入口; 三组数据源不同(ERDDAP/Overpass/GADM),
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     try:
         raise SystemExit(run())
     except KeyboardInterrupt:
-        print("\n用户中断。可重新运行以续传未完成的下载。", file=sys.stderr)
+        print("\n用户中断.可重新运行以续传未完成的下载.", file=sys.stderr)
         raise SystemExit(130)
     except Exception as exc:
         print(f"错误: {exc}", file=sys.stderr)

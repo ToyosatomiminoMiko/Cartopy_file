@@ -2,16 +2,16 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """AmericaArmy demo: world basemap + base markers, rendered through the shared pipeline.
 
-是什么: 框架用法的最小示例——``config.py`` 里放数据清单、Sheet 与地名/文案, 本文件只写
+是什么: 框架用法的最小示例--``config.py`` 里放数据清单,Sheet 与地名/文案, 本文件只写
 一个 ``draw`` 回调; 没有出图时才知道的动态数据, 所以不写 ``collect``, geo.json 由
-``layers.standard_collect`` 按 Sheet 收集. 其余(建画布、定范围、量地图框、保存纯几何 SVG
+``layers.standard_collect`` 按 Sheet 收集. 其余(建画布,定范围,量地图框,保存纯几何 SVG
 与同名 geo.json)由 ``cartopy_file.runner`` 统一完成.
 为什么底图要素显式钉死 Natural Earth 110m: cartopy 的 ``cfeature.*`` 默认用
 AdaptiveScaler, 会按当前视野自动换成 50m/10m, 缩放重绘时就会联网下载(50m 不在预取
 清单里), 违背「出图时不联网」的约定. 这不是需要维护的图种, 只用来演示新增子项目
 最少要写什么.
 本文件是模块, 只导出 ``run()``; 命令行入口是 ``AmericaArmy/main.py render``.
-完整说明(最小子项目要写什么、回调契约)见 ``docs/add-map.md``.
+完整说明(最小子项目要写什么,回调契约)见 ``docs/add-map.md``.
 """
 
 from __future__ import annotations

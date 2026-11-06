@@ -2,10 +2,10 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Layer primitives shared by every map script: figure, basemap, relief, graticule, labels.
 
-是什么: 把各图种脚本里重复的图层代码收敛成一组函数——建画布与坐标区、铺海陆底色、
-画 ETOPO 晕渲、经纬网、城市点, 以及按 ``Sheet`` 把地名/刻度/色标/图例/文案登记进 geo. 图种特有的图层(国界、行政区、
-河流、流域)仍留在各自脚本里, 只是改用这里提供的原语和 spec 里的数据.
-完整说明(哪些进了框架、哪些故意不进、像素级一致怎么保证)见 ``docs/reference/layers.md``.
+是什么: 把各图种脚本里重复的图层代码收敛成一组函数--建画布与坐标区,铺海陆底色,
+画 ETOPO 晕渲,经纬网,城市点, 以及按 ``Sheet`` 把地名/刻度/色标/图例/文案登记进 geo. 图种特有的图层(国界,行政区,
+河流,流域)仍留在各自脚本里, 只是改用这里提供的原语和 spec 里的数据.
+完整说明(哪些进了框架,哪些故意不进,像素级一致怎么保证)见 ``docs/reference/layers.md``.
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def make_relief_cmap(relief: Relief) -> mcolors.LinearSegmentedColormap:
     """按 spec 的锚点在 0 m 处断开的双色带.
 
     锚点写成 (高程 m, 颜色), 归一化横轴是线性的 u=(elev-vmin)/(vmax-vmin);
-    水面锚点到 -1 m、陆地锚点从 +1 m 起, 中间的空隙就是海陆跳变.
+    水面锚点到 -1 m,陆地锚点从 +1 m 起, 中间的空隙就是海陆跳变.
     """
     def u(elevation: float) -> float:
         return (elevation - relief.vmin) / (relief.vmax - relief.vmin)
@@ -326,8 +326,8 @@ def standard_collect(
 ) -> None:
     """默认的 geo 收集顺序: 地名 -> 经纬刻度 -> 色标 -> 图例 -> 文案.
 
-    图例与文案的静态部分都来自 ``Sheet``(legend/legend_title/title/notes/…), 这里只
-    负责把它们写进 geo; 图种有动态数据(面积注记、带占位符的地名)时通过参数传入,
+    图例与文案的静态部分都来自 ``Sheet``(legend/legend_title/title/notes/...), 这里只
+    负责把它们写进 geo; 图种有动态数据(面积注记,带占位符的地名)时通过参数传入,
     不用再在自己文件里手拼 geo 字段.
     """
     collect_labels(doc, ax, sheet.labels, label_vars=label_vars)

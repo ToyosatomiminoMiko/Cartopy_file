@@ -2,11 +2,11 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Per-sheet rendering spec: pure data, importable without matplotlib or cartopy.
 
-是什么: 一张图的全部可配置事实——画框、投影、画布、色带、经纬网、地名、点标记、图例与
-文案, 以及子项目下的产物目录布局(地图进 ``map/``、文字信息进 ``text/``).
+是什么: 一张图的全部可配置事实--画框,投影,画布,色带,经纬网,地名,点标记,图例与
+文案, 以及子项目下的产物目录布局(地图进 ``map/``,文字信息进 ``text/``).
 这里只有 dataclass 与校验, 不 import matplotlib/cartopy, 所以 ``tools/`` 里的检查脚本
 可以不画图就把所有实例的产物路径与数据依赖列出来.
-完整说明(为什么用数据类、字段口径、与 runner/layers 的分工)见 ``docs/reference/spec.md``.
+完整说明(为什么用数据类,字段口径,与 runner/layers 的分工)见 ``docs/reference/spec.md``.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def text_path(root: str | Path, out: str) -> Path:
 def geo_path_for(svg_path: str | Path) -> Path:
     """由地图产物路径反推文字信息路径, 供只拿到产物路径的检查工具使用.
 
-    地图必须位于 ``<子项目>/map/`` 下; 不做"同级目录找 geo"的回退——布局只有一种,
+    地图必须位于 ``<子项目>/map/`` 下; 不做"同级目录找 geo"的回退--布局只有一种,
     回退会让旧布局的残留文件继续被当成有效产物.
     """
     svg_path = Path(svg_path)
@@ -90,7 +90,7 @@ def _color(name: str, value: str) -> str:
 
 
 # 标识符段(name / id_kind)的写法: 小写 ASCII, 单词之间用 - _ . 连接.
-# 为什么不允许中文: geo.json 的 id 是要被前端当键用、被旧布局文件当标识符引用的,
+# 为什么不允许中文: geo.json 的 id 是要被前端当键用,被旧布局文件当标识符引用的,
 # 显示用的中文名一律放在 labels[].text / legend.entries[].label 里.
 _SLUG_RE = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*\Z")
 
@@ -100,7 +100,7 @@ def check_slug(name: str, value: str) -> str:
     text = str(value)
     if not _SLUG_RE.fullmatch(text):
         raise ValueError(
-            f"{name} 必须是小写 ASCII slug(字母/数字, 用 - _ . 连接, 如 belarus、"
+            f"{name} 必须是小写 ASCII slug(字母/数字, 用 - _ . 连接, 如 belarus,"
             f"black-sea), 得到 {text!r}; 中文只放在 text/label 里"
         )
     return text
@@ -110,7 +110,7 @@ def check_slug(name: str, value: str) -> str:
 class Extent:
     """地图范围, 每一端都用显式字段名, 不再靠位置猜顺序.
 
-    为什么不用四元组: 全仓同时存在两套顺序——cartopy ``set_extent`` 要
+    为什么不用四元组: 全仓同时存在两套顺序--cartopy ``set_extent`` 要
     (min_lon, max_lon, min_lat, max_lat), shapely ``box`` 要
     (min_lon, min_lat, max_lon, max_lat). 以前靠注释维持, 伏尔加的同一个文件里
     两套都出现过. 这里用命名把顺序写死, 需要哪个顺序就调 ``as_list``/``as_bbox``.
@@ -199,8 +199,8 @@ class Relief:
     """高程色带与晕渲参数.
 
     mode:
-        ``rgba``   把高程配色与山体晕渲合成为 RGB 图再 imshow(缅甸/乌克兰/伏尔加)。
-        ``scalar`` 直接把高程数组交给 imshow, 用命名色带走 matplotlib 的 norm(苏联)。
+        ``rgba``   把高程配色与山体晕渲合成为 RGB 图再 imshow(缅甸/乌克兰/伏尔加).
+        ``scalar`` 直接把高程数组交给 imshow, 用命名色带走 matplotlib 的 norm(苏联).
     sea/land: ``rgba`` 模式的锚点 (高程 m, ``#rrggbb``), 按高程递增; 水面锚点到 -1 m,
         陆地锚点从 +1 m 起, 中间的空隙就是海陆跳变(不画海岸线的图靠它分出海陆).
     name: ``rgba`` 模式是色带名(只影响内部 id); ``scalar`` 模式是 matplotlib 色带名.
@@ -427,13 +427,13 @@ class Sheet:
     # 空元组表示这张图没有图例(此时 legend_title 必须为空).
     legend: tuple[LegendEntry, ...] = ()
     legend_title: str = ""
-    # 经纬刻度文字: False 表示只登记网线线型、不输出刻度文字(苏联图的历史口径).
+    # 经纬刻度文字: False 表示只登记网线线型,不输出刻度文字(苏联图的历史口径).
     graticule_ticks: bool = True
     title: str = ""
     subtitle: str = ""
     notes: tuple[str, ...] = ()
     colorbar_title: str = "高程 / 水深"
-    # 图种特有的补充说明, 追加到「数据来源」末尾(如缩写表「MNDAA=…」).
+    # 图种特有的补充说明, 追加到「数据来源」末尾(如缩写表「MNDAA=...」).
     extra_source: str = ""
 
     def __post_init__(self) -> None:

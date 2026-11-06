@@ -3,9 +3,9 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Validate the docs tree: links, page templates, index coverage, source pointers.
 
-是什么: 校验 README 与 docs/ 的相对链接、图种/参考页的元信息与节序、docs/index.md 的覆盖率、
+是什么: 校验 README 与 docs/ 的相对链接,图种/参考页的元信息与节序,docs/index.md 的覆盖率,
 以及源码 docstring 里 ``docs/...`` 指针是否指向存在的页面.
-完整说明(为什么要校验、提交前怎么跑)见 ``docs/conventions.md`` 的维护流程一节.
+完整说明(为什么要校验,提交前怎么跑)见 ``docs/conventions.md`` 的维护流程一节.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def markdown_files() -> list[Path]:
 def outside_fences(path: Path) -> list[tuple[int, str]]:
     """返回代码围栏之外的行(行号, 内容).
 
-    为什么: 页面里的示例链接、`##` 标题都写在代码块里, 不能当成真的链接/节标题.
+    为什么: 页面里的示例链接,`##` 标题都写在代码块里, 不能当成真的链接/节标题.
     """
     lines: list[tuple[int, str]] = []
     in_fence = False
@@ -71,7 +71,7 @@ def check_links(path: Path, errors: list[str]) -> int:
 
 
 def check_page_template(path: Path, errors: list[str]) -> None:
-    """校验图种页/参考页的标题、元信息和二级节序."""
+    """校验图种页/参考页的标题,元信息和二级节序."""
     rel = path.relative_to(ROOT)
     is_map = path.parent == DOCS / "maps"
     is_ref = path.parent == DOCS / "reference"

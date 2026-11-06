@@ -3,8 +3,8 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Reusable relief / basemap helpers for the topographic map scripts.
 
-是什么: 定位/读取 ETOPO 2022 高程、合成地形配色与山体晕渲、铺 Natural Earth 海陆底色.
-完整说明(API、为什么上移、MPLCONFIGDIR 警告)见 ``docs/reference/relief.md``.
+是什么: 定位/读取 ETOPO 2022 高程,合成地形配色与山体晕渲,铺 Natural Earth 海陆底色.
+完整说明(API,为什么上移,MPLCONFIGDIR 警告)见 ``docs/reference/relief.md``.
 """
 
 from __future__ import annotations
@@ -170,7 +170,7 @@ def load_ne_layer(resolution: str, category: str, name: str):
     GeoDataFrame. 用 cartopy_file.data.natural_earth_paths 定位, 与 cartopy 自己
     用的是同一份缓存(见 docs/reference/data.md).
 
-    为什么不用 cfeature: 调用方常常只要某一层线要素, 例如只用海岸线当裁剪蒙版、
+    为什么不用 cfeature: 调用方常常只要某一层线要素, 例如只用海岸线当裁剪蒙版,
     只用国界线画邻国; 直接读缓存既省掉 FeatureArtist 建图层, 也不会把整层海岸线
     当成要绘制的线画出来(缅甸图不画海岸线, 见 docs/maps/myanmar.md).
     """

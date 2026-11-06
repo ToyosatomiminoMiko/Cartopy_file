@@ -4,7 +4,7 @@
 """Build the derived GeoJSON layers for the Ukraine overview map.
 
 是什么: 读取 ``Ukraine/data/raw/`` 下的原始数据(GADM/OCHA/OSM 缓存与共享的 Natural
-Earth 缓存), 派生出 1991/2014/2022 边界、德左参照面与河流/水库的 GeoJSON 到
+Earth 缓存), 派生出 1991/2014/2022 边界,德左参照面与河流/水库的 GeoJSON 到
 ``Ukraine/data/derived/``, 供 ``ukraine.py`` 离线读取; 每次运行全量重建.
 原始数据由 ``Ukraine/download_data.py`` 下载, 路径与参数全部来自 ``Ukraine/config.py``;
 几何修整/GeoJSON 写出/面积长度量算复用框架层 ``cartopy_file.geometry``.
@@ -283,7 +283,7 @@ def build_donbas_2014() -> None:
     """2014 年顿巴斯控制区与接触线, 基于 OCHA GCA/NGCA 分区(2021 HNO).
 
     处理步骤:
-      1. 读 GCA/NGCA 四个面(顿涅茨克/卢甘斯克各一个 GCA、一个 NGCA);
+      1. 读 GCA/NGCA 四个面(顿涅茨克/卢甘斯克各一个 GCA,一个 NGCA);
       2. NGCA 按州分别输出为"分离武装控制区"(填色用);
       3. 接触线 = NGCA 边界 ∩ GCA 外扩 130 m 的缓冲带. 用缓冲带而不是直接
          求交集, 是因为两套面在数字化时会有几十米的缝/叠; 这样能稳定地挑出
@@ -368,8 +368,8 @@ def build_donbas_2014() -> None:
 def build_claimed_2022(gdf: gpd.GeoDataFrame) -> None:
     """2022 年俄方宣称的四州全境: 取四州完整州界(面), 面本身不填色, 只画边界.
 
-    为什么要强调"宣称": 俄方 2022-09-30 单方面宣称并入赫尔松州、扎波罗热州、
-    顿涅茨克人民共和国、卢甘斯克人民共和国全境, 但其中相当一部分(如赫尔松市、
+    为什么要强调"宣称": 俄方 2022-09-30 单方面宣称并入赫尔松州,扎波罗热州,
+    顿涅茨克人民共和国,卢甘斯克人民共和国全境, 但其中相当一部分(如赫尔松市,
     扎波罗热市)从未被俄军控制; 所以本图不把四州整个涂色, 只用紫色点划线
     画其法理州界, 并在图例/注记里写明"单方面宣称, 非实际控制线".
     """
@@ -665,7 +665,7 @@ def build_transnistria(dniester_line: LineString, border_1991) -> None:
         - 西缘 = 德涅斯特河中心线(``dniester_line``, 与绘图共用一条几何);
         - 东缘 = 1991 年乌克兰国界(``border_1991``, 即图上红色那条线的面).
     这样填色边界就是蓝线 + 红线, 不会再与河流错位. 改前用 GADM 4.1 摩尔多瓦
-    一级单元, 其西缘与河心线中位差 5.6 km、最远约 30 km, 大锯齿肉眼可见.
+    一级单元, 其西缘与河心线中位差 5.6 km,最远约 30 km, 大锯齿肉眼可见.
 
     为什么要裁掉河右岸: PMR 面包含 Bender(宾杰里, 河右岸)与部分右岸村庄, 直接
     填会让灰色跨过德涅斯特河; 本图只表达"河东岸那条地带". 用河心线裁切后,
@@ -676,7 +676,7 @@ def build_transnistria(dniester_line: LineString, border_1991) -> None:
     ~0.6 km); 不求差时北端与河口的小尖角会戳出红线约 1~2 px.
 
     为什么把 PMR 关系里的内环一起填上: 该内环是摩尔多瓦控制的左岸村庄(杜伯萨里
-    区飞地, 约 62 km²). 本图灰区只是位置参照、不区分实际控制, 改前的 GADM 单元
+    区飞地, 约 62 km²). 本图灰区只是位置参照,不区分实际控制, 改前的 GADM 单元
     同样没有挖掉它, 所以保持一条连续地带; 若以后要表达实际控制, 应保留内环.
 
     碎片: 交集/求差会留下小于 2 km² 的小块(实测最大 1.3 km²), 比 1 px 还小,
@@ -718,7 +718,7 @@ def build_transnistria(dniester_line: LineString, border_1991) -> None:
                     "(boundary=administrative, admin_level=3, ODbL 1.0), clipped by "
                     f"OSM Dniester main stream (relation {DNIESTER_RIVER_RELATION}) "
                     "and GADM 4.1 Ukraine 1991 border",
-                    "note": "只保留德涅斯特河东岸、1991 国界以西南的地带: 西缘=OSM 河心线, "
+                    "note": "只保留德涅斯特河东岸,1991 国界以西南的地带: 西缘=OSM 河心线, "
                     "东缘=1991 国界, 因此与图上蓝河/红线严格重合. Bender(河右岸)已裁掉; "
                     "PMR 关系里的杜伯萨里区飞地内环按改前 GADM 口径一并填上, 不区分实际控制.",
                     "area_km2_geodesic": round(geodesic_area_km2(region), 1),
@@ -786,11 +786,11 @@ def _orient_to_sea(chain: LineString, ne_line: LineString) -> LineString:
 
 
 def _choose_seam(ne_line: LineString, osm_line: LineString):
-    """在 OSM 链上游段上挑接缝: 离 NE 线近、且两条线走向一致的点.
+    """在 OSM 链上游段上挑接缝: 离 NE 线近,且两条线走向一致的点.
 
     返回 ``(OSM 弧长比例, NE 上对应的点, 两条线的距离(度), 走向差(度))``.
     代价函数把距离和方向差归一化后平方相加; 实测两条河的最优点距离
-    100~350 m、方向差 <5°, 接缝在图上就是一个普通河弯.
+    100~350 m,方向差 <5°, 接缝在图上就是一个普通河弯.
     """
     best = None
     for i in range(121):
@@ -814,14 +814,14 @@ def build_river_extension(spec: dict) -> None:
     """南布格河/顿河: NE 上段与 OSM 下游段在接缝处拼成一条连续中心线.
 
     步骤:
-      1. NE 侧: 取该河"末端纬度最低"的线要素 —— 两条河在图内都往南/西南
+      1. NE 侧: 取该河"末端纬度最低"的线要素 -- 两条河在图内都往南/西南
          入海, 纬度最低的末端就是下游干流(其余要素更靠上游).
       2. OSM 侧: 从下游 bbox 的 waterway=river way 里按河名挑出主河道,
          合并(linemerge)后取最长的一段; 出现多段说明有三角洲汊道, 图上只要
          主道.
       3. 摆正方向: 把 OSM 链摆成上游 -> 下游(见 ``_orient_to_sea``).
       4. 挑接缝: 在 OSM 链上游 60% 里找"离 NE 线近 + 走向一致"的点(见
-         ``_choose_seam``); 接缝以上用 NE、以下用 OSM —— 两套数据本来就
+         ``_choose_seam``); 接缝以上用 NE,以下用 OSM -- 两套数据本来就
          在这附近重合, 所以看不出是拼的.
       5. 拼成一条 LineString, 简化到 ``RIVER_SIMPLIFY_DEG`` 后写 GeoJSON.
          属性里带 ``replaces_ne_id``: 绘图时据此把 NE 图层里被替换的那条

@@ -2,8 +2,8 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """USSR subproject: dataset inventory and the render spec of the USSR topography map.
 
-是什么: 苏联子项目的唯一配置入口——数据集清单(来源、版本、下载范围、本地路径)与这张图的
-规格(画框、投影、色带、经纬网、文案). 数据准备脚本与绘图脚本都从这里取参数, 下载范围与
+是什么: 苏联子项目的唯一配置入口--数据集清单(来源,版本,下载范围,本地路径)与这张图的
+规格(画框,投影,色带,经纬网,文案). 数据准备脚本与绘图脚本都从这里取参数, 下载范围与
 绘图范围因此只有一个作者, 不会再各写一份.
 完整说明(数据集层与实例规格层怎么分工)见 ``docs/reference/datasets.md`` 与
 ``docs/reference/spec.md``; 投影/范围/数据源的设计取舍见 ``docs/maps/ussr.md``.
@@ -34,7 +34,7 @@ EXTENT_USSR = Extent(15.0, 195.0, 15.0, 90.0)
 # ETOPO 子集范围: 经度与画框一致(15~195°E), 纬度 20~90°N.
 # 为什么纬度不是画框的 15°N: 画框底边 15~20°N 这一段本来就没有高程数据(改前成品如此,
 # 靠底图留白), 而磁盘上已有的子集也只从 20°N 起. 下载范围与数据覆盖范围用同一个数字,
-# 免得「声明 15 起、文件 20 起」这种自相矛盾的清单. 要扩到 15°N 属于换数据, 必须单独评审
+# 免得「声明 15 起,文件 20 起」这种自相矛盾的清单. 要扩到 15°N 属于换数据, 必须单独评审
 # (会改变底图字节). 旧版下载脚本另写了一份范围, 与绘图脚本各持一处, 这是本次修掉的 bug.
 ETOPO_BBOX_USSR = Extent(15.0, 195.0, 20.0, 90.0)
 
@@ -115,7 +115,7 @@ RELIEF_TERRAIN = Relief(
     zorder=None,
 )
 
-# 经纬网: 经度每 15°、纬度每 10°, 取值写死成旧脚本 FixedLocator 的精确位置
+# 经纬网: 经度每 15°,纬度每 10°, 取值写死成旧脚本 FixedLocator 的精确位置
 # (np.arange(15, 196, 15) / np.arange(20, 91, 10)); 多一条线 SVG 字节就会变.
 GRATICULE_15X10 = Graticule(
     lon_step=15.0,
@@ -164,7 +164,7 @@ SHEET_USSR = Sheet(
     dataset_ids=("etopo-ussr", "ne-countries-10m", "ne-coastline-110m"),
     dem_id="etopo-ussr",
     # 旧成品没有地名/城市点/图例, 这些字段保持空, 免得前端初始化出旧图没有的版面.
-    # 旧成品只有经纬网线、没有刻度文字: 交给 standard_collect 时只登记线型.
+    # 旧成品只有经纬网线,没有刻度文字: 交给 standard_collect 时只登记线型.
     graticule_ticks=False,
     title="USSR (ETOPO 2022,本地 NetCDF)",
     subtitle="兰勃特等面积方位投影(平面/方位投影)|中心 90°E, 55°N",

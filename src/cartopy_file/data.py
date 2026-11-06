@@ -2,8 +2,8 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Locate the project-wide data directory and cartopy's download cache.
 
-是什么: 统一定位仓库级共享数据目录、matplotlib 可写缓存目录与 cartopy 下载缓存.
-完整说明(API、为什么需要重定向、缓存位置)见 ``docs/reference/data.md``.
+是什么: 统一定位仓库级共享数据目录,matplotlib 可写缓存目录与 cartopy 下载缓存.
+完整说明(API,为什么需要重定向,缓存位置)见 ``docs/reference/data.md``.
 """
 
 from __future__ import annotations
@@ -112,7 +112,7 @@ def configure_cartopy() -> Path:
     为什么还要设置 pre_existing_data_dir: cartopy 的 Downloader 先查
     ``pre_existing_data_dir`` 再查 ``data_dir``, 两者都没有才联网下载. 改
     ``data_dir`` 后如果不登记旧缓存, 原先下在 HOME 里的文件会"看不见",
-    从而被重新下载一遍 —— 这正是要避免的.
+    从而被重新下载一遍 -- 这正是要避免的.
     """
     import cartopy
 

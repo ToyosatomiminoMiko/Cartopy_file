@@ -9,7 +9,7 @@
 副标题只以 ``GeoDoc`` 数据形式登记; 字段与口径见 ``docs/reference/geo.md``.
 画框/投影/色带/经纬网/文案全部来自 ``USSR/config.py``.
 本文件是模块, 只导出 ``run()``; 命令行入口是 ``USSR/main.py render``.
-完整说明(投影选择、图幅内容、数据来源、运行方式)见 ``docs/maps/ussr.md``.
+完整说明(投影选择,图幅内容,数据来源,运行方式)见 ``docs/maps/ussr.md``.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ USSR_REPUBLICS = (
     "Estonia",
 )
 
-# 国界样式: 改前成品的口径——纯红实线、只画线不填充, 免得盖住地形.
+# 国界样式: 改前成品的口径--纯红实线,只画线不填充, 免得盖住地形.
 BORDER_COLOR = "red"
 BORDER_WIDTH = 1.8
 # 海岸线样式: 黑色细线, 与底图叠在一起看地形与海岸的对应关系.

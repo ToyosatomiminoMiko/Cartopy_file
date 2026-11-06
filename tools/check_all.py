@@ -3,9 +3,9 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """一条命令跑完项目全部自检.
 
-是什么: 依次运行 ``tools/check_docs.py``、``tools/check_geo.py``, 再编译全仓 Python 源文件,
+是什么: 依次运行 ``tools/check_docs.py``,``tools/check_geo.py``, 再编译全仓 Python 源文件,
     任何一项失败就以退出码 1 结束, 并在最后打印逐项 PASS/FAIL 汇总.
-    完整说明(为什么这样收敛、提交前怎么跑)见 ``docs/conventions.md`` 的维护流程一节.
+    完整说明(为什么这样收敛,提交前怎么跑)见 ``docs/conventions.md`` 的维护流程一节.
 
 为什么: 项目的硬性约束分散在多个独立脚本里, 靠人逐个记得跑一定会漏; 收敛成一条命令后
     ``AGENTS.md`` 只需写"结束前跑它", 失败会直接暴露而不是靠自觉. 语法编译放在这里是为了让

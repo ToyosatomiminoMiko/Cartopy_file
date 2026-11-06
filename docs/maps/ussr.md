@@ -16,7 +16,7 @@
 
 - 投影: `ccrs.LambertAzimuthalEqualArea(central_longitude=105,
   central_latitude=55)`, 以苏联主体附近为投影中心, 减少边缘形变;
-- 显示范围: `[15, 195, 15, 90]`, 即经度 15°E 向东跨过 180° 到 165°W、纬度 15°N~90°N;
+- 显示范围: `[15, 195, 15, 90]`, 即经度 15°E 向东跨过 180° 到 165°W,纬度 15°N~90°N;
   代码不接受"最小值大于最大值", 所以把 -165 展开成 195;
 - 想换外观时, 代码注释给了两个替代: `ccrs.Orthographic` 与 `ccrs.AzimuthalEquidistant`
   (都以 90°E / 55°N 为中心).
@@ -26,8 +26,8 @@
 - 底图: ETOPO 2022 高程, `terrain` 色带, `vmin=-5000` / `vmax=5000`, `alpha=0.9`;
 - 海岸线: cartopy 的 Natural Earth 海岸线(按图幅自动选分辨率), 黑色细线;
 - 红色边界: 15 个前苏联加盟共和国的 Natural Earth 国界 `unary_union` 合并成一个整体, 只画
-  外轮廓、不填充, 避免盖住地形;
-- 经纬网: 纬度每 10°、经度每 15°, 只画网线, 不写刻度文字;
+  外轮廓,不填充, 避免盖住地形;
+- 经纬网: 纬度每 10°,经度每 15°, 只画网线, 不写刻度文字;
 - 画布 16×12 英寸, 不画色标与标题.
 
 ## 数据
@@ -45,12 +45,12 @@
 Uzbekistan, Turkmenistan, Kyrgyzstan, Tajikistan, Lithuania, Latvia, Estonia. 脚本按
 `NAME`/`NAME_EN`/`ADMIN` 字段筛选, 主字段没匹配时遍历所有名称字段兜底.
 
-ETOPO 子集范围: 经度 15°E 向东到 165°W(ERDDAP 的经度是 0~360, 右端写 195 = -165 + 360)、
+ETOPO 子集范围: 经度 15°E 向东到 165°W(ERDDAP 的经度是 0~360, 右端写 195 = -165 + 360),
 纬度 20°N~90°N; 默认步长 8(2 弧分, 300 dpi 出图够用). 这个范围就是 `USSR/config.py` 里的
-`ETOPO_BBOX_USSR`, 下载范围与「这份数据覆盖多大」是同一个对象, 下载脚本不再另写一份——
-旧版下载脚本写的是 20~90°N、绘图脚本写 15~90°N, 两处分叉正是本次迁移修掉的 bug.
+`ETOPO_BBOX_USSR`, 下载范围与「这份数据覆盖多大」是同一个对象, 下载脚本不再另写一份--
+旧版下载脚本写的是 20~90°N,绘图脚本写 15~90°N, 两处分叉正是本次迁移修掉的 bug.
 画框底边到 15°N, 15~20°N 一带本来就没有高程数据(改前成品如此, 靠留白), 要扩到 15°N
-属于换数据、会改变底图字节, 需要单独评审. 下载机制见
+属于换数据,会改变底图字节, 需要单独评审. 下载机制见
 [`data-preparation.md`](../data-preparation.md) 的 ETOPO 一节.
 
 ## 运行
@@ -91,5 +91,5 @@ python USSR/main.py all                   # 两步合一: 先 download, 再 rend
   `download_data.py` 预取; `USSR/data/derived/` 不存这份数据), 海岸线读同一缓存的 110m
   海岸线; 10m 国界缺失时 `countries_frame()` 返回 `None`, 红色轮廓静默跳过;
 - 地形色带直接用 matplotlib 的 `terrain`, 没有像乌克兰图那样为海陆分界定制色带;
-- 下载细节(ERDDAP 范围、断点续传、退出码)见
+- 下载细节(ERDDAP 范围,断点续传,退出码)见
   [`data-preparation.md`](../data-preparation.md) 的 ETOPO 一节.

@@ -4,10 +4,10 @@
 """Download the ETOPO 2022 15-arc-second USSR subset.
 
 是什么: 从 NOAA ERDDAP 下载苏联区域 ETOPO 高程子集(默认 stride=8, 约 45 MB); URL 与
-下载范围来自 ``cartopy_file.sources`` 与 ``USSR/config.py``, 文件已就位时跳过、不重复下载.
+下载范围来自 ``cartopy_file.sources`` 与 ``USSR/config.py``, 文件已就位时跳过,不重复下载.
 Natural Earth 国界/海岸线由根目录 ``download_data.py`` 预取到共享缓存, 这里不再下载.
 本文件是模块, 只导出 ``run()``; 命令行入口是 ``USSR/main.py download``.
-完整说明(数据来源、下载范围、断点续传与退出码)见 ``docs/maps/ussr.md`` 与
+完整说明(数据来源,下载范围,断点续传与退出码)见 ``docs/maps/ussr.md`` 与
 ``docs/data-preparation.md``.
 """
 
@@ -46,7 +46,7 @@ def run(*, stride: int = 8, force: bool = False) -> int:
         magic=fetch.MAGIC_NETCDF,
     )
 
-    print("\n完成。现在可运行: python USSR/main.py render")
+    print("\n完成.现在可运行: python USSR/main.py render")
     return 0
 
 

@@ -5,7 +5,7 @@
 
 是什么: 乌克兰子项目的唯一可执行入口. ``download`` 把原始数据下载/入库到
 ``Ukraine/data/raw/``; ``prepare`` 由原始数据重建 ``Ukraine/data/derived/`` 的派生 GeoJSON;
-``render`` 出图, 地图进 ``Ukraine/map/``、文字信息进 ``Ukraine/text/``; ``all`` 依次跑
+``render`` 出图, 地图进 ``Ukraine/map/``,文字信息进 ``Ukraine/text/``; ``all`` 依次跑
 前三个子命令.
 为什么只有一个入口: 全项目约定「一个子项目一个可执行文件, 其余 .py 只导出 run()」;
 参数解析与退出码归这里, 模块不再各自解析命令行. 子命令分派用懒导入, 只有真正执行的那一步
@@ -23,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     """构造命令行: download / prepare / render / all 四个子命令."""
     parser = argparse.ArgumentParser(
         prog="python Ukraine/main.py",
-        description="乌克兰子项目统一入口: 下载原始数据、重建派生 GeoJSON、出图.",
+        description="乌克兰子项目统一入口: 下载原始数据,重建派生 GeoJSON,出图.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True, metavar="<子命令>")
 
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     try:
         raise SystemExit(run())
     except KeyboardInterrupt:
-        print("\n用户中断。", file=sys.stderr)
+        print("\n用户中断.", file=sys.stderr)
         raise SystemExit(130)
     except Exception as exc:
         print(f"错误: {exc}", file=sys.stderr)

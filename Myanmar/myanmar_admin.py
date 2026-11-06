@@ -3,14 +3,14 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Administrative-division map of Myanmar.
 
-是什么: 绘制缅甸省/邦级行政区划图, 七邦冷色、七省暖色、内比都联邦区中性色加斜线,
-叠加河流与 ETOPO 2022 地形晕渲, 并画出各行政区中心点; 国界用半透明红色、只画陆地
+是什么: 绘制缅甸省/邦级行政区划图, 七邦冷色,七省暖色,内比都联邦区中性色加斜线,
+叠加河流与 ETOPO 2022 地形晕渲, 并画出各行政区中心点; 国界用半透明红色,只画陆地
 上的国界段, 海岸线不单独绘制. 底图只画地理要素, 文字/图例/色标/标题/刻度文字都由
 同名 ``<产物>.geo.json`` 交给前端排版; 画框/投影/色带/经纬网/双语地名/图例/配色全部
-声明在 ``Myanmar/config.py`` 的 ``SHEET_ADMIN``. 本图的特殊图层(行政区填色、河网、
-国界线型、自定义地形底纹)留在本脚本, 用共享原语画. 本文件是模块, 只导出 ``run()``,
+声明在 ``Myanmar/config.py`` 的 ``SHEET_ADMIN``. 本图的特殊图层(行政区填色,河网,
+国界线型,自定义地形底纹)留在本脚本, 用共享原语画. 本文件是模块, 只导出 ``run()``,
 由统一入口 ``python Myanmar/main.py render`` 调用.
-完整说明(配色、投影、数据来源、运行方式)见 ``docs/maps/myanmar-admin.md``;
+完整说明(配色,投影,数据来源,运行方式)见 ``docs/maps/myanmar-admin.md``;
 出图流程见 ``docs/reference/runner.md``, 图层原语见 ``docs/reference/layers.md``.
 """
 
@@ -47,7 +47,7 @@ from cartopy_file import runner
 # 国界与海岸线重合时只保留国界: 用共享剪枝工具裁掉沿海段, 见 docs/reference/overlap.md.
 from cartopy_file.overlap import cut, overlap_mask
 
-# ETOPO 定位与高程读取、Natural Earth 图层读取, 见 docs/reference/relief.md.
+# ETOPO 定位与高程读取,Natural Earth 图层读取, 见 docs/reference/relief.md.
 from cartopy_file.relief import (
     clip_to_axes,
     find_etopo,
@@ -85,9 +85,9 @@ COAST_CLIP_DEG = 0.06
 COAST_CLIP_MIN_LEN = 0.03
 # 邻国国界从缅甸国界两侧这么宽的走廊里剪掉, 避免红线下透出平行灰线.
 NEIGHBOR_GAP_DEG = 0.06
-# 省/邦界在国界、海岸走廊里剪掉的宽度(度). 这些填色单元的外缘与国界/海岸
+# 省/邦界在国界,海岸走廊里剪掉的宽度(度). 这些填色单元的外缘与国界/海岸
 # 完全重合, 不剪会在半透明红线下面透出一条深灰的省界线, 海岸上也会留下一圈
-# 省界线 —— 都等于变相画了海岸线. 0.005° 约 550 m, 远小于图上国界线半宽.
+# 省界线 -- 都等于变相画了海岸线. 0.005° 约 550 m, 远小于图上国界线半宽.
 BORDER_ZONE_DEG = 0.005
 
 # 地形底纹的晕渲细节. 色带/范围/来光/夸张系数都在 Sheet.relief 里; 这里只留
@@ -127,7 +127,7 @@ def country_exterior(myanmar_geom):
 
     为什么需要: 15 个单元的相邻边来自不同折线, 逐点浮点误差会让 unary_union
     在内部边界上留下零面积的细缝(interior ring). 直接画 ``polygon.boundary``
-    会把这些细缝的环也当成国界画出来 —— 半透明红线在掸邦-克钦邦、仰光省-勃固省
+    会把这些细缝的环也当成国界画出来 -- 半透明红线在掸邦-克钦邦,仰光省-勃固省
     这些内部边界上就会留下一串红色短段. 外环才是国界; 内部细缝既不画线, 也不
     参与省/邦界的剪枝走廊. 返回 MultiLineString, 并集为空时返回 None.
     """
@@ -173,7 +173,7 @@ def add_land_borders(ax: plt.Axes, myanmar_geom) -> None:
 def add_relief(ax: plt.Axes, etopo_path: Path) -> None:
     """叠加只覆盖陆地的低透明度地形晕渲(海面保留底色).
 
-    色带/高程范围/来光/夸张系数从 ``Sheet.relief`` 取; 晕渲细节(软光比例、海洋像元
+    色带/高程范围/来光/夸张系数从 ``Sheet.relief`` 取; 晕渲细节(软光比例,海洋像元
     透明)见本文件顶部常量. 海岸线不画, 岸线由底图与行政区填色的分界表达.
     """
     lon, lat, z = load_elevation(etopo_path)
@@ -402,8 +402,8 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
         units = load_admin_units()
         # 国界与省/邦界都以 15 个行政区合并后的外环为基准: 填色与红线同源,
         # 岸上不会出现两套边界; border_zone 用来剪掉省/邦界里与国界/海岸重合的段.
-        # 只取外环是为了丢掉并集内部因浮点误差产生的零面积细缝 —— 否则红线会在
-        # 掸邦-克钦邦、仰光省-勃固省等内部边界上残留一串红色短段.
+        # 只取外环是为了丢掉并集内部因浮点误差产生的零面积细缝 -- 否则红线会在
+        # 掸邦-克钦邦,仰光省-勃固省等内部边界上残留一串红色短段.
         myanmar_geom = unary_union([unit["geometry"] for unit in units])
         country_border = country_exterior(myanmar_geom)
         if country_border is None:

@@ -2,10 +2,10 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """AmericaArmy demo subproject: one local GeoJSON and one demonstration sheet.
 
-是什么: 框架用法的最小示例——一份仓库自带的点位 GeoJSON、一个 ``Sheet``, 以及
+是什么: 框架用法的最小示例--一份仓库自带的点位 GeoJSON,一个 ``Sheet``, 以及
 ``main.py`` 里的一对 ``draw``/``collect`` 回调; 它走和正式图种完全相同的出图流水线
 (纯几何 SVG + 同名 geo.json), 但不在图种目录体系内.
-为什么单独留一个演示: 新增子项目时最容易漏掉的就是「config 里写什么、回调里写什么」,
+为什么单独留一个演示: 新增子项目时最容易漏掉的就是「config 里写什么,回调里写什么」,
 这个目录就是可运行的最小答案, 见 ``docs/add-map.md`` 与 ``docs/reference/spec.md``.
 """
 

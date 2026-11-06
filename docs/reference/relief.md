@@ -5,8 +5,8 @@
 
 ## 是什么
 
-地形图共用工具: 读取 ETOPO 2022 NetCDF 高程、合成高程配色与山体晕渲、读取 Natural Earth
-国界、铺海陆底色.
+地形图共用工具: 读取 ETOPO 2022 NetCDF 高程,合成高程配色与山体晕渲,读取 Natural Earth
+国界,铺海陆底色.
 
 - `find_etopo(data_dir, region, stride=None, env_path=None)`: 按区域名(如 `myanmar` /
   `ukraine`)与采样步长定位本地高程文件;

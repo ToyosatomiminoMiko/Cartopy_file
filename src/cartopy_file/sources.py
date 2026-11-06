@@ -2,9 +2,9 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Registry of external data sources: URL templates, versions, licenses, credits.
 
-是什么: 全项目外部数据源的唯一登记处. 每个数据源只在这里写一次 URL 模板、版本口径、
+是什么: 全项目外部数据源的唯一登记处. 每个数据源只在这里写一次 URL 模板,版本口径,
 许可与进图署名; 各子项目的 ``datasets.py`` 只引用 ``Source.id``, 不再各自硬编码网址.
-完整说明(为什么集中、版本怎么钉、署名进图的口径)见 ``docs/reference/datasets.md``.
+完整说明(为什么集中,版本怎么钉,署名进图的口径)见 ``docs/reference/datasets.md``.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ class Source:
         照抄(如 ``v1c``), 完全没有版本概念的留空字符串(如 Overpass).
     url: 下载地址模板; 需要参数的用 ``str.format`` 占位, 由下面的 ``*_url`` 函数填.
     homepage: 人类可读的发布页. 产物里的「数据来源」写这个 URL, 因为它长期有效,
-        而下载地址(S3 路径、ERDDAP 查询串)会随参数变化, 不适合给人看.
+        而下载地址(S3 路径,ERDDAP 查询串)会随参数变化, 不适合给人看.
     credit: 进图的署名短句, 含许可要求必须出现的文字(如 ODbL 的
         ``© OpenStreetMap contributors``); 多个数据集共用同一 source 时只出现一次.
     """
@@ -83,7 +83,7 @@ SOURCES: dict[str, Source] = {
             id="etopo-2022",
             title="NOAA ETOPO 2022",
             version="v1 (15 arc-second)",
-            # 查询串由 erddap_url() 拼: 经度 0~360、stride 是索引步长.
+            # 查询串由 erddap_url() 拼: 经度 0~360,stride 是索引步长.
             url="https://oceanwatch.pifsc.noaa.gov/erddap/griddap/ETOPO_2022_v1_15s.nc",
             homepage="https://www.ncei.noaa.gov/products/etopo-global-relief-model",
             license="public domain (US Government work)",

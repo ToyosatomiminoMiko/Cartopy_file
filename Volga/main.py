@@ -3,10 +3,10 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Volga subproject command-line entry: download / prepare / render / all.
 
-是什么: 伏尔加子项目唯一的可执行入口. 子命令分别委托给 ``download_data``(下载/解压)、
-``prepare_data``(raw → derived 派生)与 ``volga``(出两张图)三个模块的 ``run()``; 模块按
+是什么: 伏尔加子项目唯一的可执行入口. 子命令分别委托给 ``download_data``(下载/解压),
+``prepare_data``(raw -> derived 派生)与 ``volga``(出两张图)三个模块的 ``run()``; 模块按
 子命令**延迟导入**, 所以 ``download``/``prepare`` 不会拖起 matplotlib, 三个模块本身也不再
-带 argparse. ``all`` 依次跑下载 → 派生 → 出图, 任一步失败即停.
+带 argparse. ``all`` 依次跑下载 -> 派生 -> 出图, 任一步失败即停.
 完整说明(数据源/两个准备步骤的分工/出图命令)见 ``docs/maps/volga.md``.
 """
 
@@ -31,11 +31,11 @@ def build_parser() -> argparse.ArgumentParser:
     """子命令与参数; 各子命令的选项与对应模块 run() 的参数一一对应."""
     parser = argparse.ArgumentParser(
         prog="python Volga/main.py",
-        description="伏尔加河流域子项目统一入口: 下载 ETOPO/GADM/HydroBASINS、派生流域 GeoJSON、出两张图.",
+        description="伏尔加河流域子项目统一入口: 下载 ETOPO/GADM/HydroBASINS,派生流域 GeoJSON,出两张图.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True, metavar="<子命令>")
 
-    download = subparsers.add_parser("download", help="下载/解压 ETOPO、GADM、HydroBASINS")
+    download = subparsers.add_parser("download", help="下载/解压 ETOPO,GADM,HydroBASINS")
     download.add_argument("--check", action="store_true", help="只检查数据是否齐全, 不联网")
     download.add_argument("--force", action="store_true", help="强制重新下载/解压原始数据")
     download.add_argument(
@@ -68,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     render.add_argument("--show", action="store_true", help="保存后弹出交互窗口(需要图形界面)")
 
-    subparsers.add_parser("all", help="依次执行 download → prepare → render")
+    subparsers.add_parser("all", help="依次执行 download -> prepare -> render")
     return parser
 
 
@@ -96,7 +96,7 @@ def run(argv: list[str] | None = None) -> int:
             sheets=sheets, stride=args.stride, dpi=args.dpi, show=args.show
         )
 
-    # all: 下载 → 派生 → 出图, 任一步非 0 就停下(不带着缺数据继续往下跑).
+    # all: 下载 -> 派生 -> 出图, 任一步非 0 就停下(不带着缺数据继续往下跑).
     import download_data
     import prepare_data
     import volga

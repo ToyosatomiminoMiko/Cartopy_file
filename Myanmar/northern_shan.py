@@ -3,14 +3,14 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Topographic map of Shan State's special/armed-group regions.
 
-是什么: 以掸邦为中心绘制缅甸联邦第一特区、德昂邦、佤邦、掸邦东部第四特区及
+是什么: 以掸邦为中心绘制缅甸联邦第一特区,德昂邦,佤邦,掸邦东部第四特区及
 周边的地形图, 并在第一特区内标出其前身"原果敢自治区"的范围; 只绘制地理要素,
 文字/图例/色标/标题/刻度文字都以数据形式写进同名 ``<产物>.geo.json``, 由前端排版.
 画框/投影/色带/经纬网/地名/文案/图例/配色全部声明在 ``Myanmar/config.py``;
-本图的特殊图层(特区填色与斜线、原果敢自治区、干流强调、OSM 国界)留在本脚本,
+本图的特殊图层(特区填色与斜线,原果敢自治区,干流强调,OSM 国界)留在本脚本,
 用共享原语画; geo.json 由 runner 缺省的 ``layers.standard_collect`` 按 Sheet 收集.
 本文件是模块, 只导出 ``run()``, 由统一入口 ``python Myanmar/main.py render`` 调用.
-完整说明(范围、南界取值理由、投影、果敢关系、国界处理)见
+完整说明(范围,南界取值理由,投影,果敢关系,国界处理)见
 ``docs/maps/northern-shan.md``; 出图流程见 ``docs/reference/runner.md``,
 图层原语见 ``docs/reference/layers.md``.
 """
@@ -46,7 +46,7 @@ from cartopy_file import runner
 # 区域/省界描边与国界重合时只保留国界: 用共享剪枝工具裁掉国界走廊.
 from cartopy_file.overlap import cut
 
-# ETOPO 定位与高程读取、Natural Earth 图层读取, 见 docs/reference/relief.md.
+# ETOPO 定位与高程读取,Natural Earth 图层读取, 见 docs/reference/relief.md.
 from cartopy_file.relief import find_etopo, load_elevation, load_ne_layer, make_relief
 
 # 斜线填充的线宽: 默认 1.0 在成品尺寸下偏粗, 会把特区填充压成深色块.
@@ -62,7 +62,7 @@ BORDER_GEOJSON = DATASETS.path(config.OSM_COUNTRY_BORDERS)
 # ============================
 # 本图特有图层
 # ============================
-# 图面配色(区域填充/边界色、国界、果敢自治区、图例共用色)全部在 config.py,
+# 图面配色(区域填充/边界色,国界,果敢自治区,图例共用色)全部在 config.py,
 # 图例与地图共用同一份, 改色时两边一起变; 这里只留几何参数.
 # 区域边界描边在国界两侧各裁掉这么宽(度)的走廊, 让重合段只由国界线表示.
 # 0.001° 约 110 m, 远小于 300 dpi 下 2.7 pt 线宽对应的大约 1.9 km, 肉眼不可见.
@@ -141,7 +141,7 @@ def add_relief(ax: plt.Axes, etopo_path: Path) -> None:
 
 
 def add_context(ax: plt.Axes, border_line) -> None:
-    """绘制国界、河流与湖泊, 作为区域色块下方的地理参照.
+    """绘制国界,河流与湖泊, 作为区域色块下方的地理参照.
 
     国界用 OSM admin_level=2 折线, 与区域边界同源: 区域边界沿国界的那一段
     与这里的国界线完全重合(坐标级), 所以不会出现 Natural Earth 那种偏移.
@@ -174,7 +174,7 @@ def add_context(ax: plt.Axes, border_line) -> None:
 def add_main_rivers(ax: plt.Axes) -> None:
     """把伊洛瓦底江与萨尔温江从一般河流里强调出来.
 
-    先用浅色粗描边、再用深蓝细线, 与行政图里的强调方式一致; 一般河流仍是
+    先用浅色粗描边,再用深蓝细线, 与行政图里的强调方式一致; 一般河流仍是
     add_context 里的 0.7 pt 蓝线, 作为背景水系, 不抢这两条干流的层级.
     """
     rivers = load_ne_layer("10m", "physical", "rivers_lake_centerlines")
@@ -225,7 +225,7 @@ def add_admin_context(ax: plt.Axes, regions: dict[str, list], border_zone) -> No
 
 
 def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> None:
-    """按图层绘制各区域的填充、外边界与内部县界.
+    """按图层绘制各区域的填充,外边界与内部县界.
 
     另画出第一特区内的原果敢自治区(嵌套深紫填充), 表示包含关系.
 
@@ -259,7 +259,7 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> 
         )
 
     # 原果敢自治区: 第一特区的前身, 范围含于第一特区. 只铺一层深紫填充
-    # (压在第一特区浅紫填充之上、MNDAA 斜线之下); 不描内边界, 避免粗线
+    # (压在第一特区浅紫填充之上,MNDAA 斜线之下); 不描内边界, 避免粗线
     # 把果敢境内的河流盖住.
     for _, geom in regions.get("kokang_saz", []):
         ax.add_geometries(
@@ -287,7 +287,7 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> 
         zorder=3.0,
     )
 
-    # 内部县/特区界: 第一特区 1 市 4 县、佤邦 5 县 1 特区、四特 3 县.
+    # 内部县/特区界: 第一特区 1 市 4 县,佤邦 5 县 1 特区,四特 3 县.
     # 同样裁掉国界走廊, 避免白色虚线与深红国界线重叠.
     for layer in ("sr1_county", "wa_district", "sr4_county"):
         for _, geom in regions.get(layer, []):
@@ -347,7 +347,7 @@ def draw(
     add_relief(ax, etopo_path)
     add_admin_context(ax, regions, border_zone)
     add_context(ax, border_line)
-    # 两条大江压在一般河流与区域填充之上、国界/区域边界之下.
+    # 两条大江压在一般河流与区域填充之上,国界/区域边界之下.
     add_main_rivers(ax)
     add_special_regions(ax, regions, border_zone)
     add_city_markers(ax)

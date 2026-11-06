@@ -2,7 +2,7 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Shared code for the Cartopy_file project; see ``docs/overview.md``.
 
-本仓只做地理: 数据定位、数据集清单、实例规格、地形/晕渲、边界重合剪枝与纯几何 SVG 出图;
+本仓只做地理: 数据定位,数据集清单,实例规格,地形/晕渲,边界重合剪枝与纯几何 SVG 出图;
 文字与版面由 miko_svg_editor 的前端排版接管, 所以这里不再导出字体/标签相关符号.
 
 只重导出「纯数据/纯标准库」模块: 导入本包不该连带拉进 matplotlib/cartopy, 否则数据准备

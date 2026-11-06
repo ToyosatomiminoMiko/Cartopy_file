@@ -3,13 +3,13 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Prepare the 15 first-order administrative units of Myanmar for mapping.
 
-是什么: 读取 GADM 4.1 缅甸一级行政区原始 JSON 与 OSM 内比都联邦区缓存, 经过裁剪、补缝、
+是什么: 读取 GADM 4.1 缅甸一级行政区原始 JSON 与 OSM 内比都联邦区缓存, 经过裁剪,补缝,
 拓扑检查后输出 ``Myanmar/data/derived/myanmar_admin1.geojson`` 供绘图读取. 本文件是模块,
 只导出 ``run()``, 由统一入口 ``python Myanmar/main.py prepare`` 调用.
-为什么自己不下数据: 全项目约定 prepare 只读 ``raw/``、只写 ``derived/``、不联网
+为什么自己不下数据: 全项目约定 prepare 只读 ``raw/``,只写 ``derived/``,不联网
 (见 docs/data-preparation.md); 原始数据由 ``python Myanmar/main.py download`` 落到
 ``Myanmar/data/raw/``, 缺文件时本模块报错并给出准备命令, 不在派生流程里悄悄联网.
-完整说明(为什么混用 GADM/OSM、为什么补缝)见 ``docs/maps/myanmar-admin.md``;
+完整说明(为什么混用 GADM/OSM,为什么补缝)见 ``docs/maps/myanmar-admin.md``;
 数据集层见 ``docs/reference/datasets.md``.
 """
 
@@ -43,7 +43,7 @@ RAW_INPUTS = (
 
 # GADM 名称 -> (键名, 中文名, 英文名, 类型, 行政中心中文, 行政中心英文, 中心经度, 中心纬度)
 # 的属性表在 ``config.ADMIN_INFO``: 派生脚本只负责几何, 名称/中心点那份事实与绘图模块
-# (图例、双语标注)共用同一份, 避免两处各写一遍.
+# (图例,双语标注)共用同一份, 避免两处各写一遍.
 
 def require_raw_data() -> None:
     """检查派生所需的原始数据是否就位; 有缺失就报错并指出准备命令.
@@ -56,7 +56,7 @@ def require_raw_data() -> None:
         (path, label, hint) for path, label, hint in RAW_INPUTS if not path.exists()
     ]
     if not missing:
-        print("原始数据齐全: Natural Earth 国界/河流、GADM 缅甸、OSM 内比都缓存.")
+        print("原始数据齐全: Natural Earth 国界/河流,GADM 缅甸,OSM 内比都缓存.")
         return
     lines = [
         f"未找到 {label}: {path}\n请先运行: {hint}"
@@ -91,7 +91,7 @@ def resolve_overlaps(units: dict[str, object]) -> None:
     """消除相邻单元之间的细长重叠.
 
     为什么会有重叠: GADM 相邻多边形的公共边不是同一条折线, 而是各自
-    略有偏差的两条线, 相减后留下面积很小、跨度很长的楔形条带. 直接画
+    略有偏差的两条线, 相减后留下面积很小,跨度很长的楔形条带. 直接画
     会看到颜色叠深的一条边; 这里按顺序把后处理的单元减去已处理单元,
     既消除重叠又不改变总覆盖范围(重叠区域仍由先处理的单元覆盖).
     """
@@ -103,7 +103,7 @@ def resolve_overlaps(units: dict[str, object]) -> None:
 
 
 def fill_gaps(units: dict[str, object], country) -> None:
-    """把国界内、行政区并集之外的碎块并入距离最近的单元.
+    """把国界内,行政区并集之外的碎块并入距离最近的单元.
 
     注意: 必须先做"距离最近"判断再 union, 不能按中心点判断. 边境缝隙
     往往又长又窄, 中心点可能落在另一个单元的远端.

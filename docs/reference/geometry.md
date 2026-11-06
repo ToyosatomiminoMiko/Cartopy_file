@@ -5,12 +5,12 @@
 
 ## 是什么
 
-数据准备脚本共用的纯几何工具: 修失效几何、拆面/线、删小孔、按确定性格式写 GeoJSON、量面积与
-长度、清洗属性文本. 只依赖 shapely/pyproj/pandas, 不 import matplotlib/cartopy, 所以
+数据准备脚本共用的纯几何工具: 修失效几何,拆面/线,删小孔,按确定性格式写 GeoJSON,量面积与
+长度,清洗属性文本. 只依赖 shapely/pyproj/pandas, 不 import matplotlib/cartopy, 所以
 `prepare_*.py` 与 `download_*.py` 都能直接导入.
 
 这些函数原先在 Ukraine 与 Volga 的 `prepare_data.py` 里各有一份, 且已经漂移(坐标精度
-6 位 vs 5 位、面积一个用椭球一个用等积投影、写文件一个手写 JSON 一个走 GDAL). 上移到框架层
+6 位 vs 5 位,面积一个用椭球一个用等积投影,写文件一个手写 JSON 一个走 GDAL). 上移到框架层
 后只有一份实现; **与图有关的阈值和精度仍留在各子项目**, 以参数传入.
 
 ## 关键行为
@@ -29,7 +29,7 @@
 - `feature(geom, props, *, precision=6, min_hole_area=None)`: 把 shapely 几何包成
   `{"type": "Feature", "properties", "geometry"}`; 给 `min_hole_area` 时先删小孔; 坐标按
   `precision` 位小数舍入. 不支持 `GeometryCollection`, 先用 `extract_*` 拆;
-- `write_geojson(path, features, *, name=None)`: 写紧凑分隔符、键序固定、不写时间戳的
+- `write_geojson(path, features, *, name=None)`: 写紧凑分隔符,键序固定,不写时间戳的
   FeatureCollection(带 CRS84 的 `crs` 成员). 为什么不用 GIS 库写: 同一份数据要逐字节一致,
   库的写出顺序与浮点格式化会随版本变;
 - `round_coords(obj, nd)`: 递归舍入坐标, 一般由 `feature` 内部调用.

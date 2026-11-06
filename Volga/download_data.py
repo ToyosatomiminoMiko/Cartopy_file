@@ -5,10 +5,10 @@
 
 是什么: 按 ``Volga/config.py`` 的 ``DATASETS`` 下载 ETOPO 2022 高程子集与 GADM 4.1
 俄罗斯一级行政区到 ``Volga/data/raw/``, 下载并解压 HydroBASINS 5 级欧洲区到
-``Volga/data/derived/``; 只做下载/解压与自检, raw → 派生 GeoJSON 由
+``Volga/data/derived/``; 只做下载/解压与自检, raw -> 派生 GeoJSON 由
 ``Volga/main.py prepare`` 完成(实现是 ``Volga/prepare_data.py``), 绘图脚本 ``Volga/volga.py``
 离线读取两者的产物.
-下载地址、下载范围与落盘路径全部来自 ``config.py``, 本脚本不再另写画框; 已就位的
+下载地址,下载范围与落盘路径全部来自 ``config.py``, 本脚本不再另写画框; 已就位的
 数据一律跳过, 不重复联网.
 完整说明(数据源/两个准备子命令的分工/运行方式)见 ``docs/maps/volga.md`` 与
 ``docs/data-preparation.md``.
@@ -188,7 +188,7 @@ def _prepare_command(dataset_id: str) -> str:
 
 
 def check_outputs(verbose: bool = True) -> int:
-    """只检查、不联网: 返回缺失/版本不符项数量(0 表示可以离线出图)."""
+    """只检查,不联网: 返回缺失/版本不符项数量(0 表示可以离线出图)."""
     lines = CATALOG.check()
     failed = 0
     commands: list[str] = []
@@ -249,7 +249,7 @@ def print_summary() -> None:
 
 
 def run(*, check: bool = False, force: bool = False, skip_basin: bool = False) -> int:
-    """下载入口: 只检查、下载/解压或两者都做; 返回退出码(0 表示数据齐全)."""
+    """下载入口: 只检查,下载/解压或两者都做; 返回退出码(0 表示数据齐全)."""
     if check:
         return 0 if check_outputs(verbose=True) == 0 else 1
 

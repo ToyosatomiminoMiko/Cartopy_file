@@ -3,11 +3,11 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Volga basin and neighbouring republics, topographic maps (two sheets).
 
-是什么: 以 ETOPO 2022 地形晕渲为底图, 叠加 HydroSHEDS 伏尔加河流域、GADM 4.1
-俄罗斯一级行政区、Natural Earth 10m 河网与梯级水库水面, 一次生成两张自包含
-SVG: 只画流域的流域图, 与画框收窄、保留六个周边共和国的共和区图; 只绘制地理
+是什么: 以 ETOPO 2022 地形晕渲为底图, 叠加 HydroSHEDS 伏尔加河流域,GADM 4.1
+俄罗斯一级行政区,Natural Earth 10m 河网与梯级水库水面, 一次生成两张自包含
+SVG: 只画流域的流域图, 与画框收窄,保留六个周边共和国的共和区图; 只绘制地理
 要素, 不绘制任何文字/图例/色标/标题/比例尺/指北针.
-完整说明(两份画框、行政区取舍、河网分级与配色)见 ``docs/maps/volga.md``;
+完整说明(两份画框,行政区取舍,河网分级与配色)见 ``docs/maps/volga.md``;
 数据集与两张图的规格见 ``Volga/config.py``, 分层与 API 见 ``docs/reference/spec.md``
 与 ``docs/reference/datasets.md``, 共享图层与出图流水线见 ``docs/reference/layers.md``
 与 ``docs/reference/runner.md``.
@@ -181,7 +181,7 @@ def polygon_parts(geom, *, min_area_deg2: float = 1e-4):
 # 高程预处理
 # ============================
 def negative_land_as_land(z: np.ndarray, lon: np.ndarray, lat: np.ndarray, extent) -> np.ndarray:
-    """把海平面以下、但不在海洋/湖泊多边形内的陆地像元改成 0.5 m 再配色.
+    """把海平面以下,但不在海洋/湖泊多边形内的陆地像元改成 0.5 m 再配色.
 
     为什么需要: ETOPO 的高程是相对海平面的, 里海沿岸低地(约 -28~0 m)与里海
     水面(-28 m)都落在负值段. 若按 z<0 一刀切, 里海低地会被画成浅蓝色水面,
@@ -273,8 +273,8 @@ def add_basin(ax: plt.Axes, basin) -> None:
 def add_water(ax: plt.Axes, extent) -> None:
     """填画框内全部 Natural Earth 10m 湖泊与梯级水库水面.
 
-    为什么需要填: 伏尔加—卡马梯级水库面积小、水深浅, ETOPO 30″ 下只是几
-    像素宽的浅色带, 单独填色才能读出"上游窄河、下游宽水面"的沿程变化
+    为什么需要填: 伏尔加-卡马梯级水库面积小,水深浅, ETOPO 30″ 下只是几
+    像素宽的浅色带, 单独填色才能读出"上游窄河,下游宽水面"的沿程变化
     (与 Ukraine 图处理第聂伯河梯级水库的理由一致); 咸海的水面高出海平面
     (+29 m), 按高程配色会画成陆地, 也只能靠湖泊多边形补上.
     不填里海: 里海不在 Natural Earth lakes 图层(在 ocean 图层), 它的水深
@@ -372,7 +372,7 @@ def add_admin(ax: plt.Axes, subjects: gpd.GeoDataFrame, theme: config.Theme) -> 
     界线不会被半透明填色盖住. 共和国的外边界另用较粗的蓝紫线强调; 它与
     俄罗斯国界重合的段落会被后面更粗的国界线压住(国界 zorder 更高).
     流域图不画行政区(draw_admin=False), 只留国界; 共和国图的 hidden_subjects
-    (科米、卡尔梅克)既不填色也不画自己的灰色界线.
+    (科米,卡尔梅克)既不填色也不画自己的灰色界线.
     """
     if not theme.draw_admin:
         return
@@ -423,7 +423,7 @@ def border_land_only(border, extent):
     """从 GADM 俄罗斯外边界里剪掉海岸线与湖岸段, 只留国际陆地国界.
 
     为什么: GADM 各一级行政区的并集边界同时也是国家的外轮廓, 包含了北冰洋/
-    里海/黑海海岸和拉多加湖、奥涅加湖等大湖岸线. 若整条线都按国界样式(深灰
+    里海/黑海海岸和拉多加湖,奥涅加湖等大湖岸线. 若整条线都按国界样式(深灰
     实线 + 白描边)画, 湖岸上会出现像"国界"的粗线, 拉多加湖西岸一个小岬角
     甚至会被看成文字/污点. 用 Natural Earth 10m 海岸线与湖泊边界做蒙版,
     把重合段剪掉, 只保留与邻国接壤的陆地国界(与 Ukraine 图剪海岸段同理).

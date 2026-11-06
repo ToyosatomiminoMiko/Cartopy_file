@@ -2,11 +2,11 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Volga subproject: dataset inventory and per-sheet render config.
 
-是什么: 伏尔加子项目的唯一配置入口——数据集清单(从哪下、版本、下载范围、本地路径)、
-两张图各自的 ``Sheet``(画框、投影、色带、经纬网、文案)与图种特有图层的数据(配色、
-地名、城市、河网分级、行政区主题). 数据准备脚本与绘图脚本都从这里取参数, 下载范围与
+是什么: 伏尔加子项目的唯一配置入口--数据集清单(从哪下,版本,下载范围,本地路径),
+两张图各自的 ``Sheet``(画框,投影,色带,经纬网,文案)与图种特有图层的数据(配色,
+地名,城市,河网分级,行政区主题). 数据准备脚本与绘图脚本都从这里取参数, 下载范围与
 绘图范围不会再各写一份.
-完整说明(数据集层与实例规格层怎么分工、画布宽高比怎么算)见
+完整说明(数据集层与实例规格层怎么分工,画布宽高比怎么算)见
 ``docs/reference/datasets.md`` 与 ``docs/reference/spec.md``; 两张图的设计取舍见
 ``docs/maps/volga.md``.
 """
@@ -235,7 +235,7 @@ VOLGA_RELIEF = Relief(
     zorder=1.0,
 )
 
-# 经纬网: 经度每 5°、纬度每 2°; 点线在 0.5 pt 线宽下的成品 dash 是 (1, 1.65) x 0.5,
+# 经纬网: 经度每 5°,纬度每 2°; 点线在 0.5 pt 线宽下的成品 dash 是 (1, 1.65) x 0.5,
 # 即 geo.graticule 里登记的 [0.5, 0.825]. 绘图端用 matplotlib 的 ":" 复现这条点线
 # (``layers.add_gridlines`` 的 dash 会被 matplotlib 再乘一次线宽, 与 geo 契约的
 # 成品值不同, 所以本图在 volga.py 里自己画网线, 见 docs/maps/volga.md 注意事项).
@@ -269,8 +269,8 @@ FIG_RIGHT_IN = 0.144
 
 # 画框在兰勃特投影下的宽高比. 数值由 cartopy 的
 # ``LambertConformal.project_geometry(画框环, PlateCarree).bounds`` 算得(原
-# ``_projected_aspect``); 这里写成常量是为了让 config.py 保持「纯数据、不 import
-# cartopy」——数据清单检查只读本文件, 不必为两个数拖起整套投影库. 改画框必须重算:
+# ``_projected_aspect``); 这里写成常量是为了让 config.py 保持「纯数据,不 import
+# cartopy」--数据清单检查只读本文件, 不必为两个数拖起整套投影库. 改画框必须重算:
 # 公式与算法见 docs/maps/volga.md 设计要点 1.
 ASPECT_BASIN = 1.2582431702887398
 ASPECT_REPUBLICS = 0.9482197122151442
@@ -349,7 +349,7 @@ SMALL_REPUBLICS = frozenset({"Chuvash", "Mariy-El", "Mordovia", "Kalmyk"})
 
 # 共和国名称: GADM NAME_1 -> (经度, 纬度, 文字). 放在各共和国境内的空旷处,
 # 避开首府城点与主要河湖; 小共和国用两行文字, 字号见 SMALL_REPUBLICS.
-# id 的 slug 用 key 的小写形式(如 tatarstan、mariy-el), 与 GADM 的 NAME_1 一一对应.
+# id 的 slug 用 key 的小写形式(如 tatarstan,mariy-el), 与 GADM 的 NAME_1 一一对应.
 REPUBLIC_LABELS: dict[str, tuple[float, float, str]] = {
     "Tatarstan": (50.30, 54.85, "鞑靼斯坦\n共和国"),
     "Bashkortostan": (56.60, 53.35, "巴什科尔托斯坦\n共和国"),
@@ -432,26 +432,26 @@ RIVER_EXCLUDE_FEATURECLA = frozenset({"Canal"})
 
 # 图注: 面积由 Volga/volga.py 按派生流域面重算后填入 {area_wan:.0f}; 其余是固定文字.
 NOTES_BASIN = (
-    "注 1：流域为 HydroBASINS level 5 的伏尔加河主流域合并，",
-    "面积约 {area_wan:.0f} 万 km²（HydroSHEDS 口径，不含里海）。",
-    "注 2：本图不画联邦主体行政区界，只保留俄罗斯国界（GADM",
-    "4.1 口径，不含克里米亚）。",
-    "注 3：河网与湖库为 Natural Earth 10m；河流按 scalerank 分三级，",
-    "湖泊/水库按面填色；里海不在湖泊层，其水深仍由地形配色表达。",
-    "注 4：地形 ETOPO 2022（15″）；投影 Lambert Conformal Conic，",
-    "中央经线 46°E，标准纬线 47°N / 57°N。",
+    "注 1:流域为 HydroBASINS level 5 的伏尔加河主流域合并,",
+    "面积约 {area_wan:.0f} 万 km²(HydroSHEDS 口径,不含里海).",
+    "注 2:本图不画联邦主体行政区界,只保留俄罗斯国界(GADM",
+    "4.1 口径,不含克里米亚).",
+    "注 3:河网与湖库为 Natural Earth 10m;河流按 scalerank 分三级,",
+    "湖泊/水库按面填色;里海不在湖泊层,其水深仍由地形配色表达.",
+    "注 4:地形 ETOPO 2022(15″);投影 Lambert Conformal Conic,",
+    "中央经线 46°E,标准纬线 47°N / 57°N.",
 )
 
 NOTES_REPUBLICS = (
-    "注 1：流域为 HydroBASINS level 5 的伏尔加河主流域合并，",
-    "面积约 {area_wan:.0f} 万 km²（HydroSHEDS 口径，不含里海）。",
-    "注 2：加粗填色者为流域周边的六个联邦主体共和国，科米与",
-    "卡尔梅克不画；其余联邦主体只画灰色虚线界线。行政区为",
-    "GADM 4.1，其俄罗斯国界口径不含克里米亚。",
-    "注 3：河网与湖库为 Natural Earth 10m；河流按 scalerank 分三级，",
-    "湖泊/水库按面填色；里海不在湖泊层，其水深仍由地形配色表达。",
-    "注 4：地形 ETOPO 2022（15″）；投影 Lambert Conformal Conic，",
-    "中央经线 46°E，标准纬线 47°N / 57°N。",
+    "注 1:流域为 HydroBASINS level 5 的伏尔加河主流域合并,",
+    "面积约 {area_wan:.0f} 万 km²(HydroSHEDS 口径,不含里海).",
+    "注 2:加粗填色者为流域周边的六个联邦主体共和国,科米与",
+    "卡尔梅克不画;其余联邦主体只画灰色虚线界线.行政区为",
+    "GADM 4.1,其俄罗斯国界口径不含克里米亚.",
+    "注 3:河网与湖库为 Natural Earth 10m;河流按 scalerank 分三级,",
+    "湖泊/水库按面填色;里海不在湖泊层,其水深仍由地形配色表达.",
+    "注 4:地形 ETOPO 2022(15″);投影 Lambert Conformal Conic,",
+    "中央经线 46°E,标准纬线 47°N / 57°N.",
 )
 
 # 图内流域面积注记: 只有共和国图把这块文字画在图内; 面积出图时才算得出来,
@@ -572,8 +572,8 @@ def _river_labels(extent: Extent) -> tuple[Label, ...]:
 def _labels_for(extent: Extent, theme: Theme) -> tuple[Label, ...]:
     """按画框与主题生成一张图的完整地名表.
 
-    顺序按旧图 zorder 升序登记(前端 scene 按 order 叠放): 国名/海名/地貌(9.0)、
-    图内流域名(9.2)、共和国名(9.3)、河名(9.4)、城市(10.1). 画框外的候选跳过,
+    顺序按旧图 zorder 升序登记(前端 scene 按 order 叠放): 国名/海名/地貌(9.0),
+    图内流域名(9.2),共和国名(9.3),河名(9.4),城市(10.1). 画框外的候选跳过,
     与改前按画框过滤文字的行为一致.
     """
     labels: list[Label] = []

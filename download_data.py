@@ -6,7 +6,7 @@
 是什么: 全仓库数据清单的唯一入口. 清单不再手写, 而是从各子项目 ``<Sub>/config.py``
 的 ``DatasetSet`` 汇总而来; 本脚本只做两件事: 预取全项目共用的 Natural Earth 底图,
 以及 ``--check`` 逐项核对本地数据是否就位(不联网).
-完整说明(为什么集中预取、目录约定、退出码)见 ``docs/data-preparation.md``.
+完整说明(为什么集中预取,目录约定,退出码)见 ``docs/data-preparation.md``.
 """
 
 from __future__ import annotations

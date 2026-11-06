@@ -6,9 +6,9 @@
 是什么: 从 ``Volga/data/raw/`` 的 GADM 4.1 俄罗斯一级行政区 JSON 与
 ``Volga/data/derived/`` 里解压好的 HydroBASINS 5 级欧洲区 shapefile 派生出
 ``volga_subjects`` / ``volga_basin`` / ``russia_border`` 三个 GeoJSON 供
-``Volga/volga.py`` 离线读取; 只做 raw → derived 派生, 原始数据的下载/解压由
+``Volga/volga.py`` 离线读取; 只做 raw -> derived 派生, 原始数据的下载/解压由
 ``Volga/download_data.py``(经 ``python Volga/main.py download``)负责. 几何修复/写
-GeoJSON/量面积等通用操作走 ``cartopy_file.geometry``, 本文件只保留本图种的路径、
+GeoJSON/量面积等通用操作走 ``cartopy_file.geometry``, 本文件只保留本图种的路径,
 阈值与派生流程.
 完整说明(数据源/输出契约/运行方式)见 ``docs/maps/volga.md``.
 """
@@ -67,7 +67,7 @@ BORDER_PATH = CATALOG.path("russia-border")
 # 默认的 6 位(见 docs/reference/geometry.md 注意事项).
 COORD_PRECISION = 5
 # 对应 1e-5° 的坐标网格. 旧产物由 GDAL 按 COORDINATE_PRECISION=5 写出, 它在坐标舍入会
-# 产生重合顶点时用 GEOS 精度模型压网格(顺带删点、重排环起点); 直接用 feature() 的 Python
+# 产生重合顶点时用 GEOS 精度模型压网格(顺带删点,重排环起点); 直接用 feature() 的 Python
 # 舍入会保留那些顶点, 顶点序列一变出图产物就不再与基线逐字节一致. 本图要求产物不动,
 # 所以流域面先用 set_precision 复现同一份网格几何(见 docs/maps/volga.md 注意事项).
 COORD_GRID_DEG = 10 ** -COORD_PRECISION
@@ -220,7 +220,7 @@ def build_basin() -> None:
     """在 HydroBASINS lev05 里取与伏尔加入海口同一 MAIN_BAS 的全部单元并合并.
 
     识别方法: 伏尔加三角洲窗口内 UP_AREA 最大的单元就是下游出口单元, 它的
-    MAIN_BAS 覆盖整个流域(伏尔加、卡马、奥卡等支流都归同一主流域编码).
+    MAIN_BAS 覆盖整个流域(伏尔加,卡马,奥卡等支流都归同一主流域编码).
     不依赖"与某条河流相交"之类的脆弱条件, 换数据版本也稳定.
     """
     print("\n派生 volga_basin.geojson (HydroBASINS 伏尔加流域)")

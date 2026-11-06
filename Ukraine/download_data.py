@@ -4,8 +4,8 @@
 """Download and cache the raw inputs for the Ukraine overview map.
 
 是什么: 下载乌克兰全图所需的原始数据(ETOPO/GADM/OCHA/OSM)到 ``Ukraine/data/raw/``,
-只取数、不加工; 绘图用的派生 GeoJSON 由 ``Ukraine/prepare_data.py`` 生成.
-下载地址、下载范围与本地路径全部来自 ``Ukraine/config.py``, 原始文件"已存在就跳过".
+只取数,不加工; 绘图用的派生 GeoJSON 由 ``Ukraine/prepare_data.py`` 生成.
+下载地址,下载范围与本地路径全部来自 ``Ukraine/config.py``, 原始文件"已存在就跳过".
 完整说明: ``docs/maps/ukraine.md``(数据来源/运行方式); 数据集层口径见
 ``docs/reference/datasets.md``.
 """
@@ -167,7 +167,7 @@ def _missing_hint(dataset_id: str) -> str:
 
 
 def check_outputs(verbose: bool = True) -> int:
-    """只检查、不联网: 返回缺失/漂移项数量(0 表示可以离线出图)."""
+    """只检查,不联网: 返回缺失/漂移项数量(0 表示可以离线出图)."""
     lines = DATASETS.check()
     failed = [line for line in lines if line.failed]
     if verbose:

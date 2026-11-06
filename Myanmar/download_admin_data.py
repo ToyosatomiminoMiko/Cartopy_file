@@ -4,14 +4,14 @@
 """Download the raw datasets that ``prepare_admin_data.py`` derives from.
 
 是什么: 把行政区图所需的三份原始数据原样下载/解压到 ``Myanmar/data/raw/``:
-GADM 4.1 缅甸一级行政区 JSON、Natural Earth 10m 河流(钉在 5.0.0 旧副本)、
+GADM 4.1 缅甸一级行政区 JSON,Natural Earth 10m 河流(钉在 5.0.0 旧副本),
 OSM 内比都联邦区 relation 的 Overpass 响应. 不做任何几何加工, 派生
 ``myanmar_admin1.geojson`` 是 ``prepare_admin_data.py`` 的事.
-为什么单独一个模块: 全项目约定 ``download_*.py`` 只下载、``prepare_*.py`` 只读
+为什么单独一个模块: 全项目约定 ``download_*.py`` 只下载,``prepare_*.py`` 只读
 ``raw/`` 且不联网(见 docs/data-preparation.md); 这三份数据只被行政区图使用, 与
-ETOPO、掸邦特区边界不同源不同频次, 分开才能单独重跑.
+ETOPO,掸邦特区边界不同源不同频次, 分开才能单独重跑.
 本文件是模块, 只导出 ``run()``, 由统一入口 ``python Myanmar/main.py download`` 调用.
-完整说明(为什么混用 GADM/OSM、为什么补缝)见 ``docs/maps/myanmar-admin.md``;
+完整说明(为什么混用 GADM/OSM,为什么补缝)见 ``docs/maps/myanmar-admin.md``;
 数据集层见 ``docs/reference/datasets.md``.
 """
 

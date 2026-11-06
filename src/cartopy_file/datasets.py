@@ -5,7 +5,7 @@
 是什么: 数据集规格 ``Dataset`` 与集合 ``DatasetSet``. 每个子项目在自己的 ``config.py``
 里声明一份 ``DatasetSet``, 数据准备脚本据此下载/校验, 绘图脚本据此定位文件, 根目录的
 ``download_data.py --check`` 据此汇总整个仓库的数据清单.
-完整说明(为什么集中到子项目配置、raw/derived 目录约定、版本怎么钉)见
+完整说明(为什么集中到子项目配置,raw/derived 目录约定,版本怎么钉)见
 ``docs/reference/datasets.md``.
 """
 
@@ -20,7 +20,7 @@ from .spec import Extent
 __all__ = ["Dataset", "DatasetSet", "CheckLine"]
 
 # 数据目录约定: 下载原样放 raw/, 由数据准备脚本生成的放 derived/.
-# 分开的理由: raw 是一次下载、永不改写的原始资产; derived 可以随时重算, 删除也不会
+# 分开的理由: raw 是一次下载,永不改写的原始资产; derived 可以随时重算, 删除也不会
 # 触发重新联网下载(见 docs/reference/datasets.md).
 RAW_DIR = "raw"
 DERIVED_DIR = "derived"
@@ -37,7 +37,7 @@ class Dataset:
                         只登记分辨率/类别/名称, 不自己下载.
         ``derived``     由本子项目的数据准备脚本生成(如边界 GeoJSON), 只做存在性检查.
         ``script``      由数据准备脚本自行抓取(如 Overpass 查询结果), 只做存在性检查.
-        ``local``       仓库自带、不下载(如 AmericaArmy/data.geojson).
+        ``local``       仓库自带,不下载(如 AmericaArmy/data.geojson).
     bbox: 数据本身覆盖的经纬度范围. 有它才能让「下载范围必须盖住画框」变成机器可查的
         断言(runner 出图时会核对), 而不是靠两个文件里的注释维持一致.
     version: 覆盖 ``Source.version`` 的版本口径. 只有本机这份数据确实停在旧版本时才写,
@@ -166,7 +166,7 @@ class DatasetSet:
 
     @property
     def derived_dir(self) -> Path:
-        """派生数据(解压目录、生成文件)的存放目录."""
+        """派生数据(解压目录,生成文件)的存放目录."""
         return self.root / DERIVED_DIR
 
     def ne_paths(self, dataset: Dataset | str) -> tuple[Path | None, Path]:
@@ -288,7 +288,7 @@ class DatasetSet:
         """把用到的数据集折成产物「数据来源」一行: 每个数据源一条, 用 ` · ` 分隔.
 
         为什么按数据源(而不是按数据集)去重: 一张图常常同时用到同一来源的多个图层
-        (国界、海岸线、河流), 逐条列出会把来源行撑成一串重复的名字. 同一来源下版本
+        (国界,海岸线,河流), 逐条列出会把来源行撑成一串重复的名字. 同一来源下版本
         不一致时(例如老图钉住 Natural Earth 5.0.0 的河网)把版本并排写出来, 而不是
         假装只有一个版本.
         """

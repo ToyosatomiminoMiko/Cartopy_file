@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""geo.json(mapdoc-geo v2)生成: 地图框、经纬刻度、初始标注、色标、图例与默认文案.
+"""geo.json(mapdoc-geo v2)生成: 地图框,经纬刻度,初始标注,色标,图例与默认文案.
 
-是什么: 本模块把「前端排版需要知道、但底图 SVG 里不画」的元数据收集成一个
-``<子项目>/text/<产物名>.geo.json``: 地图框 ``base``(裁到地图框后的 viewBox 与尺寸)、经纬刻度
-``graticule``、地名候选 ``labels``、高程色标 ``relief``、图例 ``legend`` 与默认文案
+是什么: 本模块把「前端排版需要知道,但底图 SVG 里不画」的元数据收集成一个
+``<子项目>/text/<产物名>.geo.json``: 地图框 ``base``(裁到地图框后的 viewBox 与尺寸),经纬刻度
+``graticule``,地名候选 ``labels``,高程色标 ``relief``,图例 ``legend`` 与默认文案
 ``suggestions``. 同时提供 ``save_map()``, 把 Figure 保存成裁到地图框的纯几何 SVG
 (即契约里的 ``base.svg``, 写到 ``<子项目>/map/``)并写出调用方指定路径的 geo.json.
 
 为什么: 底图按约定「不含任何文字」(miko_svg_editor 的 C2), 前端不知道地名该放在哪,
-也不知道刻度/色标/图例的口径. 这些数据只在 Cartopy 画图时天然存在(axes bbox、
-locator、文字 artist 的锚点、legend handles、colorbar 的 norm/cmap), 由这里一次性
+也不知道刻度/色标/图例的口径. 这些数据只在 Cartopy 画图时天然存在(axes bbox,
+locator,文字 artist 的锚点,legend handles,colorbar 的 norm/cmap), 由这里一次性
 收集比前端从成品 SVG 反推可靠. 字段与取值口径见 miko_svg_editor 的 PAGE-EDITOR.md §3
 (``mapdoc-geo`` v2).
 
@@ -20,7 +20,7 @@ locator、文字 artist 的锚点、legend handles、colorbar 的 norm/cmap), �
   底图 SVG 只改根标签的 viewBox/width/height 来裁到地图框, 坐标值本身不变,
   所以 geo 里的 x/y 可以直接对底图坐标使用;
 - ``labels`` 只描述语义与摆放: ``role``(样式由前端 miko_svg_editor 的
-  ``src/config/text-style.ts`` 决定)、``text``、``x/y``、``anchor``、
+  ``src/config/text-style.ts`` 决定),``text``,``x/y``,``anchor``,
   ``font_size_pt`` 与 ``order``. 颜色/描边/斜体/字距/行高都不在生成端输出,
   旋转也由前端处理(默认 0);
 - ``labels[].x`` 是文字块的水平锚点(``anchor`` 为 start 时指左端, middle 指中心,
@@ -28,7 +28,7 @@ locator、文字 artist 的锚点、legend handles、colorbar 的 norm/cmap), �
   文字排好后换算回第一行基线;
 - id 规则是 ``label-<role 家族>-<name>[-<index>]``: 角色家族见 ``_ID_PREFIX``(如
   ``country-name`` 归到 ``country``); ``<name>`` 必须是小写 ASCII slug(见
-  ``spec.check_slug``), 中文显示名只进 ``text``——id 要当键用, 不能带中文
+  ``spec.check_slug``), 中文显示名只进 ``text``--id 要当键用, 不能带中文
 
 依赖: ``cartopy_file.output.save_svg``(唯一 SVG 出口); 坐标换算走 cartopy 的
 PlateCarree->display 变换(与 ``GeoAxes.text`` 同一套, 实测与旧成品抽出的 geo 逐条
@@ -150,7 +150,7 @@ def label_id(kind: str, name: str, index: int | None = None) -> str:
 
     kind 是「角色家族」(见 ``_ID_PREFIX``), 不是 role 本身. name 是**标识符**,
     必须是小写 ASCII slug(``spec.check_slug``): id 会被前端和旧布局文件当键引用,
-    中文、换行、双语后缀都只应出现在 ``labels[].text`` 里, 不进 id.
+    中文,换行,双语后缀都只应出现在 ``labels[].text`` 里, 不进 id.
     """
     if not kind or not str(name).strip():
         raise ValueError(f"label_id 需要非空的 kind/name: {kind!r} {name!r}")
@@ -164,7 +164,7 @@ def label_id(kind: str, name: str, index: int | None = None) -> str:
 class Frame:
     """地图框在底图坐标系(SVG pt, 原点为原 Figure 左上角, y 向下)里的矩形.
 
-    为什么单独成类型: 底图裁剪、geo.base 与经纬刻度的边线都要用同一份数值;
+    为什么单独成类型: 底图裁剪,geo.base 与经纬刻度的边线都要用同一份数值;
     分开算就会因为浮点舍入出现「viewBox 与 geo.base 差 1e-9」这类不一致.
     """
 
@@ -481,7 +481,7 @@ class GeoDoc:
         font_size_pt: float,
         ha: str = "center",
     ) -> None:
-        """登记一条地名候选(底图坐标), 不画文字、不存样式.
+        """登记一条地名候选(底图坐标), 不画文字,不存样式.
 
         text 里的换行原样保留(前端自己 split); x/y 是文字块的水平锚点与垂直中心,
         不再换算基线. role 决定前端样式, 生成端只按 _ID_PREFIX 把它折成 id 前缀.
@@ -739,7 +739,7 @@ def save_map(
 ):
     """保存裁到地图框的纯几何 SVG(底图)与文字信息 geo.json, 返回 (svg 路径, geo 路径).
 
-    两个输出路径都显式给出: 子项目布局是地图进 ``map/``、文字信息进 ``text/``, 路径由
+    两个输出路径都显式给出: 子项目布局是地图进 ``map/``,文字信息进 ``text/``, 路径由
     ``cartopy_file.spec`` 的 ``map_path``/``text_path`` 拼; 本模块不猜目录, 也不自动
     在 SVG 旁边写 geo.json(那样会重新引入第二套布局).
 

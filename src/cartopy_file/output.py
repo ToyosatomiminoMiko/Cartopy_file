@@ -3,13 +3,13 @@
 """项目统一的 SVG 出图入口 (纯几何地图).
 
 是什么: ``apply_svg_output`` 固定与 SVG 有关的 rcParams, ``save_svg`` 把 Figure 保存成单个
-自包含的 ``.svg``; 产物只含地理图形, 不再有任何文字、图例、色标、标题、刻度文字或字体.
+自包含的 ``.svg``; 产物只含地理图形, 不再有任何文字,图例,色标,标题,刻度文字或字体.
 
 为什么: 文字与版面由另一个仓库 (miko_svg_editor) 的前端排版接管, 本仓只负责地理;
 因此这里不再做文字外置/字体子集/标签布局, 也不写 ``@font-face``. 内嵌的晕渲栅格仍以
 base64 内联, 保证产物始终只有一个 ``.svg`` 文件.
 
-完整说明(为什么统一 SVG、确定性是怎么保证的)见 ``docs/reference/output.md``.
+完整说明(为什么统一 SVG,确定性是怎么保证的)见 ``docs/reference/output.md``.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ _HASHSALT = "cartopy-file"
 def apply_svg_output() -> None:
     """把 SVG 出图相关的 rcParams 固定下来, 可重复调用.
 
-    必须在导入 matplotlib 之后、创建 Figure 之前调用. 显式写出来而不是依赖
+    必须在导入 matplotlib 之后,创建 Figure 之前调用. 显式写出来而不是依赖
     matplotlib 的默认值, 是为了让"栅格内嵌 / 时间戳不写 / 落到 SVG"这三条约定
     集中在本文件里; 换 matplotlib 版本或用户自己的 matplotlibrc 也改不掉.
     """

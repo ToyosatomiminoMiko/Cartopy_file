@@ -4,12 +4,12 @@
 """USSR subproject entry point: download ETOPO and render the USSR map.
 
 是什么: 苏联子项目的唯一可执行入口. ``download`` 调下载模块把 ETOPO 子集写进
-``USSR/data/raw/``; ``render`` 调绘图模块出图, 地图进 ``USSR/map/``、文字信息进
+``USSR/data/raw/``; ``render`` 调绘图模块出图, 地图进 ``USSR/map/``,文字信息进
 ``USSR/text/``; ``all`` 先 download 再 render.
 为什么只有一个入口: 全项目约定「一个子项目一个可执行文件, 其余 .py 只导出 run()」;
 参数解析与退出码归这里, 模块不再各自解析命令行. 子命令分派用懒导入, 只有真正执行的那
 一步才加载网络栈或 matplotlib/cartopy.
-完整说明(投影、数据来源、运行方式)见 ``docs/maps/ussr.md``.
+完整说明(投影,数据来源,运行方式)见 ``docs/maps/ussr.md``.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--stride",
         type=int,
         default=8,
-        help="ERDDAP 采样步长；1=完整 15 弧秒，2=30 弧秒，4=1 弧分，8=2 弧分（默认，适合 300 dpi 出图）",
+        help="ERDDAP 采样步长;1=完整 15 弧秒,2=30 弧秒,4=1 弧分,8=2 弧分(默认,适合 300 dpi 出图)",
     )
     download.add_argument("--force", action="store_true", help="覆盖已存在的下载文件")
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     try:
         raise SystemExit(run())
     except KeyboardInterrupt:
-        print("\n用户中断。可重新运行脚本以续传未完成的文件。", file=sys.stderr)
+        print("\n用户中断.可重新运行脚本以续传未完成的文件.", file=sys.stderr)
         raise SystemExit(130)
     except Exception as exc:
         print(f"错误: {exc}", file=sys.stderr)

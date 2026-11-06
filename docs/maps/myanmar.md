@@ -9,10 +9,10 @@
 
 读取本地的 NOAA ETOPO 2022 缅甸区域高程 NetCDF, 用兰勃特等角圆锥投影绘制缅甸联邦共和国
 全境地形图, 叠加 Natural Earth 10m 国界(仅陆上段, 半透明红色)与邻国国界(灰色虚线), 并画出主要
-城市点(首都用星形标记、其余用空心圆, 不写名称). 海岸线不单独绘制, 海陆界线由地形配色在 0 m 处
+城市点(首都用星形标记,其余用空心圆, 不写名称). 海岸线不单独绘制, 海陆界线由地形配色在 0 m 处
 的跳变表达. 地名(邻国/海域/国名/城名)不以文字画进底图, 只把 `role`/位置/字号/锚点登记进
 `geo.labels`, 颜色与斜体等样式由前端 role 表统一决定. 标注 id 全是小写 ASCII slug
-(如 `label-country-china`、`label-sea-andaman-sea`), 中文只出现在 `labels[].text`.
+(如 `label-country-china`,`label-sea-andaman-sea`), 中文只出现在 `labels[].text`.
 
 ## 设计要点
 
@@ -25,7 +25,7 @@
 
 ### 2. 画布
 
-南北约 26°、东西约 19°, 投影后宽高比约 3:4, 画布取 12×15 英寸, 手动画布加 `add_axes`,
+南北约 26°,东西约 19°, 投影后宽高比约 3:4, 画布取 12×15 英寸, 手动画布加 `add_axes`,
 地图位置完全可控, 不依赖自动布局.
 
 ### 3. 底图: 0 m 处断开的海陆色带, 不画海岸线
@@ -76,8 +76,8 @@ python Myanmar/main.py download --region myanmar   # 首次: ETOPO + 行政区�
 python Myanmar/main.py render --sheet myanmar      # 出图, 地图进 Myanmar/map/, 文字信息进 Myanmar/text/
 ```
 
-画框、投影、色带、经纬网、地名与文案都在 [`Myanmar/config.py`](../../Myanmar/config.py);
-渲染模块只画本图特有条图层(陆上国界、邻国国界、城市点), `geo.json` 由框架按 `Sheet` 收集.
+画框,投影,色带,经纬网,地名与文案都在 [`Myanmar/config.py`](../../Myanmar/config.py);
+渲染模块只画本图特有条图层(陆上国界,邻国国界,城市点), `geo.json` 由框架按 `Sheet` 收集.
 
 `download` 的选项:
 
