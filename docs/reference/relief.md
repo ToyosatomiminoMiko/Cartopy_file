@@ -53,17 +53,18 @@ prepare_matplotlib_env()  # 必须在导入 matplotlib 之前
 from cartopy_file.relief import (  # noqa: E402
     add_base_map,
     find_etopo,
-    load_countries,
     load_elevation,
+    load_ne_layer,
     make_relief,
 )
 
-etopo_path = find_etopo(Path("Myanmar/data"), "myanmar")
+# 高程在子项目的 data/raw 下; Natural Earth 图层读共享缓存(读不到时返回 None).
+etopo_path = find_etopo(Path("Myanmar/data/raw"), "myanmar")
 if not etopo_path.exists():
     raise FileNotFoundError(f"未找到高程数据: {etopo_path}")
 
 lon, lat, z = load_elevation(etopo_path)
-world = load_countries(Path("Myanmar/data/ne_10m_admin_0_countries"))
+world = load_ne_layer("10m", "cultural", "admin_0_countries")
 add_base_map(ax, world, ocean_color=BASE_OCEAN_COLOR, land_color=BASE_LAND_COLOR)
 
 relief_rgba, norm, cmap = make_relief(z, lat, lon, vmin=-5000, vmax=6000)
@@ -75,8 +76,8 @@ ax.imshow(relief_rgba, origin="lower", extent=(lon[0], lon[-1], lat[0], lat[-1])
 - 警告: 本模块导入即加载 matplotlib/cartopy, 调用方必须在 import 本模块**之前**设置好
   `MPLCONFIGDIR`(用 [`cartopy_file.data.prepare_matplotlib_env()`](data.md)), 否则本机只读
   的 `~/.config` 会让 matplotlib 每次重建字体缓存;
-- 缅甸系列脚本通过 `Myanmar/map_lib.py` 这个兼容层导入本模块: 它只重新导出 `add_base_map`、
-  `find_etopo`、`load_countries`、`load_elevation`、`make_relief`, 并在导入前设好
-  `MPLCONFIGDIR`. 实现只有本模块一份, 兼容层是为了不改动脚本里的 `import map_lib`;
-- `data_dir` 传各图种自己的目录(如 `Myanmar/data`、`Ukraine/data`), 共享的 cartopy 底图在
-  仓库 `data/cartopy`, 两者的分工见 [`data-preparation.md`](../data-preparation.md).
+- 各子项目脚本直接 `from cartopy_file.relief import ...`(以前缅甸目录里有一层
+  `Myanmar/map_lib.py` 兼容 shim, 迁移到新架构时已删除);
+- 共享的 cartopy 底图在仓库 `data/cartopy`; 各子项目自己的高程/矢量在
+  `<子项目>/data/raw`(下载原样)与 `<子项目>/data/derived`(脚本生成), `find_etopo` 的
+  `data_dir` 传 `raw` 那层, 分工见 [`data-preparation.md`](../data-preparation.md).

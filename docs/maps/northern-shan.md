@@ -65,11 +65,10 @@ Ukraine 图一致: 下面的地形与区域填色透出来, 与它重合的区�
 
 | 文件 | 内容 | 生成方式 |
 | --- | --- | --- |
-| `Myanmar/data/ETOPO_2022_v1_15s_northern_shan_stride1.nc` | 15 弧秒高程子集 | `python Myanmar/download_etopo.py --region northern_shan --stride 1` |
-| `Myanmar/data/regions/shan_north_boundaries.geojson` | 特区/自治区域多边形 | `python Myanmar/download_regions.py` |
-| `Myanmar/data/regions/osm_country_borders.geojson` | 画框附近 OSM 国界线 | 同上 |
-| `Myanmar/data/ne_10m_admin_0_countries/` | Natural Earth 10m 国界(邻国参照) | `python Myanmar/download_etopo.py` |
-| `data/cartopy/` | cartopy 缓存的 10m 河流/湖泊/海陆底图 | `python download_data.py` |
+| `Myanmar/data/raw/ETOPO_2022_v1_15s_northern_shan_stride1.nc` | 15 弧秒高程子集 | `python Myanmar/download_etopo.py --region northern_shan --stride 1` |
+| `Myanmar/data/raw/regions/shan_north_boundaries.geojson` | 特区/自治区域多边形 | `python Myanmar/download_regions.py` |
+| `Myanmar/data/raw/regions/osm_country_borders.geojson` | 画框附近 OSM 国界线 | 同上 |
+| `data/cartopy/` | 共享缓存的 Natural Earth 10m 国界(海陆底图)/河流/湖泊 | `python download_data.py` |
 
 ETOPO 子集范围 94.6~102.1°E, 18.8~25.2°N: 画框南界是 19.0°N, 子集下探到 18.8°N 并留 0.2°
 余量, 用来覆盖兰勃特投影矩形南缘的数值误差.
@@ -77,13 +76,14 @@ ETOPO 子集范围 94.6~102.1°E, 18.8~25.2°N: 画框南界是 19.0°N, 子集�
 ## 运行
 
 ```bash
+python download_data.py                                              # 首次: 共享 Natural Earth 底图
 python Myanmar/download_etopo.py --region northern_shan --stride 1   # 高程子集
 python Myanmar/download_regions.py                                   # OSM 区域/国界
 python Myanmar/northern_shan.py                                      # 出图
 ```
 
-`northern_shan.py` 的选项: `--stride`(指定 `Myanmar/data/` 下的采样步长)、`--dpi`(内嵌
-晕渲像素密度, 默认 300)、`--show`(保存后弹窗).
+数据准备脚本在文件已就位时只跳过、不联网. `northern_shan.py` 的选项: `--stride`(指定
+`Myanmar/data/raw/` 下的采样步长)、`--dpi`(内嵌晕渲像素密度, 默认 300)、`--show`(保存后弹窗).
 
 ## 注意事项
 

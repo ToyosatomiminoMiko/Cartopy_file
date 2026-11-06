@@ -7,15 +7,14 @@
 
 | 位置 | 内容 | 谁维护 |
 | --- | --- | --- |
-| `data/cartopy/` | cartopy 内置 Natural Earth 底图, 全项目共用(海岸线、国界、河流、湖泊、海洋) | 根目录 `download_data.py` |
-| `Myanmar/data/` | ETOPO 缅甸高程、Natural Earth 10m 国界/河流、行政区 GeoJSON、OSM 特区边界 | `Myanmar/download_etopo.py`、`download_regions.py`、`prepare_admin_data.py` |
-| `USSR/data/` | ETOPO 苏联高程、Natural Earth 10m 国界 | `USSR/download_etopo.py` |
-| `Ukraine/data/` | ETOPO 乌克兰高程、Natural Earth 10m 国界、GADM 4.1、OCHA 2021 GCA/NGCA、OSM 河流与德左边界、派生 GeoJSON | `Ukraine/download_data.py` |
-| `Volga/data/` | ETOPO 伏尔加河流域高程、GADM 4.1 俄罗斯一级行政区、HydroBASINS 5 级流域、派生 GeoJSON | `Volga/download_data.py` |
+| `data/cartopy/` | cartopy 内置 Natural Earth 底图, 全项目共用 | 根目录 `download_data.py` |
+| `<子项目>/data/raw/` | 该子项目下载原样: ETOPO NetCDF、GADM/OSM 原始 JSON、Natural Earth 旧副本 | 该子项目的 `download_*.py` |
+| `<子项目>/data/derived/` | 由脚本加工出来的: 解压目录、生成的边界 GeoJSON | 该子项目的 `prepare_*.py` |
 | `AmericaArmy/data.geojson` | 基地点位, 仓库自带 | — |
 
-`**/data` 在 `.gitignore` 里, 数据不随仓库提交; 换机器或重新 clone 后重跑准备命令即可恢复.
-唯一入库的数据文件是 `AmericaArmy/data.geojson`(它不在被忽略的 `data/` 目录里).
+`raw` 与 `derived` 分开的理由: 前者是一次下载、永不改写的原始资产, 后者可以随时删掉重算
+(删它不会触发重新联网). `**/data` 在 `.gitignore` 里, 数据不随仓库提交; 换机器或重新 clone
+后重跑准备命令即可恢复. 唯一入库的数据文件是 `AmericaArmy/data.geojson`.
 
 本机 `/home` 是只读挂载, cartopy/matplotlib 的默认缓存目录不可写, 所以缓存统一放在仓库内.
 需要把共用缓存放到别的可写磁盘时设 `CARTOPY_FILE_DATA=/path/to/data`; 定位逻辑与各环境变量
@@ -23,16 +22,28 @@
 
 ## 数据源与许可
 
-| 数据集 | 用途 | 许可 |
-| --- | --- | --- |
-| Natural Earth(10m / 110m) | 海岸线、国界、河流、湖泊、陆地、海洋 | public domain |
-| NOAA ETOPO 2022(15 弧秒) | 地形高程 | 美国联邦政府作品, public domain |
-| GADM 4.1 | 缅甸/乌克兰/俄罗斯一级行政区 | 学术与非商业用途免费, 商用需授权 |
-| OpenStreetMap | 特区边界、乌克兰河流/水库、德左边界 | ODbL 1.0 |
-| OCHA HDX 2021 HNO GCA/NGCA | 乌克兰顿巴斯接触线 | 按其发布页面的许可与署名要求 |
-| HydroSHEDS(HydroBASINS) | 伏尔加河流域边界 | 免费, 需按发布页署名 |
+外部数据源全部登记在 [`src/cartopy_file/sources.py`](../src/cartopy_file/sources.py): URL 模板、
+版本、许可、进图署名都只写一次, 子项目只引用 id. 新增数据源改那一个文件.
 
-引用产物时请按上表署名数据来源.
+| id | 数据集 | 版本 | 用途 | 许可 |
+| --- | --- | --- | --- | --- |
+| `natural-earth` | Natural Earth(10m / 110m) | 5.1.1 | 海岸线、国界、河流、湖泊、陆地、海洋 | public domain |
+| `etopo-2022` | NOAA ETOPO 2022(15 弧秒) | v1 | 地形高程 | 美国联邦政府作品, public domain |
+| `gadm-4.1` | GADM | 4.1 | 缅甸/乌克兰/俄罗斯一级行政区 | 学术与非商业用途免费, 商用需授权 |
+| `openstreetmap` | OpenStreetMap(Overpass 快照) | 无版本号 | 特区边界、乌克兰河流/水库、德左边界 | ODbL 1.0 |
+| `ocha-hno-2021` | OCHA HDX 2021 HNO GCA/NGCA | 2021 | 乌克兰顿巴斯接触线 | 按其发布页的许可与署名要求 |
+| `hydrobasins` | HydroSHEDS(HydroBASINS) | v1c | 伏尔加河流域边界 | 免费, 需按发布页署名 |
+
+引用产物时请按上表署名数据来源. 产物 geo.json 的 `suggestions.source` 就是由这份登记自动
+生成的(每个数据源一条, 带发布页 URL), 不再手写.
+
+### 版本号怎么钉
+
+版本号写在 URL 或文件名里的(GADM `gadm41_*`、ETOPO `ETOPO_2022_v1_15s`、HydroBASINS `v1c`)
+直接记录版本字符串. **Natural Earth 是唯一例外**: S3 下载地址不带版本号, 换版会原地覆盖
+同名文件, 所以额外用缓存里的 `*.VERSION.txt` 校验(`--check` 会逐字比对, 不符即报「版本不符」),
+并在确实停在旧版本时把版本显式钉在 `Dataset.version` 上(缅甸的河流副本是 5.0.0, 换版会改变
+河网几何). 细节见 [`reference/datasets.md`](reference/datasets.md).
 
 ## 准备命令总表
 
@@ -42,11 +53,11 @@
 | 命令 | 产物 | 什么时候需要 |
 | --- | --- | --- |
 | `python download_data.py` | `data/cartopy/` 共用底图 | 每台机器一次 |
-| `python Myanmar/download_etopo.py` | 缅甸 ETOPO(stride=2)+ Natural Earth 10m 国界 | 缅甸全境图/行政区图 |
+| `python Myanmar/download_etopo.py` | 缅甸 ETOPO(stride=2)| 缅甸全境图 |
 | `python Myanmar/download_etopo.py --region northern_shan --stride 1` | 掸邦 15 弧秒高程 | 掸邦/特区图 |
 | `python Myanmar/download_regions.py` | OSM 特区边界与画框附近国界 | 掸邦/特区图 |
-| `python Myanmar/prepare_admin_data.py` | `Myanmar/data/myanmar_admin1.geojson` 等 | 缅甸行政区图 |
-| `python USSR/download_etopo.py` | 苏联 ETOPO(默认 stride=8)+ 10m 国界 | 苏联图 |
+| `python Myanmar/prepare_admin_data.py` | `Myanmar/data/derived/myanmar_admin1.geojson` 等 | 缅甸行政区图 |
+| `python USSR/download_etopo.py` | 苏联 ETOPO(默认 stride=8) | 苏联图 |
 | `python Ukraine/download_data.py` | 乌克兰全部原始数据与派生 GeoJSON | 乌克兰图 |
 | `python Volga/download_data.py` | 伏尔加河流域原始数据与派生 GeoJSON | 伏尔加河流域图 |
 
@@ -56,20 +67,25 @@
 python download_data.py --check   # 全部就位退出码 0, 有缺失退出码 1 并给出准备命令
 ```
 
-`--check` 的清单分三部分: `download_data.py` 顶部的 `NE_FEATURES`(共用 cartopy 底图)、
-`LOCAL_DATA`(各图种的必需本地数据)、`OPTIONAL_DATA`(缺失也不影响出图的缓存). 新增图种或
-新数据时按 [`add-map.md`](add-map.md) 的清单补进去, 否则 `--check` 不会提示.
+清单不再手写: `--check` 逐个导入各子项目目录里的 `specs.py`, 读出它声明的 `DATASETS`
+(`DatasetSet`)后逐项核对. 所以:
+
+- 新增子项目或新数据, 只改该子项目的 `specs.py`, 不用回来改 `download_data.py`;
+- 「就位」以项目缓存为准: 只有 `~/.local/share/cartopy` 里有不算就位(换机器就没了);
+- 版本不符、只在旧缓存里, 都会算失败并打印原因.
 
 ## ETOPO 下载
 
-各图种都用同一套 NOAA ERDDAP 下载方式(实现分别在各图的数据准备脚本里):
+各图种都用同一套 NOAA ERDDAP 下载方式(实现走 [`cartopy_file.fetch`](../src/cartopy_file/fetch.py),
+下载范围来自各自 `specs.py`):
 
 - 不直接打开 NOAA OPeNDAP 的几十个瓦片(要在经度上跨瓦片拼接, 还要处理 0°/360° 与
   -180°/180° 两套经度约定), 改为向 ERDDAP 请求一次已裁剪、重采样好的区域 NetCDF,
   绘图时只读一个文件;
 - ERDDAP 的经度是 0~360°, 跨 180° 的区域(如苏联图)要把负经度 +360;
-- 区域范围要覆盖投影后的矩形画框四角, 而不是只按经纬度画框下载, 否则兰勃特投影画框的角上
-  会露出没有高程数据的空白;
+- 区域范围要覆盖**投影后的矩形画框**四角, 而不是只按经纬度画框下载, 否则兰勃特投影画框的
+  角上会露出没有高程数据的空白. 这个范围在 `specs.py` 里由 `Sheet.extent.padded(...)` 推出,
+  与绘图用的画框是同一个数据源, 出图时 `runner` 还会核对是否盖住;
 - 默认步长按图幅大小选: 缅甸全境 `stride=2`(30 弧秒, 约 34 MB), 掸邦放大图 `stride=1`
   (15 弧秒), 苏联 `stride=8`(2 弧分, 约 45 MB), 乌克兰 `stride=2`;
 - 断点续传: 中断留下 `.part` 文件, 再次运行尝试续传; 若服务器忽略 Range 直接返回完整数据,
@@ -83,8 +99,8 @@ python download_data.py --check   # 全部就位退出码 0, 有缺失退出码 
 ## 注意事项
 
 - 只有换机器或重新 clone 时才需要重跑准备命令; 同一份数据反复出图不会再下载;
-- 网络受限时(ERDDAP、Overpass、GADM、OCHA 任一不可用), 可以手动把文件放进对应 `data/`
-  目录, 文件名按下表约定, 脚本检测到就不下载;
+- 网络受限时(ERDDAP、Overpass、GADM、OCHA 任一不可用), 可以手动把文件放进对应
+  `data/raw/` 目录, 文件名按各子项目 `specs.py` 里的 `dest` 约定, 脚本检测到就不下载;
 - OSM 数据经公共 Overpass API 获取: 首次运行请求 relation 并缓存原始 JSON, 公共实例满负荷
-  (502)时脚本会在多个镜像间轮换重试, 并把关系分批请求避免超时;
+  (502)时会轮换镜像; Overpass 是实时查询接口, 没有版本号, 缓存只能当快照用;
 - 数据缺失时绘图脚本会 `FileNotFoundError` 并提示对应的准备命令, 按提示跑即可.

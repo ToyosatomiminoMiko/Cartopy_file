@@ -43,24 +43,30 @@
 
 | 文件 | 内容 | 生成方式 |
 | --- | --- | --- |
-| `Myanmar/data/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集 | `python Myanmar/download_etopo.py` |
-| `Myanmar/data/ne_10m_admin_0_countries/` | Natural Earth 10m 国界 | 同上 |
-| `data/cartopy/` | cartopy 缓存的 10m 海岸线/国界底图 | `python download_data.py` |
+| `Myanmar/data/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集(stride 2 = 30 弧秒) | `python Myanmar/download_etopo.py` |
+| `data/cartopy/` | 共享缓存的 Natural Earth 10m 国界/国界线/海岸线 | `python download_data.py` |
 
-下载范围(85.3~107.7°E, 4.9~31.1°N)比地图画框(87~106°E, 5~31°N)大: 兰勃特投影的矩形画框
-在北部向两侧张开, 只按画框下载会让四角露出没有高程数据的空白. 下载机制的共性见
-[`data-preparation.md`](../data-preparation.md) 的 ETOPO 一节.
+下载范围由 `Myanmar/specs.py` 的画框推出来: `EXTENT_MYANMAR.padded(lon=1.7, lat=0.1)`
+= 85.3~107.7°E / 4.9~31.1°N, 比地图画框(87~106°E, 5~31°N)大. 为什么不按画框直接下:
+兰勃特投影的矩形画框在北部向两侧张开, 只按经纬度画框下载会让四角露出没有高程数据的空白.
+这个数字只写在 `specs.py` 一处, 下载脚本与绘图脚本共用; 出图时 `runner` 还会核对数据集
+`bbox` 是否盖住投影后的画框. 下载机制的共性见 [`data-preparation.md`](../data-preparation.md)
+的 ETOPO 一节.
 
 ## 运行
 
 ```bash
-python Myanmar/download_etopo.py   # 首次: ETOPO 子集 + NE 10m 国界(已存在则跳过)
+python download_data.py            # 首次: 共享 Natural Earth 底图
+python Myanmar/download_etopo.py   # 首次: ETOPO 高程子集(已存在则跳过)
 python Myanmar/myanmar.py          # 出图, 产物写到脚本同目录
 ```
 
+画框、投影、色带、经纬网、地名与文案都在 [`Myanmar/specs.py`](../../Myanmar/specs.py);
+本脚本只画特有条图层(陆上国界、邻国国界、城市点)并按同一份 spec 收集 geo.
+
 `myanmar.py` 的选项:
 
-- `--stride`: 用 `Myanmar/data/` 下对应采样步长的高程文件, 缺省自动选步长最小的;
+- `--stride`: 用 `Myanmar/data/raw/` 下对应采样步长的高程文件, 缺省自动选步长最小的;
 - `--dpi`: 内嵌晕渲栅格的像素密度, 默认 300(矢量部分与 dpi 无关);
 - `--show`: 保存后弹出交互窗口(需要图形界面).
 

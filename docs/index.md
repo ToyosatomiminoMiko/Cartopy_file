@@ -12,7 +12,7 @@
   `python download_data.py --check` 确认缺什么;
 - **改某张图**: 对应图种页的"设计要点"与"注意事项" → 需要共用工具时查
   [reference/](reference);
-- **新增图种或共享模块**: [add-map.md](add-map.md) 的清单;
+- **新增图种或共享模块**: [add-map.md](add-map.md) 的清单(先看 `AmericaArmy/` 这个最小例子);
 - **查数据来源与许可**: [data-preparation.md](data-preparation.md).
 
 ## 概念
@@ -39,7 +39,11 @@
 
 | 页面 | 模块 |
 | --- | --- |
-| [reference/data.md](reference/data.md) | `cartopy_file.data`: 数据目录与缓存定位 |
+| [reference/data.md](reference/data.md) | `cartopy_file.data`: 数据目录与缓存定位、子项目枚举 |
+| [reference/datasets.md](reference/datasets.md) | 数据层: `sources`/`fetch`/`datasets`(数据源登记、下载、数据集清单) |
+| [reference/spec.md](reference/spec.md) | `cartopy_file.spec`: 实例规格(画框/投影/色带/经纬网/地名/文案) |
+| [reference/layers.md](reference/layers.md) | `cartopy_file.layers`: 图层原语(底图/晕渲/经纬网/城市点/geo 收集) |
+| [reference/runner.md](reference/runner.md) | `cartopy_file.runner`: 统一出图流程与回调契约 |
 | [reference/geo.md](reference/geo.md) | `cartopy_file.geo`: 底图裁剪、geo.json 与前端契约 |
 | [reference/output.md](reference/output.md) | `cartopy_file.output`: 纯几何 SVG 出图 |
 | [reference/relief.md](reference/relief.md) | `cartopy_file.relief`: 高程、晕渲、海陆底色 |

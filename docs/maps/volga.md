@@ -33,8 +33,9 @@ Natural Earth 10m 河网与湖泊水面, 一次生成两张自包含 SVG:
 兰勃特等角圆锥投影, 中央经线 46°E, 中央纬度 53°N, 标准纬线 47°N / 57°N. 流域主体在
 45~62°N, 标准纬线夹住南北缘, 全图比例误差最小.
 
-两张图共用投影与色带, 画框分别写在 `EXTENT_BASIN` / `EXTENT_REPUBLICS`, 由 `MapSpec` 与
-`make_layout` 驱动: 地图区高度固定 9.894 英寸, 宽度按画框投影包围盒的宽高比算, 画布宽度
+两张图共用投影与色带, 画框与版式写在 `Volga/specs.py`(`EXTENT_BASIN` /
+`EXTENT_REPUBLICS`、`LAYOUTS`), 由 `SHEETS` 里的两个 `Sheet` 驱动: 地图区高度固定
+9.894 英寸, 宽度按画框投影包围盒的宽高比算, 画布宽度
 随之为约 17.6 × 12.2 英寸(流域图)或 14.5 × 12.2 英寸(共和国图). 这样两种宽高比都能让
 地图正好填满左侧地图区, 不靠留白对齐; 右侧面板宽度固定 4.23 英寸. 底图不再画文字但版面未重排,
 右侧仍按原图例/色标/注的占位预留留白, 等前端排版接管; 地名只以 `role`/位置/字号写进同名
@@ -102,23 +103,28 @@ GADM 各州并集的外边界同时是俄罗斯外轮廓, 含北冰洋/里海/�
 
 ## 数据
 
-由 [`Volga/download_data.py`](../../Volga/download_data.py) 准备, `volga.py` 只读
-`Volga/data/` 下的本地文件与仓库 `data/cartopy/` 的共用底图.
+数据集清单(从哪下、下载范围、版本、本地路径)写在 `Volga/specs.py` 的 `DATASETS` 里,
+数据准备脚本与绘图脚本都只引用它; `volga.py` 只读 `Volga/data/` 下的本地文件与仓库
+`data/cartopy/` 的共用底图.
 
 | 文件 | 内容 |
 | --- | --- |
-| `ETOPO_2022_v1_15s_volga_stride2.nc` | NOAA ETOPO 2022 地形, 30 弧秒, 29.8~62.8°E / 43.9~62.8°N |
-| `gadm41_RUS_1.json` | GADM 4.1 俄罗斯一级行政区(原始) |
-| `hybas_eu_lev05_v1c.zip` / `hybas_eu_lev05_v1c/` | HydroBASINS level 5 欧洲(原始) |
-| `volga_subjects.geojson` | 55 个一级行政区裁到画框, 属性 name/engtype/type |
-| `volga_basin.geojson` | 伏尔加河流域面, 属性 area_km2 |
-| `russia_border.geojson` | GADM 口径俄罗斯国界(裁到画框) |
+| `Volga/data/raw/ETOPO_2022_v1_15s_volga_stride2.nc` | NOAA ETOPO 2022 地形, 30 弧秒, 29.8~62.8°E / 43.9~62.8°N(画框四周外扩 0.5°) |
+| `Volga/data/raw/gadm41_RUS_1.json` | GADM 4.1 俄罗斯一级行政区(原始) |
+| `Volga/data/raw/hybas_eu_lev05_v1c.zip` | HydroBASINS level 5 欧洲区(原始压缩包) |
+| `Volga/data/derived/hybas_eu_lev05_v1c/` | 解压后的 HydroBASINS shapefile |
+| `Volga/data/derived/volga_subjects.geojson` | 55 个一级行政区裁到画框, 属性 name/engtype/type |
+| `Volga/data/derived/volga_basin.geojson` | 伏尔加河流域面, 属性 area_km2 |
+| `Volga/data/derived/russia_border.geojson` | GADM 口径俄罗斯国界(裁到画框) |
 | `data/cartopy/.../ne_10m_rivers_lake_centerlines` | 仓库共用河网 |
 | `data/cartopy/.../ne_10m_lakes` | 仓库共用湖泊 |
 | `data/cartopy/.../ne_10m_ocean` | 仓库共用海洋面(里海低地判识 + 剪海岸段) |
+| `data/cartopy/.../ne_10m_coastline` | 仓库共用海岸线(剪国界沿海段) |
 
-HydroBASINS 原始包由 `download_data.py` 下载并解压; 该源对 HTTP/2 长连接会卡住, 脚本用
-短超时 + `.part` + Range 续传重试, 注释里记录了需要 HTTP/1.1 才能稳定出字节.
+`Volga/data/raw/` 只放下载原样, `Volga/data/derived/` 放解压目录与派生 GeoJSON. 下载走
+`cartopy_file.fetch` 的共享下载层: 已有文件直接跳过, 中断的 `.part` 用 Range 续传, 下载
+完成先校验文件头(NetCDF/zip/JSON). Natural Earth 10m 图层由仓库根 `download_data.py`
+预取到 `data/cartopy/`, 本图种脚本不重复下载.
 
 ## 运行
 
@@ -133,11 +139,15 @@ python Volga/volga.py             # 依次出两张图, 产物写到脚本同目
 - `--force`: 强制重下原始数据(派生文件总是重建);
 - `--skip-basin`: 只准备不依赖 HydroBASINS 的部分(行政区/国界).
 
+数据已就位时脚本不联网: 三个原始文件逐项跳过, 只重算派生 GeoJSON(`--check` 会列出每一项
+的本地路径).
+
 `volga.py` 的选项:
 
-- `--stride`: 用 `Volga/data/` 下对应采样步长的 ETOPO 文件; 缺省自动选分辨率最高(步长
-  最小)的一个;
+- `--stride`: 用 `Volga/data/raw/` 下对应采样步长的 ETOPO 文件; 缺省自动选分辨率最高
+  (步长最小)的一个;
 - `--dpi`: 内嵌晕渲栅格的像素密度, 默认 300(矢量部分与 dpi 无关);
+- `--map {all,basin,republics}`: 只出其中一张图; 缺省两张都出;
 - `--show`: 保存后弹出交互窗口(需要图形界面).
 
 高程文件也可用环境变量 `VOLGA_ETOPO_PATH` 指定; 数据缺失时脚本直接报错. 两张图在同一次
@@ -154,7 +164,7 @@ python Volga/volga.py             # 依次出两张图, 产物写到脚本同目
 - 里海低地的负高程陆地靠 Natural Earth 海洋/湖泊面判识, 依赖仓库 `data/cartopy/` 的 10m
   ocean 层; 缺这一层时脚本会退回"z<0 全部按水面"并在终端告警.
 - 湖泊填色用 Natural Earth 10m 面, 与 ETOPO 岸线有几百米级偏差; 图面 1:770 万下不可见.
-- 新增第三张图时只加一个 `MapSpec` 到 `SPECS`; 画框外的城市点会自动过滤, 画布宽度按投影
-  宽高比自动算;
+- 新增第三张图时只加一个 `Sheet` 到 `Volga/specs.py` 的 `SHEETS`, 并登记 `THEMES` 与
+  `LAYOUTS`; 画框外的城市点会自动过滤, 画布宽度按投影宽高比自动算;
 - 不用 `tight_layout` / `bbox_inches="tight"`: cartopy 0.25 在非矩形投影上绘制经纬网时,
   提前绘制会触发 gridliner 的 GEOSException, tight bbox 还会把地图边缘裁掉(项目已踩过).

@@ -1,6 +1,8 @@
 # Cartopy_file
 
-四组地图(缅甸、苏联、乌克兰、伏尔加河流域)的 cartopy 绘图脚本, 共用一套可安装的 `cartopy_file` 包. 每张图
+五组地图(缅甸、苏联、乌克兰、伏尔加河流域、美军基地演示)的 cartopy 绘图脚本, 共用一套可安装的
+`cartopy_file` 包. 每个子项目一个目录, 目录里的 `specs.py` 同时声明数据清单与每张图的规格
+(画框/投影/色带/经纬网/文案), 出图流程与图层原语都在共享包里. 每张图
 产出两个文件: 裁到地图框的**纯几何底图** `.svg`(只有地理图形, 不含文字、图例、色标、标题与刻度文字)和
 同名 `.geo.json`(地图框、经纬刻度、初始标注候选、色标、图例与默认文案). 文字与版面由
 `miko_svg_editor` 的前端排版接管, geo.json 让前端知道每个地名该放在哪、刻度/图例/色标用什么口径.
@@ -27,9 +29,10 @@ python download_data.py           # 全项目共用的 Natural Earth 底图, 放
 python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 并打印准备命令
 ```
 
-各图种自己的数据(ETOPO 高程、行政区、OSM 边界等)由各自的脚本准备, 命令与数据清单见
-[docs/data-preparation.md](docs/data-preparation.md). 只有换机器或重新 clone 时才需要重跑;
-已存在的文件不会重复下载.
+各子项目自己的数据(ETOPO 高程、行政区、OSM 边界等)由各自的脚本准备, 下载原样落在
+`<子项目>/data/raw/`, 加工产物落在 `<子项目>/data/derived/`; 命令与数据清单见
+[docs/data-preparation.md](docs/data-preparation.md). 清单不用手写: `--check` 从各子项目的
+`specs.py` 汇总. 只有换机器或重新 clone 时才需要重跑; 已存在的文件不会重复下载.
 
 ## 出图
 
@@ -43,6 +46,7 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 | `USSR/ussr.py` | `ussr_topography_etopo2022_lambert_azimuthal.svg` |
 | `Ukraine/ukraine.py` | `ukraine_borders_1991_2014_2022_lambert_conformal.svg` |
 | `Volga/volga.py` | `volga_basin_topography_etopo2022_lambert_conformal.svg`(流域图)<br>`volga_basin_republics_topography_etopo2022_lambert_conformal.svg`(周边共和国图) |
+| `AmericaArmy/main.py` | `america_army_bases.svg`(框架用法演示, 定点位) |
 
 每张图的前置数据、可用选项与设计取舍见 [docs/index.md](docs/index.md) 里的图种页.
 
@@ -62,8 +66,10 @@ viewBox/尺寸)、`graticule`(经纬刻度)、`labels`(地名候选: id/role/文
 脚本生成. 与前端排版的衔接(契约字段、字体嵌入等)见 `miko_svg_editor` 的
 `docs/CARTOPY-MIGRATION.md`.
 
-`AmericaArmy/` 只剩早期演示脚本 `main.py` 与基地点位 `data.geojson`, 早期手工上传的两张底图
-素材已删除; `main.py` 只画图不落盘, 不在维护范围.
+`AmericaArmy/` 是**框架用法的最小演示**: 一个 `specs.py`(本地点位 + 一个 Sheet)加一个
+`main.py`(一对 draw/collect 回调), 走和正式图种完全相同的出图流水线, 产物是
+`america_army_bases.svg` + 同名 geo.json. 想新增子项目时从这个目录抄结构, 见
+[docs/add-map.md](docs/add-map.md).
 
 ## 缓存
 
@@ -77,7 +83,7 @@ viewBox/尺寸)、`graticule`(经纬刻度)、`labels`(地名候选: id/role/文
 模块 API)三层. 文档与注释的写法见 [docs/conventions.md](docs/conventions.md), 提交前跑
 `python tools/check_docs.py`.
 
-`global.py` 与 `AmericaArmy/main.py` 是一次性演示脚本, 没有对应文档页.
+`global.py` 是一次性演示脚本, 没有对应文档页.
 
 ## 许可
 

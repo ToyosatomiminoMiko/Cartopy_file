@@ -72,8 +72,10 @@ doc.set_relief(relief_from_cmap(ELEV_CMAP, title="高程 / 水深", unit="m",
 doc.set_legend("图例", [{"label": "国界", "shape": "line",
                         "stroke": "#4a4a4a", "width_pt": 1.4}])
 doc.set_suggestions({"title": "…", "subtitle": "…", "notes": ["…"],
-                     "source": "…", "legend_title": "图例",
+                     "legend_title": "图例",
                      "colorbar_title": "高程 / 水深"})
+# 新图种不要手写 source: layers.suggestions(sheet, catalog) 会按数据集清单生成
+# 「署名 + 发布页 URL」, 见 docs/reference/layers.md.
 
 save_map(fig, OUT_SVG, doc, dpi=args.dpi)   # 写 OUT_SVG + OUT_SVG.with_suffix(".geo.json")
 ```
@@ -87,6 +89,8 @@ save_map(fig, OUT_SVG, doc, dpi=args.dpi)   # 写 OUT_SVG + OUT_SVG.with_suffix(
   硬编码颜色;
 - 地图框位置只在 `set_extent()` 之后量, `figure_frame` 会先 `apply_aspect()`, 否则拿到
   的是 aspect 修正前的矩形;
+- `suggestions.source` 由数据集清单自动生成(每个数据源一条, 带发布页 URL), 不要手写:
+  手写的来源句容易混进投影参数之类的废话, 还会漏掉 ODbL 这类许可要求的署名;
 - `title/subtitle/notes/source` 用纯文本(不带 `#` 等标记), 前端预填到 scene 的 text /
   legend / colorbar 组件; 图外面积注记放 `suggestions.area_annotation`, 图内区域名放
   `labels`(用 `area`/`area-muted`/`area-accent-*` 等角色);

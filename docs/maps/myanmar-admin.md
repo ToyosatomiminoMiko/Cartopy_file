@@ -55,21 +55,23 @@ GADM 与 Natural Earth 10m 国界来自不同测绘成果, 直接按国界裁剪
 
 | 文件 | 内容 | 生成方式 |
 | --- | --- | --- |
-| `Myanmar/data/myanmar_admin1.geojson` | 15 个一级行政区(含名称/中心点属性) | `python Myanmar/prepare_admin_data.py` |
-| `Myanmar/data/gadm41_MMR/` | GADM 4.1 原始 JSON | 同上 |
-| `Myanmar/data/ne_10m_admin_0_countries/` | Natural Earth 10m 国界 | 同上(`prepare_admin_data.py` 按需下载) |
-| `Myanmar/data/ne_10m_rivers_lake_centerlines/` | Natural Earth 10m 河流 | 同上 |
-| `data/cartopy/` | cartopy 缓存的 10m 海岸线(剪国界用)/邻国国界线 | `python download_data.py` |
-| `Myanmar/data/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集 | `python Myanmar/download_etopo.py` |
+| `Myanmar/data/derived/myanmar_admin1.geojson` | 15 个一级行政区(含名称/中心点属性) | `python Myanmar/prepare_admin_data.py` |
+| `Myanmar/data/raw/gadm41_MMR/gadm41_MMR_1.json` | GADM 4.1 原始 JSON | 同上(按需下载) |
+| `Myanmar/data/raw/osm_naypyidaw_union_territory.json` | OSM 内比都联邦区 relation 原始响应 | 同上(按需抓取) |
+| `Myanmar/data/raw/ne_10m_rivers_lake_centerlines/` | Natural Earth 10m 河流(钉在 5.0.0 旧副本) | 同上 |
+| `data/cartopy/` | 共享缓存的 Natural Earth 10m 国界(底图)/海岸线(剪国界用)/国界线 | `python download_data.py` |
+| `Myanmar/data/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集 | `python Myanmar/download_etopo.py` |
 
 ## 运行
 
 ```bash
-python Myanmar/prepare_admin_data.py   # 首次: 行政区 GeoJSON + GADM/NE 原始数据
-python Myanmar/download_etopo.py       # 首次: ETOPO 高程 + NE 国界
+python download_data.py                # 首次: 共享 Natural Earth 底图
+python Myanmar/download_etopo.py       # 首次: ETOPO 高程子集(已存在则跳过)
+python Myanmar/prepare_admin_data.py   # 首次: GADM/OSM 原始数据 + 行政区 GeoJSON
 python Myanmar/myanmar_admin.py        # 出图
 ```
 
+数据准备脚本在文件已就位时只跳过、不联网; 派生的行政区 GeoJSON 每次重新生成.
 `myanmar_admin.py` 的选项与 `myanmar.py` 相同(`--stride` / `--dpi` / `--show`), 高程文件
 也可用 `MYANMAR_ETOPO_PATH` 指定.
 
