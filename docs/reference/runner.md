@@ -22,7 +22,8 @@
 4. 调 `draw(ctx)` —— 图种特有的图层, 包括城市点、经纬网, 顺序与改前成品一致;
 5. 若 `sheet.tight_layout`, 先 `plt.tight_layout()`;
 6. `GeoDoc(figure_frame(fig, ax))`, 调 `collect(doc, ctx)` 登记 geo;
-7. `save_map()` 写裁到地图框的纯几何 SVG 与同名 geo.json.
+7. `save_map()` 把裁到地图框的纯几何 SVG 写到 `<子项目>/map/`、文字信息 geo.json 写到
+   `<子项目>/text/`; 两个路径由 `spec` 的 `map_path`/`text_path` 拼.
 
 `RenderContext` 字段: `sheet`、`catalog`、`root`、`fig`、`ax`、`world`、`lon`/`lat`/`z`
 (有高程时)、`covered`.

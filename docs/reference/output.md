@@ -17,7 +17,7 @@
 项目脚本的约定是**不写任何文字**——地名、标题、图例、色标、刻度、注与来源由 `miko_svg_editor`
 的前端排版接管. 脚本不直接调 `save_svg()`, 而是走
 [`cartopy_file.geo.save_map()`](geo.md): 它先调本模块写出整张 Figure, 再把根标签裁到地图框,
-并写一个同名的 `.geo.json` 给前端建默认排版.
+并按调用方给的 `geo_path` 写文字信息 `.geo.json` 给前端建默认排版(地图与文字信息分目录存放).
 
 ## 关键行为
 
@@ -44,12 +44,15 @@
 
 ```python
 from cartopy_file.geo import GeoDoc, figure_frame, save_map
+from cartopy_file.spec import map_path, text_path
 
 fig, ax = build_map(...)
 frame = figure_frame(fig, ax)
 doc = GeoDoc(frame)
 # ... 往里登记 labels / graticule / relief / legend / suggestions ...
-save_map(fig, "map.svg", doc, dpi=300)  # 写 map.svg + map.geo.json
+# 地图进 <子项目>/map/, 文字信息进 <子项目>/text/.
+save_map(fig, map_path(ROOT, SHEET.out), doc,
+         geo_path=text_path(ROOT, SHEET.out), dpi=300)
 ```
 
 只需要一张不带 geo 的 SVG 时才直接调 `save_svg(fig, path, dpi=...)`.

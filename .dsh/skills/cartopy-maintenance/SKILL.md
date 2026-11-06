@@ -35,8 +35,8 @@ uv run python tools/check_all.py
 1. 读 `docs/maps/<slug>.md` 的「设计要点」与「注意事项」——投影、范围、数据源是既定取舍,
    不擅自改(`AGENTS.md` 规则 2)。
 2. 改 `<Dir>/<name>.py`; 复用 `src/cartopy_file/` 的 `relief`/`overlap`/`geo`, 不复制实现。
-3. 重新生成:`uv run python <Dir>/<name>.py`
-4. `uv run python tools/check_geo.py <产物>.svg`
+3. 重新生成:`uv run python <Dir>/<name>.py`; 地图落到 `<Dir>/map/`, 文字信息落到 `<Dir>/text/`
+4. `uv run python tools/check_geo.py <Dir>/map/<产物>.svg`
 5. 文档页同步:设计要点、数据、注意事项哪条变了改哪条。
 6. 收尾。
 
@@ -45,7 +45,8 @@ uv run python tools/check_all.py
 按 `docs/add-map.md` 的 5 节**逐项**做, 不许挑着做。额外三条容易漏的:
 
 - 脚本顶部的导入顺序是硬约束(缓存目录必须设在导入 matplotlib 之前), 抄现有脚本的头部;
-- 产物路径要加进 `tools/check_geo.py` 的 `PRODUCTS`, 否则无参自检覆盖不到它;
+- 产物路径不用手写:`tools/check_geo.py` 从各子项目 `specs.py` 的 `SHEETS` 自动派生
+  `map/` 与 `text/` 两个路径;
 - 新页面必须被 `docs/index.md` 收录, 脚本 docstring 必须带 `docs/...` 指针——这两项
   `check_docs` 会各自报错。
 
@@ -70,6 +71,7 @@ uv run python tools/check_all.py
 | 现象 | 原因 |
 | --- | --- |
 | `geo.base.sha256 与底图字节不一致` | 改了代码没重新出图, 或手改了产物 |
+| 产物还写在脚本目录 | 用了旧版 `save_map` 或旧路径; 新布局是 `<子项目>/map/` + `<子项目>/text/` |
 | `源码指针不存在` | docstring 里的 `docs/...` 路径写错, 或页面被删 |
 | `docs/index.md: 未收录 ...` | 新页面没加进索引表 |
 | `没有指向 docs/ 的完整说明指针` | 新增 `.py` 少了 `完整说明: docs/...` 一行 |

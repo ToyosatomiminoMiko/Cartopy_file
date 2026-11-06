@@ -1,7 +1,8 @@
 # 乌克兰全图 (Ukraine/ukraine.py)
 
 - 源码: [`Ukraine/ukraine.py`](../../Ukraine/ukraine.py)
-- 产物: `ukraine_borders_1991_2014_2022_lambert_conformal.svg`(与脚本同目录), 每张图另出同名 `.geo.json`
+- 产物: `Ukraine/map/ukraine_borders_1991_2014_2022_lambert_conformal.svg`(地图) 与
+  `Ukraine/text/ukraine_borders_1991_2014_2022_lambert_conformal.geo.json`(文字信息)
 
 ## 是什么
 
@@ -173,7 +174,7 @@ ETOPO 子集范围 18.5~44.0°E / 42.4~53.5°N, 步长 2(30 弧秒); 范围比�
 ```bash
 python download_data.py           # 仓库根: 预取共享的 Natural Earth 10m 缓存(只缺才下)
 python Ukraine/download_data.py   # 首次: 下载 + 加工 + 自检(原始文件已存在则跳过)
-python Ukraine/ukraine.py         # 出图, 产物写到脚本同目录
+python Ukraine/ukraine.py         # 出图, 地图进 Ukraine/map/, 文字信息进 Ukraine/text/
 ```
 
 `download_data.py` 的选项:

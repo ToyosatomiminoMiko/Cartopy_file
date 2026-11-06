@@ -22,6 +22,9 @@ Cartopy_file/
 └── global.py               一次性演示脚本
 ```
 
+每个子项目下的 `map/` 放地图产物(SVG), `text/` 放文字信息产物(geo.json); 同一张图的两个
+文件 stem 相同、分目录存放, 都不入库.
+
 ## 四层结构
 
 1. **框架层**([`src/cartopy_file/`](../src/cartopy_file)): 可安装的包, 放所有子项目共用的
@@ -39,15 +42,17 @@ Cartopy_file/
 ```
 download_data.py ──► data/cartopy/ ─┐
 <子项目>/download_*.py ──► <子项目>/data/raw/ ──┐
-<子项目>/prepare_*.py ──► <子项目>/data/derived/ ─┴─► specs.py ──► runner.render ──► .svg + .geo.json
+<子项目>/prepare_*.py ──► <子项目>/data/derived/ ─┴─► specs.py ──► runner.render ──┬─► <子项目>/map/<stem>.svg
+                                                                                   └─► <子项目>/text/<stem>.geo.json
 ```
 
 绘图脚本不联网: 数据在首次准备时下载一次, 之后出图只读本地文件; 要素缺缓存时 cartopy 会在
 渲染中临时联网, 所以共用底图要用 `download_data.py` 预取. 详见
 [`data-preparation.md`](data-preparation.md).
 
-产物是裁到地图框的纯几何 `.svg` 与同名 `.geo.json`, 由脚本按需生成、不提交; 文字与版面迁到
-`miko_svg_editor` 的前端排版, geo.json 提供前端建默认排版所需的标注/刻度/色标/图例/文案.
+产物是裁到地图框的纯几何 `.svg`(地图)与 `<stem>.geo.json`(文字信息), 同 stem 分目录, 由脚本
+按需生成、不提交; 文字与版面迁到 `miko_svg_editor` 的前端排版, geo.json 提供前端建默认排版
+所需的标注/刻度/色标/图例/文案.
 
 ## 共享包模块
 

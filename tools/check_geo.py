@@ -3,9 +3,9 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """检查产物是否满足「裁到地图框的纯底图 + geo.json」契约.
 
-是什么: 读 ``<产物>.svg`` 与同名 ``.geo.json``, 检查底图根标签(viewBox/width/height)、
-是否残留 ``<text>``、geo 的 format/version/base 是否与底图字节自洽, 以及
-graticule/labels/relief/legend/suggestions 的结构与枚举是否合法; 有错时打印中文错误并
+是什么: 读 ``<子项目>/map/<产物>.svg`` 与 ``<子项目>/text/<产物>.geo.json``, 检查底图根标签
+(viewBox/width/height)、是否残留 ``<text>``、geo 的 format/version/base 是否与底图字节自洽,
+以及 graticule/labels/relief/legend/suggestions 的结构与枚举是否合法; 有错时打印中文错误并
 以退出码 1 结束.
 
 为什么: 前端(miko_svg_editor)按同一份契约解析产物, 字段写错了要到合成阶段才报;
@@ -14,7 +14,7 @@ graticule/labels/relief/legend/suggestions 的结构与枚举是否合法; 有�
 结构级校验, 不判断标注位置是否美观, 也不校验文字样式(样式由前端 role 表决定).
 
 用法:
-    python tools/check_geo.py [<产物>.svg ...]
+    python tools/check_geo.py [<子项目>/map/<产物>.svg ...]
 不给参数时检查各子项目 specs.py 里声明的全部产物(不存在的跳过并提示).
 """
 
@@ -32,6 +32,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from cartopy_file.data import subproject_dirs
+from cartopy_file.spec import geo_path_for, map_path, text_path
 
 # 与 docs/reference/geo.md / 契约 §3 一致的枚举. 角色枚举的唯一真源是 miko_svg_editor
 # 的 src/config/text-style.ts 里的 MAP_LABEL_ROLES; 这里只是镜像, 顺序与它一致.
@@ -61,22 +62,27 @@ LEGEND_SHAPES = {"line", "rect", "point"}
 LEGEND_MARKERS = {"star", "square", "circle"}
 COLOR_RE = re.compile(r"#[0-9a-f]{6}\Z")
 
-def discover_products() -> tuple[str, ...]:
+def discover_products() -> tuple[tuple[str, str], ...]:
     """无参自检要覆盖的产物: 从各子项目 ``specs.py`` 的 ``SHEETS`` 派生.
 
-    新增图种只要在 specs.py 里加一个 Sheet, 这里自动收录; 不再需要手改本文件的清单.
+    返回 (地图相对路径, 文字信息相对路径), 都相对仓库根; 目录布局来自
+    ``cartopy_file.spec`` 的 ``map_path``/``text_path``. 新增图种只要在 specs.py 里加
+    一个 Sheet, 这里自动收录; 不再需要手改本文件的清单.
     """
-    products: list[str] = []
+    products: list[tuple[str, str]] = []
     for name in subproject_dirs():
         module = importlib.import_module(f"{name}.specs")
         sheets = getattr(module, "SHEETS", ())
         if not sheets:
             raise SystemExit(f"{name}/specs.py 必须导出 SHEETS(产出列表)")
-        products.extend(f"{name}/{sheet.out}" for sheet in sheets)
+        products.extend(
+            (str(map_path(name, sheet.out)), str(text_path(name, sheet.out)))
+            for sheet in sheets
+        )
     return tuple(products)
 
 
-# 无参自检覆盖的产物(相对仓库根), 由 specs.py 派生(见 docs/add-map.md).
+# 无参自检覆盖的产物(地图/文字信息相对路径), 由 specs.py 派生(见 docs/add-map.md).
 PRODUCTS = discover_products()
 
 _ROOT_TAG_RE = re.compile(rb"<svg\b[^>]*>", re.IGNORECASE)
@@ -90,10 +96,9 @@ def _number(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def check_product(svg_path: Path) -> list[str]:
+def check_product(svg_path: Path, geo_path: Path) -> list[str]:
     """检查一份产物, 返回中文错误列表(空 = 通过)."""
     errors: list[str] = []
-    geo_path = svg_path.with_suffix(".geo.json")
     if not svg_path.is_file():
         return [f"缺少底图: {svg_path}"]
     if not geo_path.is_file():
@@ -270,18 +275,25 @@ def check_product(svg_path: Path) -> list[str]:
 
 def main(argv: list[str]) -> int:
     """检查命令行给出的产物; 不给参数时检查 PRODUCTS 里的全部产物."""
-    targets = [Path(arg) for arg in argv[1:]]
-    if not targets:
-        targets = [ROOT / relative for relative in PRODUCTS]
+    targets: list[tuple[Path, Path | None]] = [
+        (Path(arg), None) for arg in argv[1:]
+    ] or [(ROOT / svg, ROOT / geo) for svg, geo in PRODUCTS]
     failed = 0
     checked = 0
-    for svg_path in targets:
+    for svg_path, geo_path in targets:
+        if geo_path is None:
+            try:
+                geo_path = geo_path_for(svg_path)
+            except ValueError as exc:
+                failed += 1
+                print(f"FAIL {svg_path.name}")
+                print(f"  - {exc}")
+                continue
         if not svg_path.is_file():
             print(f"跳过(不存在): {svg_path}")
             continue
         checked += 1
-        errors = check_product(svg_path)
-        geo_path = svg_path.with_suffix(".geo.json")
+        errors = check_product(svg_path, geo_path)
         if errors:
             failed += 1
             print(f"FAIL {svg_path.name}")

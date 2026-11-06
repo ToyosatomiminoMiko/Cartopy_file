@@ -1,7 +1,8 @@
 # 苏联地形图 (USSR/ussr.py)
 
 - 源码: [`USSR/ussr.py`](../../USSR/ussr.py)
-- 产物: `ussr_topography_etopo2022_lambert_azimuthal.svg`(与脚本同目录), 每张图另出同名 `.geo.json`
+- 产物: `USSR/map/ussr_topography_etopo2022_lambert_azimuthal.svg`(地图) 与
+  `USSR/text/ussr_topography_etopo2022_lambert_azimuthal.geo.json`(文字信息)
 
 ## 是什么
 
@@ -56,7 +57,7 @@ ETOPO 子集范围: 经度 15°E 向东到 165°W(ERDDAP 的经度是 0~360, 右
 ```bash
 python USSR/download_etopo.py              # 首次: ETOPO 子集(stride=8) + 10m 国界(已存在则跳过)
 python download_data.py                    # 首次: 共用 Natural Earth 底图(110m 海岸线等)
-python USSR/ussr.py                        # 出图, 产物写到脚本同目录
+python USSR/ussr.py                        # 出图, 地图进 USSR/map/, 文字信息进 USSR/text/
 ```
 
 `download_etopo.py` 的选项:

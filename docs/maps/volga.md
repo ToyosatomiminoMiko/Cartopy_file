@@ -1,9 +1,9 @@
 # 伏尔加河流域地形图 (Volga/volga.py)
 
 - 源码: [`Volga/volga.py`](../../Volga/volga.py)
-- 产物: `volga_basin_topography_etopo2022_lambert_conformal.svg`(流域图)、
-  `volga_basin_republics_topography_etopo2022_lambert_conformal.svg`(周边共和国图),
-  均与脚本同目录, 每张图另出同名 `.geo.json`
+- 产物: `Volga/map/volga_basin_topography_etopo2022_lambert_conformal.svg`(流域图)、
+  `Volga/map/volga_basin_republics_topography_etopo2022_lambert_conformal.svg`(周边共和国图);
+  两张图的文字信息在 `Volga/text/` 下, 与地图同 stem 的 `.geo.json`
 
 ## 是什么
 
@@ -38,8 +38,8 @@ Natural Earth 10m 河网与湖泊水面, 一次生成两张自包含 SVG:
 9.894 英寸, 宽度按画框投影包围盒的宽高比算, 画布宽度
 随之为约 17.6 × 12.2 英寸(流域图)或 14.5 × 12.2 英寸(共和国图). 这样两种宽高比都能让
 地图正好填满左侧地图区, 不靠留白对齐; 右侧面板宽度固定 4.23 英寸. 底图不再画文字但版面未重排,
-右侧仍按原图例/色标/注的占位预留留白, 等前端排版接管; 地名只以 `role`/位置/字号写进同名
-`.geo.json`(样式由前端 role 表统一决定), 图例与色标也以数据形式给出.
+右侧仍按原图例/色标/注的占位预留留白, 等前端排版接管; 地名只以 `role`/位置/字号写进同 stem
+的 `.geo.json`(样式由前端 role 表统一决定), 图例与色标也以数据形式给出.
 
 ### 2. 流域口径
 
@@ -130,7 +130,7 @@ GADM 各州并集的外边界同时是俄罗斯外轮廓, 含北冰洋/里海/�
 
 ```bash
 python Volga/download_data.py     # 首次: 下载 ETOPO/GADM/HydroBASINS + 派生 GeoJSON
-python Volga/volga.py             # 依次出两张图, 产物写到脚本同目录
+python Volga/volga.py             # 依次出两张图, 地图进 Volga/map/, 文字信息进 Volga/text/
 ```
 
 `download_data.py` 的选项:

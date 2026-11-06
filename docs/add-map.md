@@ -41,6 +41,9 @@ SHEET = Sheet(id="myanmar", out="myanmar_topography.svg", extent=EXTENT, …)
 SHEETS = sheets_of([SHEET])
 ```
 
+- 产物目录约定: 地图写到 `<Name>/map/<stem>.svg`, 文字信息写到 `<Name>/text/<stem>.geo.json`,
+  同一张图两个文件 stem 相同; `Sheet.out` 只写地图文件名, 不要带 `map/`, 目录由
+  `spec.map_path`/`text_path` 拼;
 - 数据目录约定: `<Name>/data/raw/` 放下载原样, `<Name>/data/derived/` 放脚本生成物;
 - 数据源只引用 [`sources.py`](../src/cartopy_file/sources.py) 里已登记的 id; 新数据源先在那
   一个文件里登记 URL/版本/许可/署名, 并在 [`data-preparation.md`](data-preparation.md) 的
@@ -110,7 +113,7 @@ def main():
 ```bash
 python download_data.py --check   # 新数据已自动进清单
 python <Name>/<name>.py           # 出图
-python <Name>/<name>.py           # 再跑一次, 产物(SVG 与 geo.json)应字节级不变
+python <Name>/<name>.py           # 再跑一次, 产物(`map/` 下的 SVG 与 `text/` 下的 geo.json)应字节级不变
 python tools/check_geo.py         # 无参: 产物清单由 specs.py 自动派生, 不用手改
 python tools/check_docs.py        # 文档链接/模板/索引全绿
 ```

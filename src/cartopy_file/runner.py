@@ -3,8 +3,8 @@
 """The one rendering pipeline: figure -> basemap -> relief -> bespoke layers -> geo.json.
 
 是什么: 所有图种脚本共用的骨架. ``render`` 负责建画布、核对数据覆盖、读高程、铺底图与
-晕渲、调用图种自己的图层函数、量地图框、收集 geo.json、保存产物; 图种脚本只剩
-「数据 + spec + 自己那几层」.
+晕渲、调用图种自己的图层函数、量地图框、收集 geo.json、保存产物(地图写子项目 ``map/``,
+文字信息写子项目 ``text/``); 图种脚本只剩「数据 + spec + 自己那几层」.
 完整说明(流水线顺序、回调契约、为什么量地图框必须在最后)见 ``docs/reference/runner.md``.
 """
 
@@ -24,7 +24,7 @@ from .data import configure_cartopy
 from .datasets import DatasetSet
 from .geo import GeoDoc, figure_frame, save_map
 from .output import apply_svg_output
-from .spec import Extent, Sheet
+from .spec import Extent, Sheet, map_path, text_path
 
 configure_cartopy()
 apply_svg_output()
@@ -130,7 +130,13 @@ def render(
 
     doc = GeoDoc(figure_frame(fig, ax))
     collect(doc, ctx)
-    svg_path, geo_path = save_map(fig, root / sheet.out, doc, dpi=dpi or sheet.dpi)
+    svg_path, geo_path = save_map(
+        fig,
+        map_path(root, sheet.out),
+        doc,
+        geo_path=text_path(root, sheet.out),
+        dpi=dpi or sheet.dpi,
+    )
     print(f"底图与 geo 已保存: {svg_path} + {geo_path}")
 
     if show:

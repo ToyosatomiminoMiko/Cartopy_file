@@ -21,7 +21,7 @@
 # 图名 (脚本路径)
 
 - 源码: [`Myanmar/xxx.py`](../../Myanmar/xxx.py)
-- 产物: `xxx.svg`(与脚本同目录)
+- 产物: `<子项目>/map/xxx.svg`(地图) 与 `<子项目>/text/xxx.geo.json`(文字信息)
 
 ## 是什么
 ## 设计要点
@@ -69,7 +69,7 @@
 
 - 仓库内路径一律写成仓库根相对: `Myanmar/data/...`、`data/cartopy/...`、
   `src/cartopy_file/...`; 不写裸 `data/`(容易和别的图种目录混淆)。
-- 产物写文件名并注明"(与脚本同目录)"。
+- 产物写仓库根相对路径: 地图在 `<子项目>/map/`, 文字信息在 `<子项目>/text/`(同 stem)。
 - 页间链接用相对路径; 外部链接只出现在 [data-preparation.md](data-preparation.md) 的数据
   来源处。
 

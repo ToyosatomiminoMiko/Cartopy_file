@@ -2,7 +2,8 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Per-sheet rendering spec: pure data, importable without matplotlib or cartopy.
 
-是什么: 一张图的全部可配置事实——画框、投影、画布、色带、经纬网、地名、点标记与文案.
+是什么: 一张图的全部可配置事实——画框、投影、画布、色带、经纬网、地名、点标记与文案,
+以及子项目下的产物目录布局(地图进 ``map/``、文字信息进 ``text/``).
 这里只有 dataclass 与校验, 不 import matplotlib/cartopy, 所以 ``tools/`` 里的检查脚本
 可以不画图就把所有实例的产物路径与数据依赖列出来.
 完整说明(为什么用数据类、字段口径、与 runner/layers 的分工)见 ``docs/reference/spec.md``.
@@ -11,6 +12,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Mapping
 
 __all__ = [
@@ -19,10 +21,42 @@ __all__ = [
     "Extent",
     "Graticule",
     "Label",
+    "MAP_DIR",
     "Projection",
     "Relief",
     "Sheet",
+    "TEXT_DIR",
+    "geo_path_for",
+    "map_path",
+    "text_path",
 ]
+
+# 子项目下的产物目录: 地图(SVG)与文字信息(geo.json)分开放, 前端按目录成对取用.
+MAP_DIR = "map"
+TEXT_DIR = "text"
+
+
+def map_path(root: str | Path, out: str) -> Path:
+    """子项目 ``root`` 里地图产物的路径: ``<root>/map/<out>``."""
+    return Path(root) / MAP_DIR / out
+
+
+def text_path(root: str | Path, out: str) -> Path:
+    """子项目 ``root`` 里文字信息产物的路径: ``<root>/text/<out 的 stem>.geo.json``."""
+    return Path(root) / TEXT_DIR / f"{Path(out).stem}.geo.json"
+
+
+def geo_path_for(svg_path: str | Path) -> Path:
+    """由地图产物路径反推文字信息路径, 供只拿到产物路径的检查工具使用.
+
+    地图必须位于 ``<子项目>/map/`` 下; 不做"同级目录找 geo"的回退——布局只有一种,
+    回退会让旧布局的残留文件继续被当成有效产物.
+    """
+    svg_path = Path(svg_path)
+    if svg_path.parent.name != MAP_DIR:
+        raise ValueError(f"地图产物必须在 <子项目>/{MAP_DIR}/ 下: {svg_path}")
+    return svg_path.parent.parent / TEXT_DIR / f"{svg_path.stem}.geo.json"
+
 
 # 投影 kind(蛇形) -> cartopy.crs 里的类名. 新增投影只改这里, 别在各脚本里各写一套.
 CCRS_KINDS = {
@@ -269,7 +303,11 @@ class City:
 
 @dataclass(frozen=True)
 class Sheet:
-    """一张产物的完整规格; 一个脚本可以有多张(伏尔加的两张图就是两个 Sheet)."""
+    """一张产物的完整规格; 一个脚本可以有多张(伏尔加的两张图就是两个 Sheet).
+
+    ``out`` 只是地图文件名: 计划写到 ``<子项目>/map/<out>``, 文字信息写到
+    ``<子项目>/text/<stem>.geo.json``, 目录由本模块的 ``map_path``/``text_path`` 决定.
+    """
 
     id: str
     out: str
@@ -303,6 +341,10 @@ class Sheet:
             raise ValueError("Sheet.id 不能为空")
         if not self.out.endswith(".svg"):
             raise ValueError(f"Sheet.out 必须是 .svg, 得到 {self.out!r}")
+        if Path(self.out).name != self.out:
+            raise ValueError(
+                f"Sheet.out 只能是地图文件名, 目录由 <子项目>/{MAP_DIR} 决定: {self.out!r}"
+            )
         if self.figsize[0] <= 0 or self.figsize[1] <= 0:
             raise ValueError(f"Sheet.figsize 必须为正, 得到 {self.figsize!r}")
         if self.dem_id is not None and self.dem_id not in self.dataset_ids:

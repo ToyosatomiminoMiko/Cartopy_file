@@ -1,7 +1,8 @@
 # 掸邦/特区地形图 (Myanmar/northern_shan.py)
 
 - 源码: [`Myanmar/northern_shan.py`](../../Myanmar/northern_shan.py)
-- 产物: `northern_shan_topography_etopo2022_lambert_conformal.svg`(与脚本同目录), 每张图另出同名 `.geo.json`
+- 产物: `Myanmar/map/northern_shan_topography_etopo2022_lambert_conformal.svg`(地图) 与
+  `Myanmar/text/northern_shan_topography_etopo2022_lambert_conformal.geo.json`(文字信息)
 
 ## 是什么
 

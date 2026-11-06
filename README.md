@@ -3,9 +3,11 @@
 五组地图(缅甸、苏联、乌克兰、伏尔加河流域、美军基地演示)的 cartopy 绘图脚本, 共用一套可安装的
 `cartopy_file` 包. 每个子项目一个目录, 目录里的 `specs.py` 同时声明数据清单与每张图的规格
 (画框/投影/色带/经纬网/文案), 出图流程与图层原语都在共享包里. 每张图
-产出两个文件: 裁到地图框的**纯几何底图** `.svg`(只有地理图形, 不含文字、图例、色标、标题与刻度文字)和
-同名 `.geo.json`(地图框、经纬刻度、初始标注候选、色标、图例与默认文案). 文字与版面由
-`miko_svg_editor` 的前端排版接管, geo.json 让前端知道每个地名该放在哪、刻度/图例/色标用什么口径.
+产出两个文件: 地图(裁到地图框的**纯几何底图**, 只有地理图形, 不含文字、图例、色标、标题与刻度文字)
+写到 `<子项目>/map/<stem>.svg`, 文字信息(地图框、经纬刻度、初始标注候选、色标、图例与默认文案)
+写到 `<子项目>/text/<stem>.geo.json`. 同一张图的 `.svg` 与 `.geo.json` stem 相同、分目录存放.
+文字与版面由 `miko_svg_editor` 的前端排版接管, geo.json 让前端知道每个地名该放在哪、
+刻度/图例/色标用什么口径.
 
 ## 安装
 
@@ -36,9 +38,10 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 
 ## 出图
 
-每张图除 `.svg` 底图外, 还写一个同名的 `<stem>.geo.json`, 前端(`miko_svg_editor`)用它建默认排版.
+每张图除 `.svg` 底图外, 还在对应子项目的 `text/` 下写同 stem 的 `<stem>.geo.json`,
+前端(`miko_svg_editor`)用它建默认排版.
 
-| 脚本 | 产物(与脚本同目录) |
+| 脚本 | 地图(产物在 `<子项目>/map/`) |
 | --- | --- |
 | `Myanmar/myanmar.py` | `myanmar_topography_etopo2022_lambert_conformal.svg` |
 | `Myanmar/myanmar_admin.py` | `myanmar_administrative_divisions_bilingual.svg` |
@@ -52,7 +55,8 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 
 产物由 [src/cartopy_file/geo.py](src/cartopy_file/geo.py) 统一保存: SVG 是纯几何底图, 海岸线、国界、
 河流、湖泊与填色都是矢量, 不含文字、图例、色标、标题和刻度文字; 保存时只把根标签的 viewBox 裁到
-地图框. 同名 `.geo.json` 按 `miko_svg_editor` 的 `mapdoc-geo` **v2** 契约写: `base`(底图 sha256/
+地图框. 文字信息由同一个入口写到 `<子项目>/text/<stem>.geo.json`, 按 `miko_svg_editor` 的
+`mapdoc-geo` **v2** 契约写: `base`(底图 sha256/
 viewBox/尺寸)、`graticule`(经纬刻度)、`labels`(地名候选: id/role/文字/坐标/锚点/字号/顺序)、
 `relief`(色标)、`legend`(图例)与 `suggestions`(标题/副标题/注/来源). 标注样式(颜色/描边/斜体/
 字重/字距/行高)不在地图产物里, 由 `miko_svg_editor/src/config/text-style.ts` 的角色表统一决定;
@@ -68,7 +72,8 @@ viewBox/尺寸)、`graticule`(经纬刻度)、`labels`(地名候选: id/role/文
 
 `AmericaArmy/` 是**框架用法的最小演示**: 一个 `specs.py`(本地点位 + 一个 Sheet)加一个
 `main.py`(一对 draw/collect 回调), 走和正式图种完全相同的出图流水线, 产物是
-`america_army_bases.svg` + 同名 geo.json. 想新增子项目时从这个目录抄结构, 见
+`AmericaArmy/map/america_army_bases.svg` 与 `AmericaArmy/text/america_army_bases.geo.json`
+(同 stem 分目录). 想新增子项目时从这个目录抄结构, 见
 [docs/add-map.md](docs/add-map.md).
 
 ## 缓存

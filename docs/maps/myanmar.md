@@ -1,7 +1,8 @@
 # 缅甸全境地形图 (Myanmar/myanmar.py)
 
 - 源码: [`Myanmar/myanmar.py`](../../Myanmar/myanmar.py)
-- 产物: `myanmar_topography_etopo2022_lambert_conformal.svg`(与脚本同目录), 每张图另出同名 `.geo.json`
+- 产物: `Myanmar/map/myanmar_topography_etopo2022_lambert_conformal.svg`(地图) 与
+  `Myanmar/text/myanmar_topography_etopo2022_lambert_conformal.geo.json`(文字信息)
 
 ## 是什么
 
@@ -58,7 +59,7 @@
 ```bash
 python download_data.py            # 首次: 共享 Natural Earth 底图
 python Myanmar/download_etopo.py   # 首次: ETOPO 高程子集(已存在则跳过)
-python Myanmar/myanmar.py          # 出图, 产物写到脚本同目录
+python Myanmar/myanmar.py          # 出图, 地图进 Myanmar/map/, 文字信息进 Myanmar/text/
 ```
 
 画框、投影、色带、经纬网、地名与文案都在 [`Myanmar/specs.py`](../../Myanmar/specs.py);

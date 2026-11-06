@@ -5,16 +5,17 @@
 
 ## 是什么
 
-把「底图不画、前端排版要知道」的元数据收集成与产物同名的 `<产物>.geo.json`, 并把
-Figure 保存成裁到地图框的纯几何底图. 字段与取值口径沿用 `miko_svg_editor` 的
+把「底图不画、前端排版要知道」的元数据收集成文字信息 `<stem>.geo.json`, 并把
+Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem、分目录存放: 地图写到
+`<子项目>/map/`, 文字信息写到 `<子项目>/text/`. 字段与取值口径沿用 `miko_svg_editor` 的
 `mapdoc-geo` **v2** 契约(`docs/PAGE-EDITOR.md` §3): `base` / `graticule` / `labels` /
 `relief` / `legend` / `suggestions`. 旧 **v1** 产物不再被接受, 编辑器会要求重新生成.
 
 - `GeoDoc(frame)`: 收集器; 脚本按图层顺序调用 `add_label()` / `add_graticule()` /
   `set_relief()` / `set_legend()` / `set_suggestions()`;
 - `figure_frame(fig, ax)`: 量出地图坐标区在 Figure 里的矩形, 换算成 SVG pt 坐标;
-- `save_map(fig, svg_path, doc, dpi=...)`: 保存 SVG → 把根标签裁到地图框 → 按最终
-  字节算 `sha256` → 写同名 `.geo.json`.
+- `save_map(...)`: 保存 SVG → 把根标签裁到地图框 → 按最终字节算 `sha256` → 写调用方传入的
+  文字信息路径. 两个产物路径都显式给出, 本模块不在 SVG 旁边自动写 geo.json.
 
 ## 关键行为
 
@@ -77,7 +78,9 @@ doc.set_suggestions({"title": "…", "subtitle": "…", "notes": ["…"],
 # 新图种不要手写 source: layers.suggestions(sheet, catalog) 会按数据集清单生成
 # 「署名 + 发布页 URL」, 见 docs/reference/layers.md.
 
-save_map(fig, OUT_SVG, doc, dpi=args.dpi)   # 写 OUT_SVG + OUT_SVG.with_suffix(".geo.json")
+# 产物路径由 spec 的 map_path / text_path 拼: 地图进 <子项目>/map/, 文字信息进
+# <子项目>/text/.
+save_map(fig, MAP_PATH, doc, geo_path=TEXT_PATH, dpi=args.dpi)
 ```
 
 ## 注意事项
@@ -99,7 +102,10 @@ save_map(fig, OUT_SVG, doc, dpi=args.dpi)   # 写 OUT_SVG + OUT_SVG.with_suffix(
   可能与旧成品差 ≤1 pt, 这是「行高统一到前端」的必然取舍, 不在 geo 里存行距;
 - 契约里仍未定义的 `labels[].leader/lang`、`scale`、`north`、`area_labels` 不输出: 比例尺与
   指北针仍是非目标, 现有图种不产生这些信息(旧图的指引线端点保留在脚本数据表中);
+- 布局只有一种: 地图必须在 `<子项目>/map/` 下、文字信息必须在 `<子项目>/text/` 下; 只拿到
+  地图路径时用 `cartopy_file.spec.geo_path_for()` 反推 geo 路径, 地图不在 `map/` 下会直接
+  报错, 不做「同级找同名 geo」的回退;
 - 产物不入库: `.gitignore` 忽略 `*.svg` 与 `*.geo.json`, 需要时按图种页跑脚本生成;
-- 出图后跑 `python tools/check_geo.py <产物>.svg`(或直接无参检查全部产物): 定位「根标签没裁、
-  残留 `<text>`、sha 没更新、字段/枚举不合法、v1 旧字段残留」这类结构错误; 它不做视觉判断,
-  前端标准校验仍以 miko 的 `mapdoc-geo` 实现为准.
+- 出图后跑 `python tools/check_geo.py <子项目>/map/<产物>.svg`(或直接无参检查全部产物):
+  定位「根标签没裁、残留 `<text>`、sha 没更新、字段/枚举不合法、v1 旧字段残留」这类结构错误;
+  它不做视觉判断, 前端标准校验仍以 miko 的 `mapdoc-geo` 实现为准.

@@ -30,10 +30,15 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
 - `Label`: `lon/lat/text/role/font_size_pt` 必填, `dx/dy`(度)是相对锚点的偏移,
   `ha` 是水平对齐, `name`/`id_kind` 用于拼稳定的 label id;
 - `City`: 点标记的尺寸/填充/描边/边宽与是否首都(形状由 `layers.add_cities` 固定);
-- `Sheet`: 一张产物. `out` 是相对子项目目录的产物文件名; `axes=None` 用 `plt.subplots`
-  默认布局, 给矩形则用 `add_axes`; `basemap=False` 表示不铺共享海陆底色(图种自己画);
-  `tight_layout=True` 表示量地图框前先 `plt.tight_layout()`(苏联图); `dataset_ids` 是
-  数据来源的署名依据, `dem_id` 指向其中的高程数据集; `relief=None` 表示这张图不铺高程.
+- `Sheet`: 一张图. `out` 只是地图文件名(不带目录), 地图渲染到 `<子项目>/map/`, 文字信息
+  写到 `<子项目>/text/<stem>.geo.json`, 目录由 `map_path`/`text_path` 决定; `axes=None`
+  用 `plt.subplots` 默认布局, 给矩形则用 `add_axes`; `basemap=False` 表示不铺共享海陆底色
+  (图种自己画); `tight_layout=True` 表示量地图框前先 `plt.tight_layout()`(苏联图);
+  `dataset_ids` 是数据来源的署名依据, `dem_id` 指向其中的高程数据集; `relief=None`
+  表示这张图不铺高程;
+- 产物目录: `MAP_DIR = "map"` 与 `TEXT_DIR = "text"` 是子项目下的两个产物目录,
+  `map_path(root, out)` / `text_path(root, out)` 按 `Sheet.out` 拼路径, `geo_path_for(svg_path)`
+  由地图路径反推文字信息路径; 布局只有一种, 地图不在 `map/` 下时 `geo_path_for` 直接报错.
 
 ## 用法
 
@@ -77,6 +82,7 @@ SHEET = Sheet(
   也在 `specs.py` 里紧接着写, 不要跑到下载脚本里再写一遍;
 - `lon_ticks`/`lat_ticks` 是**产物级**的取值: 改它们会改变 SVG 字节. 只想要更密的刻度时,
   先确认这是设计变更而不是顺手重排;
-- `Sheet.out` 必须 `.svg` 结尾; 一个 `SHEETS` 里 id 与产物名都不能重复;
+- `Sheet.out` 只写地图文件名、必须 `.svg` 结尾, 不能带目录; 一个 `SHEETS` 里 id 与产物名
+  都不能重复;
 - 文案(`title/subtitle/notes`)只写纯文本; 色标标题只在 `relief` 存在时输出
   (`colorbar_title`), 不铺高程的图不要留一个空色标版面.

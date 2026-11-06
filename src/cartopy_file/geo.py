@@ -4,10 +4,10 @@
 """geo.json(mapdoc-geo v2)生成: 地图框、经纬刻度、初始标注、色标、图例与默认文案.
 
 是什么: 本模块把「前端排版需要知道、但底图 SVG 里不画」的元数据收集成一个
-``<产物名>.geo.json``: 地图框 ``base``(裁到地图框后的 viewBox 与尺寸)、经纬刻度
+``<子项目>/text/<产物名>.geo.json``: 地图框 ``base``(裁到地图框后的 viewBox 与尺寸)、经纬刻度
 ``graticule``、地名候选 ``labels``、高程色标 ``relief``、图例 ``legend`` 与默认文案
 ``suggestions``. 同时提供 ``save_map()``, 把 Figure 保存成裁到地图框的纯几何 SVG
-(即契约里的 ``base.svg``)并写出同名的 geo.json.
+(即契约里的 ``base.svg``, 写到 ``<子项目>/map/``)并写出调用方指定路径的 geo.json.
 
 为什么: 底图按约定「不含任何文字」(miko_svg_editor 的 C2), 前端不知道地名该放在哪,
 也不知道刻度/色标/图例的口径. 这些数据只在 Cartopy 画图时天然存在(axes bbox、
@@ -725,15 +725,29 @@ def _rewrite_root_frame(path: Path, frame: Frame) -> None:
     path.write_bytes(data[: match.start()] + tag + data[match.end() :])
 
 
-def save_map(fig, svg_path: str | Path, doc: GeoDoc, *, dpi: float | None = None):
-    """保存裁到地图框的纯几何 SVG(底图)与同名 geo.json, 返回 (svg 路径, geo 路径).
+def save_map(
+    fig,
+    svg_path: str | Path,
+    doc: GeoDoc,
+    *,
+    geo_path: str | Path,
+    dpi: float | None = None,
+):
+    """保存裁到地图框的纯几何 SVG(底图)与文字信息 geo.json, 返回 (svg 路径, geo 路径).
+
+    两个输出路径都显式给出: 子项目布局是地图进 ``map/``、文字信息进 ``text/``, 路径由
+    ``cartopy_file.spec`` 的 ``map_path``/``text_path`` 拼; 本模块不猜目录, 也不自动
+    在 SVG 旁边写 geo.json(那样会重新引入第二套布局).
 
     顺序: 先 save_svg 写出完整 Figure, 再改根标签裁到 doc.frame, 最后按最终字节
     算 sha256 写 geo. 这样满足契约「geo.base.sha256 是底图文件的 sha256」.
     """
     svg_path = Path(svg_path)
+    geo_path = Path(geo_path)
     if doc.frame is None or doc.frame.width <= 0 or doc.frame.height <= 0:
         raise ValueError("save_map 需要有效的 GeoDoc.frame")
+    svg_path.parent.mkdir(parents=True, exist_ok=True)
+    geo_path.parent.mkdir(parents=True, exist_ok=True)
     save_svg(fig, svg_path, dpi=dpi)
     _rewrite_root_frame(svg_path, doc.frame)
     data = svg_path.read_bytes()
@@ -742,6 +756,5 @@ def save_map(fig, svg_path: str | Path, doc: GeoDoc, *, dpi: float | None = None
     if data.count(b"</svg>") != 1:
         raise ValueError(f"底图根元素必须恰好闭合一次: {svg_path}")
     doc.base_sha256 = hashlib.sha256(data).hexdigest()
-    geo_path = svg_path.with_suffix(".geo.json")
     geo_path.write_text(doc.to_json(), encoding="utf-8")
     return svg_path, geo_path
