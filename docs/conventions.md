@@ -21,6 +21,7 @@
 # 图名 (脚本路径)
 
 - 源码: [`Myanmar/xxx.py`](../../Myanmar/xxx.py)
+- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)
 - 产物: `<子项目>/map/xxx.svg`(地图) 与 `<子项目>/text/xxx.geo.json`(文字信息)
 
 ## 是什么
@@ -31,7 +32,7 @@
 ## 注意事项
 ```
 
-- 元信息两行必填: `源码`、`产物`;
+- 元信息三行必填: `源码`(绘图模块)、`入口`(子项目 `main.py`)、`产物`;
 - 节序固定为 是什么 → 设计要点 → 数据 → 运行 → 注意事项, 整节可省略, 不可调换或自创;
 - 设计要点内部用 `### 1. 主题` 编号, 便于正文里互相引用;
 - 同一图种的绘制脚本与它的数据准备脚本共用一页, 不再为 `download_*.py` /
@@ -59,6 +60,8 @@
 
 - 图种页用图种名而不是脚本名, 小写连字符: `myanmar`、`myanmar-admin`、`northern-shan`、
   `ussr`、`ukraine`、`volga`; 同一图种多个脚本共用一页。
+- 每个子项目的入口固定叫 `main.py`, 绘图模块用图种名: `Myanmar/myanmar.py`、
+  `Volga/volga.py`; 下载/派生模块用 `download_*.py` / `prepare_*.py`。
 - 参考页用导入模块名: `cartopy_file.relief` → `reference/relief.md`。
 - 一次性脚本、临时脚本、兼容 shim 一律不单独建页: 内容并入所属图种页或
   [data-preparation.md](data-preparation.md), 源码 docstring 指过去即可。
@@ -90,6 +93,15 @@
   注释里只留指针;
 - 不复述文档页的设计段落: 同一段理由只写在文档页, 代码注释写"见 docs/...";
 - 改实现时如果理由变了, 文档页与注释一起改。
+
+## 脚本入口
+
+- 每个子项目**只有一个可执行文件** `<子项目>/main.py`, 用子命令编排 `download` / `prepare` /
+  `render` / `all`; 文档里的命令一律从这个入口写, 不写模块文件名;
+- 其余 `.py` 都是模块: 只导出 `run(...)`, 不写 argparse/main; 直接执行时报错并指向入口;
+- 框架层脚本(根 `download_data.py`、`tools/*.py`、`global.py`)不受此约束, 仍可独立运行;
+- 新增子命令时同步本页、[data-preparation.md](data-preparation.md) 的准备命令总表与该图种页的
+  "运行"节.
 
 ## 维护流程
 

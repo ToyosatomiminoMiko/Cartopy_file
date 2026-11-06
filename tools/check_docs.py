@@ -22,10 +22,10 @@ INDEX = DOCS / "index.md"
 MAP_SECTIONS = ["是什么", "设计要点", "数据", "运行", "注意事项"]
 REFERENCE_SECTIONS = ["是什么", "关键行为", "用法", "注意事项"]
 # 页面开头元信息里必须出现的字段.
-MAP_META = ["源码", "产物"]
+MAP_META = ["源码", "入口", "产物"]
 REFERENCE_META = ["源码", "导入"]
 # 没有文档指针的脚本: 一次性演示, 不在文档体系内.
-NO_POINTER = {"global.py", "AmericaArmy/main.py"}
+NO_POINTER = {"global.py"}
 
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 POINTER_RE = re.compile(r"docs/[A-Za-z0-9_./-]+\.md")

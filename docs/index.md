@@ -26,14 +26,16 @@
 
 ## 图种
 
-| 页面 | 脚本 | 内容 |
+每个子项目只有一个可执行入口 `<子项目>/main.py`, 用子命令编排; 下表的"入口"列就是出图命令.
+
+| 页面 | 入口 | 内容 |
 | --- | --- | --- |
-| [maps/myanmar.md](maps/myanmar.md) | `Myanmar/myanmar.py` | 缅甸全境地形图 |
-| [maps/myanmar-admin.md](maps/myanmar-admin.md) | `Myanmar/myanmar_admin.py` | 缅甸省/邦级行政区划图 |
-| [maps/northern-shan.md](maps/northern-shan.md) | `Myanmar/northern_shan.py` | 掸邦/特区地形图 |
-| [maps/ussr.md](maps/ussr.md) | `USSR/ussr.py` | 苏联地形图 |
-| [maps/ukraine.md](maps/ukraine.md) | `Ukraine/ukraine.py` | 乌克兰全图(1991/2014/2022 边界) |
-| [maps/volga.md](maps/volga.md) | `Volga/volga.py` | 伏尔加河流域地形图 / 流域与周边六个共和国地形图 |
+| [maps/myanmar.md](maps/myanmar.md) | `Myanmar/main.py render --sheet myanmar` | 缅甸全境地形图 |
+| [maps/myanmar-admin.md](maps/myanmar-admin.md) | `Myanmar/main.py render --sheet myanmar-admin` | 缅甸省/邦级行政区划图 |
+| [maps/northern-shan.md](maps/northern-shan.md) | `Myanmar/main.py render --sheet northern-shan` | 掸邦/特区地形图 |
+| [maps/ussr.md](maps/ussr.md) | `USSR/main.py render` | 苏联地形图 |
+| [maps/ukraine.md](maps/ukraine.md) | `Ukraine/main.py render` | 乌克兰全图(1991/2014/2022 边界) |
+| [maps/volga.md](maps/volga.md) | `Volga/main.py render` | 伏尔加河流域地形图 / 流域与周边六个共和国地形图 |
 
 ## 参考
 
@@ -48,6 +50,7 @@
 | [reference/output.md](reference/output.md) | `cartopy_file.output`: 纯几何 SVG 出图 |
 | [reference/relief.md](reference/relief.md) | `cartopy_file.relief`: 高程、晕渲、海陆底色 |
 | [reference/overlap.md](reference/overlap.md) | `cartopy_file.overlap`: 边界重合剪枝 |
+| [reference/geometry.md](reference/geometry.md) | `cartopy_file.geometry`: 几何修复、确定性 GeoJSON、面积/长度量算 |
 
 ## 文档自身
 

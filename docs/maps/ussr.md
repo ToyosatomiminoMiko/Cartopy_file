@@ -1,6 +1,7 @@
 # 苏联地形图 (USSR/ussr.py)
 
 - 源码: [`USSR/ussr.py`](../../USSR/ussr.py)
+- 入口: [`USSR/main.py`](../../USSR/main.py)(子命令 download / prepare / render / all)
 - 产物: `USSR/map/ussr_topography_etopo2022_lambert_azimuthal.svg`(地图) 与
   `USSR/text/ussr_topography_etopo2022_lambert_azimuthal.geo.json`(文字信息)
 
@@ -36,7 +37,7 @@
 
 | 文件 | 内容 | 生成方式 |
 | --- | --- | --- |
-| `USSR/data/raw/ETOPO_2022_v1_15s_ussr_stride8.nc` | ETOPO 苏联区域高程(默认 2 弧分, 约 45 MB) | `python USSR/download_etopo.py` |
+| `USSR/data/raw/ETOPO_2022_v1_15s_ussr_stride8.nc` | ETOPO 苏联区域高程(默认 2 弧分, 约 45 MB) | `python USSR/main.py download` |
 | `data/cartopy/shapefiles/natural_earth/cultural/ne_10m_admin_0_countries.shp` | Natural Earth 10m 国界(全项目共用一份) | `python download_data.py` |
 | `data/cartopy/shapefiles/natural_earth/physical/ne_110m_coastline.shp` | Natural Earth 110m 海岸线 | `python download_data.py` |
 
@@ -54,33 +55,39 @@ ETOPO 子集范围: 经度 15°E 向东到 165°W(ERDDAP 的经度是 0~360, 右
 
 ## 运行
 
+`USSR/` 只有一个可执行入口 `USSR/main.py`, 数据准备与出图都是它的子命令:
+
 ```bash
-python USSR/download_etopo.py              # 首次: ETOPO 子集(stride=8) + 10m 国界(已存在则跳过)
+python USSR/main.py download              # 首次: ETOPO 子集(stride=8), 已存在则跳过
 python download_data.py                    # 首次: 共用 Natural Earth 底图(110m 海岸线等)
-python USSR/ussr.py                        # 出图, 地图进 USSR/map/, 文字信息进 USSR/text/
+python USSR/main.py render                # 出图, 地图进 USSR/map/, 文字信息进 USSR/text/
+python USSR/main.py all                   # 两步合一: 先 download, 再 render
 ```
 
-`download_etopo.py` 的选项:
+`download` 子命令的选项:
 
 - `--stride`: ERDDAP 采样步长, 默认 8(2 弧分); 文件名带步长, 不同步长可共存;
 - `--force`: 覆盖已存在的下载文件.
 
-`ussr.py` 的选项:
+`render` 子命令的选项:
 
 - `--stride`: 用 `USSR/data/raw/` 下对应步长的高程文件, 缺省自动选步长最小的;
-- `--dpi`: 内嵌栅格的像素密度, 默认 300(矢量部分与 dpi 无关);
+- `--dpi`: 内嵌晕渲栅格的像素密度, 默认 300(矢量部分与 dpi 无关);
 - `--show`: 保存后弹出交互窗口(需要图形界面).
 
-高程文件也可用环境变量 `ETOPO_PATH` 指向任意文件; 数据缺失时脚本报错并提示先跑
-`USSR/download_etopo.py`. 出图走共享的 `runner.render`, 地图框在 `tight_layout` 之后才量,
-所以底图与 geo.json 的坐标对齐.
+`all` 子命令依次跑 `download` 与 `render`, `--stride` 同时用于下载和挑文件, 另有
+`--force` / `--dpi` / `--show`. 高程文件也可用环境变量 `ETOPO_PATH` 指向任意文件; 数据缺失
+时脚本报错, 先跑 `python USSR/main.py download` 补齐. 出图走共享的 `runner.render`, 地图框
+在 `tight_layout` 之后才量, 所以底图与 geo.json 的坐标对齐.
 
 ## 注意事项
 
-- 高程文件不存在时脚本抛 `FileNotFoundError` 并给出修复命令;
+- 高程文件不存在时 `load_elevation` 抛 `FileNotFoundError`(不带命令提示), 先跑
+  `python USSR/main.py download` 补齐;
 - 投影实际参数是 `central_longitude=105`, 不是 90°E(原始代码如此), 引用投影参数时以代码为准;
-- 红色边界读 `USSR/data/derived/ne_10m_admin_0_countries/`(`download_etopo.py` 解压), 海岸线读
-  `data/cartopy/` 缓存(`download_data.py` 预取); 缺任一份都会在终端告警并跳过对应图层;
+- 红色苏联轮廓读共享缓存的 Natural Earth 10m 国界(`data/cartopy/`, 由根
+  `download_data.py` 预取; `USSR/data/derived/` 不存这份数据), 海岸线读同一缓存的 110m
+  海岸线; 10m 国界缺失时 `countries_frame()` 返回 `None`, 红色轮廓静默跳过;
 - 地形色带直接用 matplotlib 的 `terrain`, 没有像乌克兰图那样为海陆分界定制色带;
 - 下载细节(ERDDAP 范围、断点续传、退出码)见
   [`data-preparation.md`](../data-preparation.md) 的 ETOPO 一节.

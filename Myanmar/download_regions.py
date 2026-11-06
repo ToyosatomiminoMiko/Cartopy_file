@@ -5,7 +5,8 @@
 
 是什么: 通过公共 Overpass 接口抓取掸邦各特区/自治区域的 OpenStreetMap 行政边界关系
 与画框附近国界(admin_level=2), 拼装成多边形/折线后缓存为 GeoJSON, 供
-``northern_shan.py`` 绘图. 缓存路径与 Overpass 镜像都来自共享层: 路径取
+``northern_shan.py`` 绘图. 本文件是模块, 只导出 ``run()``, 由统一入口
+``python Myanmar/main.py download`` 调用. 缓存路径与 Overpass 镜像都来自共享层: 路径取
 ``Myanmar/config.py`` 的 ``DATASETS``, 镜像取 ``cartopy_file.sources``.
 完整说明(数据来源、拼装原理、ODbL 许可)见 ``docs/maps/northern-shan.md``;
 数据集层见 ``docs/reference/datasets.md``.
@@ -13,7 +14,6 @@
 
 from __future__ import annotations
 
-import argparse
 import http.client
 import json
 import tempfile
@@ -22,7 +22,6 @@ import urllib.error
 import urllib.parse
 from pathlib import Path
 
-from pyproj import Geod
 from shapely.geometry import LineString, MultiLineString, mapping
 from shapely.ops import polygonize, unary_union
 from shapely.validation import make_valid
@@ -30,14 +29,15 @@ from shapely.validation import make_valid
 # 缓存路径由数据集清单给出(raw/ 的约定见 docs/reference/datasets.md).
 import config
 from cartopy_file import fetch as fetch_lib
+
+# 椭球面积是通用几何工具, 用框架层的一份实现, 见 docs/reference/geometry.md.
+from cartopy_file.geometry import geodesic_area_km2
 from cartopy_file.sources import overpass_endpoints
 
 OUT_PATH = config.DATASETS.path(config.SHAN_REGIONS)
 # 国界单独存一个文件: 它没有"面"的属性(面积/上级区域), 与区域边界用途不同.
 BORDER_PATH = config.DATASETS.path(config.OSM_COUNTRY_BORDERS)
 REGION_DIR = OUT_PATH.parent
-
-GEOD = Geod(ellps="WGS84")
 
 # OSM relation id -> (图层, 中文名, 英文名, 上级区域).
 # 图层说明:
@@ -209,12 +209,6 @@ def relation_to_lines(rel: dict) -> list[LineString]:
     return lines
 
 
-def geodesic_area_km2(geom) -> float:
-    """按 WGS84 椭球计算面积, 避免经纬度平方度在不同纬度不可比的问题."""
-    area, _ = GEOD.geometry_area_perimeter(geom)
-    return abs(area) / 1e6
-
-
 def download_regions(force: bool) -> None:
     """下载区域边界并写入 OUT_PATH."""
     if OUT_PATH.exists() and not force:
@@ -353,15 +347,13 @@ def download_borders(force: bool) -> None:
     print(f"已写入: {BORDER_PATH} ({BORDER_PATH.stat().st_size/1024:.0f} KiB)")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--force", action="store_true", help="覆盖已存在的 GeoJSON")
-    args = parser.parse_args()
-
+def run(*, force: bool = False) -> int:
+    """下载 OSM 特区/区域边界与画框附近国界并写入缓存; 返回 0=成功."""
     REGION_DIR.mkdir(parents=True, exist_ok=True)
-    download_regions(args.force)
-    download_borders(args.force)
+    download_regions(force)
+    download_borders(force)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit("本文件是模块, 不能直接运行; 请用统一入口: python Myanmar/main.py <子命令>")

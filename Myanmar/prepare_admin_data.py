@@ -5,7 +5,8 @@
 
 是什么: 读取 GADM 4.1 缅甸一级行政区原始 JSON, 从 OpenStreetMap 取内比都联邦区边界,
 经过裁剪、补缝、拓扑检查后输出 ``Myanmar/data/derived/myanmar_admin1.geojson`` 供绘图
-读取. 原始数据与派生文件的位置全部来自 ``Myanmar/config.py`` 的 ``DATASETS``; 缺失的
+读取. 本文件是模块, 只导出 ``run()``, 由统一入口 ``python Myanmar/main.py prepare`` 调用.
+原始数据与派生文件的位置全部来自 ``Myanmar/config.py`` 的 ``DATASETS``; 缺失的
 原始数据用共享下载层补齐, 已就位时只做跳过、不联网.
 完整说明(为什么混用 GADM/OSM、为什么补缝)见 ``docs/maps/myanmar-admin.md``;
 数据集层见 ``docs/reference/datasets.md``.
@@ -327,7 +328,8 @@ def fill_gaps(units: dict[str, object], country) -> None:
     print(f"补缝: {len(gap_parts)} 个碎块, 总面积 {gap.area:.4f} 平方度")
 
 
-def main() -> None:
+def run() -> int:
+    """重建 ``myanmar_admin1.geojson``; 返回 0=成功(拓扑自检失败会抛 RuntimeError)."""
     ADMIN_DIR.mkdir(parents=True, exist_ok=True)
     ensure_country_data()
     ensure_river_data()
@@ -436,7 +438,8 @@ def main() -> None:
         encoding="utf-8",
     )
     print(f"已写入: {OUT_PATH} ({OUT_PATH.stat().st_size / 1024:.0f} KiB)")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit("本文件是模块, 不能直接运行; 请用统一入口: python Myanmar/main.py <子命令>")

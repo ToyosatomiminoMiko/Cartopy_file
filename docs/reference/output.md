@@ -14,14 +14,14 @@
 
 本模块**不再处理文字/字体/标签布局**: 文字外置、字体子集与 `@font-face` 内嵌、手工标签布局
 (`labels.json`)与新增标注都已移除, 也不再读 `fonttools`. 产物里是否出现文字只取决于调用方,
-项目脚本的约定是**不写任何文字**——地名、标题、图例、色标、刻度、注与来源由 `miko_svg_editor`
-的前端排版接管. 脚本不直接调 `save_svg()`, 而是走
+绘图模块的约定是**不写任何文字**——地名、标题、图例、色标、刻度、注与来源由 `miko_svg_editor`
+的前端排版接管. 绘图模块不直接调 `save_svg()`, 而是走
 [`cartopy_file.geo.save_map()`](geo.md): 它先调本模块写出整张 Figure, 再把根标签裁到地图框,
 并按调用方给的 `geo_path` 写文字信息 `.geo.json` 给前端建默认排版(地图与文字信息分目录存放).
 
 ## 关键行为
 
-1. **只写 SVG**: `save_svg()` 检查 `path` 的后缀, 不是 `.svg` 就抛 `ValueError`, 避免脚本漏改
+1. **只写 SVG**: `save_svg()` 检查 `path` 的后缀, 不是 `.svg` 就抛 `ValueError`, 避免漏改
    路径后又悄悄写出 PNG; `apply_svg_output()` 同时把 `savefig.format` 固定为 `svg`.
 2. **栅格 base64 内联**: 矢量元素(边界、河流、填色等)按矢量写; 唯一无法矢量化的是山体晕渲
    栅格, matplotlib 把它编码成 PNG 并以 base64 内嵌(`svg.image_inline=True`), 所以产物始终是
@@ -31,7 +31,7 @@
    出图内容都不同.
 5. **字节级确定**: 同一份数据、同一环境下重复运行得到相同内容的 SVG, 提交 git 时不会因为
    时间戳/随机 id 产生无意义改动.
-6. **`dpi` 只影响内嵌晕渲栅格**: 矢量部分与 dpi 无关; 缺省用 Figure 自身的 dpi, 各脚本统一显式
+6. **`dpi` 只影响内嵌晕渲栅格**: 矢量部分与 dpi 无关; 缺省用 Figure 自身的 dpi, 各模块统一显式
    传 `--dpi`(默认 300).
 7. **`kwargs` 原样转给 `Figure.savefig`**: 例如 `bbox_inches="tight"`.
 
@@ -40,7 +40,7 @@
 
 ## 用法
 
-脚本里通常不直接调本模块, 而是用 [`geo.save_map()`](geo.md) 一次写底图 + geo:
+绘图模块里通常不直接调本模块, 而是用 [`geo.save_map()`](geo.md) 一次写底图 + geo:
 
 ```python
 from cartopy_file.geo import GeoDoc, figure_frame, save_map
@@ -63,7 +63,7 @@ save_map(fig, map_path(ROOT, SHEET.out), doc,
   [`cartopy_file.data.prepare_matplotlib_env()`](data.md), 否则本机只读的 `~/.config` 会让
   matplotlib 每次重建字体缓存;
 - 产物不入库: `.gitignore` 忽略 `*.svg`, `save_svg()` 只负责写文件, 成品按需生成、不随仓库提交;
-- 产物是纯几何地图是项目约定, 不是本模块自动剥离文字: 脚本不要调用 `ax.text()`, 也不要画
+- 产物是纯几何地图是项目约定, 不是本模块自动剥离文字: 模块不要调用 `ax.text()`, 也不要画
   图例、色标、标题、刻度文字、比例尺或指北针; 这些信息的「该在哪/是什么」改由
   [`cartopy_file.geo`](geo.md) 登记进 geo.json;
 - `save_svg()` 不再接受文字/字体/标签布局相关的参数(如 `embed_text`、`placements`), 这些能力

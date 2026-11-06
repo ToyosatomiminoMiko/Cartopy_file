@@ -1,6 +1,7 @@
 # 乌克兰全图 (Ukraine/ukraine.py)
 
 - 源码: [`Ukraine/ukraine.py`](../../Ukraine/ukraine.py)
+- 入口: [`Ukraine/main.py`](../../Ukraine/main.py)(子命令 download / prepare / render / all)
 - 产物: `Ukraine/map/ukraine_borders_1991_2014_2022_lambert_conformal.svg`(地图) 与
   `Ukraine/text/ukraine_borders_1991_2014_2022_lambert_conformal.geo.json`(文字信息)
 
@@ -175,33 +176,39 @@ ETOPO 子集范围 18.5~44.0°E / 42.4~53.5°N, 步长 2(30 弧秒); 范围比�
 
 ## 运行
 
+唯一可执行入口是 [`Ukraine/main.py`](../../Ukraine/main.py): 其余脚本只导出 `run()`, 不自己
+解析命令行. 子命令分派用懒导入, `download` 不加载绘图栈, `render` 不加载下载模块.
+
 ```bash
 python download_data.py             # 仓库根: 预取共享的 Natural Earth 10m 缓存(只缺才下)
-python Ukraine/download_data.py     # 首次: 只下载原始数据(已存在则跳过)
-python Ukraine/prepare_data.py      # 加工派生 GeoJSON(每次全量重建)
-python Ukraine/ukraine.py           # 出图, 地图进 Ukraine/map/, 文字信息进 Ukraine/text/
+python Ukraine/main.py download     # 首次: 只下载原始数据到 data/raw/(已存在则跳过)
+python Ukraine/main.py prepare      # 加工派生 GeoJSON 到 data/derived/(每次全量重建)
+python Ukraine/main.py render       # 出图, 地图进 Ukraine/map/, 文字信息进 Ukraine/text/
+python Ukraine/main.py all          # 依次 download -> prepare -> render
 ```
 
-`Ukraine/download_data.py` 的选项:
+`download` 的选项:
 
-- `--check`: 只检查数据是否齐全(原始 + 派生), 不联网; 缺失项按归属提示该跑哪个脚本;
-- `--force`: 强制重下原始数据(派生 GeoJSON 由 `prepare_data.py` 重建, 不受影响).
+- `--check`: 只检查数据是否齐全(原始 + 派生), 不联网; 缺失项按归属提示该跑哪个子命令;
+- `--force`: 强制重下原始数据(派生 GeoJSON 由 `prepare` 重建, 不受影响).
 
-`Ukraine/prepare_data.py` 没有选项: 全量重建派生 GeoJSON 并打印文件汇总.
+`prepare` 没有选项: 全量重建派生 GeoJSON 并打印文件汇总.
 
-`ukraine.py` 的选项:
+`render` 的选项:
 
 - `--stride`: 用 `Ukraine/data/raw/` 下对应采样步长的 ETOPO 文件; 缺省自动选分辨率最高
   (步长最小)的;
 - `--dpi`: 内嵌晕渲栅格的像素密度, 缺省用 `config.py` 里的 300(矢量部分与 dpi 无关);
 - `--show`: 保存后弹出交互窗口(需要图形界面).
 
-高程文件也可用环境变量 `UKRAINE_ETOPO_PATH` 指定; 数据缺失时脚本直接报错.
+`all` 也接受 `--stride`/`--dpi`/`--show`, 并透传给 `render`.
+
+高程文件也可用环境变量 `UKRAINE_ETOPO_PATH` 指定; 数据缺失时脚本报错并提示该跑哪个子命令.
 
 ## 注意事项
 
-- 数据必须先准备, 本脚本不联网, 缺文件会报错: 缺原始数据提示运行 `download_data.py`,
-  缺派生 GeoJSON 提示运行 `prepare_data.py`;
+- 数据必须先准备, 本脚本不联网, 缺文件会报错: 缺原始数据提示运行
+  `python Ukraine/main.py download`, 缺派生 GeoJSON 提示运行 `python Ukraine/main.py prepare`;
 - 中断后可重跑: 未完成的下载与原始 JSON 缓存会复用, OSM 关系首次运行后缓存, 不再重复请求;
 - 1991 是法理口径; 2014 接触线是 OCHA 2021 GCA/NGCA 界线近似(明斯克协议后基本稳定), 属
   近似值; 2022 只是俄方单方面宣称的"全境", 图上一律称"宣称", 不表示实际控制;

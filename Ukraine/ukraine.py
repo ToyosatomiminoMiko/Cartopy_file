@@ -13,7 +13,6 @@
 
 from __future__ import annotations
 
-import argparse
 import os
 import sys
 from pathlib import Path
@@ -123,7 +122,7 @@ def _require(path: Path) -> Path:
     """缺少数据时给出明确修复命令, 而不是让后面的读取抛难懂的错."""
     if not path.exists():
         raise FileNotFoundError(
-            f"未找到数据: {path}\n请先运行: python Ukraine/prepare_data.py"
+            f"未找到数据: {path}\n请先运行: python Ukraine/main.py prepare"
         )
     return path
 
@@ -813,36 +812,30 @@ def collect(doc, ctx: runner.RenderContext) -> None:
     )
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--stride", type=int, default=None,
-        help="使用 data/raw 下对应采样步长的 ETOPO 文件; 缺省自动选分辨率最高(步长最小)的一个",
-    )
-    runner.add_standard_arguments(parser)
-    args = parser.parse_args()
-
-    etopo_path = find_etopo(
-        DATA_DIR / "raw",
-        "ukraine",
-        args.stride,
-        env_path=os.environ.get("UKRAINE_ETOPO_PATH"),
-    )
-    runner.render(
-        SHEET,
-        root=ROOT,
-        catalog=DATASETS,
-        draw=draw,
-        collect=collect,
-        dem_path=etopo_path,
-        dpi=args.dpi,
-        show=args.show,
-    )
+def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False) -> int:
+    """渲染乌克兰全图并写出同名 geo.json; 返回 0=成功, 1=数据缺失."""
+    try:
+        etopo_path = find_etopo(
+            DATA_DIR / "raw",
+            "ukraine",
+            stride,
+            env_path=os.environ.get("UKRAINE_ETOPO_PATH"),
+        )
+        runner.render(
+            SHEET,
+            root=ROOT,
+            catalog=DATASETS,
+            draw=draw,
+            collect=collect,
+            dem_path=etopo_path,
+            dpi=dpi,
+            show=show,
+        )
+    except FileNotFoundError as exc:
+        print(f"错误: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except FileNotFoundError as exc:
-        print(f"错误: {exc}", file=sys.stderr)
-        sys.exit(1)
+    raise SystemExit("本文件是模块, 不能直接运行; 请用统一入口: python Ukraine/main.py <子命令>")

@@ -4,7 +4,8 @@
 """Download the ETOPO 2022 subsets declared in the Myanmar dataset inventory.
 
 是什么: 按 ``Myanmar/config.py`` 里登记的 ETOPO 数据集(URL、下载范围、dest 命名约定)
-从 NOAA ERDDAP 下载区域高程子集; 目标文件已存在时跳过, 中断过可续传.
+从 NOAA ERDDAP 下载区域高程子集; 目标文件已存在时跳过, 中断过可续传. 本文件是模块,
+只导出 ``run()``, 由统一入口 ``python Myanmar/main.py download`` 调用.
 Natural Earth 10m 国界不再由本脚本下载: 它由根目录 ``download_data.py`` 预取到全项目
 共享缓存 ``data/cartopy/``, 绘图脚本通过 cartopy 的缓存路径直接读取.
 完整说明(为什么用 ERDDAP、下载范围、--region/--stride 的含义)见
@@ -13,7 +14,6 @@ Natural Earth 10m 国界不再由本脚本下载: 它由根目录 ``download_dat
 
 from __future__ import annotations
 
-import argparse
 import sys
 from pathlib import Path
 
@@ -63,39 +63,27 @@ def resolve_target(region: str, stride: int | None) -> tuple[str, str, Path]:
     return url, dataset.id, dest
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--stride",
-        type=int,
-        default=None,
-        help="ERDDAP 采样步长; 缺省用数据集登记的步长(缅甸 stride=2, 掸邦 stride=1)",
-    )
-    parser.add_argument(
-        "--region",
-        choices=sorted(REGIONS),
-        default="myanmar",
-        help="下载区域: myanmar=缅甸全境(默认), northern_shan=掸邦放大图",
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="覆盖已存在的下载文件",
-    )
-    args = parser.parse_args()
-
+def run(*, region: str = "myanmar", stride: int | None = None, force: bool = False) -> int:
+    """下载一个区域的 ETOPO 子集; 返回 0=成功, 1=参数错误(区域或 stride 非法)."""
+    if region not in REGIONS:
+        print(
+            f"错误: 未知的下载区域 {region!r}; 可选: {', '.join(sorted(REGIONS))}",
+            file=sys.stderr,
+        )
+        return 1
     try:
-        url, dataset_id, dest = resolve_target(args.region, args.stride)
+        url, dataset_id, dest = resolve_target(region, stride)
     except ValueError as exc:
-        parser.error(str(exc))
+        print(f"错误: {exc}", file=sys.stderr)
+        return 1
 
-    print(f"下载 ETOPO 2022 {args.region} 区域高程 (数据集 {dataset_id})")
+    print(f"下载 ETOPO 2022 {region} 区域高程 (数据集 {dataset_id})")
     print(url)
     download(
         url,
         dest,
         description="ETOPO 高程",
-        force=args.force,
+        force=force,
         magic=MAGIC_NETCDF,
     )
 
@@ -103,18 +91,12 @@ def main() -> None:
         "Natural Earth 10m 国界由根目录 download_data.py 预取到共享缓存 "
         "(data/cartopy/), 本脚本不再下载."
     )
-    if args.region == "myanmar":
-        print("\n完成。现在可运行: python myanmar.py")
+    if region == "myanmar":
+        print("\n完成。现在可运行: python Myanmar/main.py render --sheet myanmar")
     else:
-        print(f"\n完成。现在可运行: python {args.region}.py")
+        print("\n完成。现在可运行: python Myanmar/main.py render --sheet northern-shan")
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n用户中断。可重新运行脚本以续传未完成的文件。")
-        sys.exit(130)
-    except Exception as exc:
-        print(f"错误: {exc}", file=sys.stderr)
-        sys.exit(1)
+    raise SystemExit("本文件是模块, 不能直接运行; 请用统一入口: python Myanmar/main.py <子命令>")

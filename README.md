@@ -31,9 +31,11 @@ python download_data.py           # 全项目共用的 Natural Earth 底图, 放
 python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 并打印准备命令
 ```
 
-各子项目自己的数据(ETOPO 高程、行政区、OSM 边界等)由各自的脚本准备: `download_*.py` 只
-下载/入库到 `<子项目>/data/raw/`(已存在就跳过), `prepare_*.py` 只加工到
-`<子项目>/data/derived/`(每次重建、不联网), 两条独立命令; 命令与数据清单见
+各子项目自己的数据(ETOPO 高程、行政区、OSM 边界等)由各自的入口准备: `python <子项目>/main.py
+download` 只下载/入库到 `<子项目>/data/raw/`(已存在就跳过), `python <子项目>/main.py prepare`
+只加工到 `<子项目>/data/derived/`(每次重建、不联网); 内部仍各是一个模块, 但命令只从入口发.
+每个子项目**只有一个可执行文件** `<子项目>/main.py`(子命令 `download` / `prepare` / `render` /
+`all`), 其余 `.py` 都是模块, 直接运行会报错并指向入口. 命令与数据清单见
 [docs/data-preparation.md](docs/data-preparation.md). 清单不用手写: `--check` 从各子项目的
 `config.py` 汇总. 只有换机器或重新 clone 时才需要重跑; 已存在的文件不会重复下载.
 
@@ -42,17 +44,18 @@ python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 
 每张图除 `.svg` 底图外, 还在对应子项目的 `text/` 下写同 stem 的 `<stem>.geo.json`,
 前端(`miko_svg_editor`)用它建默认排版.
 
-| 脚本 | 地图(产物在 `<子项目>/map/`) |
+| 入口命令 | 地图(产物在 `<子项目>/map/`) |
 | --- | --- |
-| `Myanmar/myanmar.py` | `myanmar_topography_etopo2022_lambert_conformal.svg` |
-| `Myanmar/myanmar_admin.py` | `myanmar_administrative_divisions_bilingual.svg` |
-| `Myanmar/northern_shan.py` | `northern_shan_topography_etopo2022_lambert_conformal.svg` |
-| `USSR/ussr.py` | `ussr_topography_etopo2022_lambert_azimuthal.svg` |
-| `Ukraine/ukraine.py` | `ukraine_borders_1991_2014_2022_lambert_conformal.svg` |
-| `Volga/volga.py` | `volga_basin_topography_etopo2022_lambert_conformal.svg`(流域图)<br>`volga_basin_republics_topography_etopo2022_lambert_conformal.svg`(周边共和国图) |
-| `AmericaArmy/main.py` | `america_army_bases.svg`(框架用法演示, 定点位) |
+| `python Myanmar/main.py render --sheet myanmar` | `myanmar_topography_etopo2022_lambert_conformal.svg` |
+| `python Myanmar/main.py render --sheet myanmar-admin` | `myanmar_administrative_divisions_bilingual.svg` |
+| `python Myanmar/main.py render --sheet northern-shan` | `northern_shan_topography_etopo2022_lambert_conformal.svg` |
+| `python USSR/main.py render` | `ussr_topography_etopo2022_lambert_azimuthal.svg` |
+| `python Ukraine/main.py render` | `ukraine_borders_1991_2014_2022_lambert_conformal.svg` |
+| `python Volga/main.py render` | `volga_basin_topography_etopo2022_lambert_conformal.svg`(流域图)<br>`volga_basin_republics_topography_etopo2022_lambert_conformal.svg`(周边共和国图) |
+| `python AmericaArmy/main.py render` | `america_army_bases.svg`(框架用法演示, 定点位) |
 
-每张图的前置数据、可用选项与设计取舍见 [docs/index.md](docs/index.md) 里的图种页.
+不给 `--sheet` 时出该子项目的全部图(`Volga`、`Myanmar` 都是如此); 每张图的前置数据、可用选项
+与设计取舍见 [docs/index.md](docs/index.md) 里的图种页.
 
 产物由 [src/cartopy_file/geo.py](src/cartopy_file/geo.py) 统一保存: SVG 是纯几何底图, 海岸线、国界、
 河流、湖泊与填色都是矢量, 不含文字、图例、色标、标题和刻度文字; 保存时只把根标签的 viewBox 裁到
@@ -67,14 +70,13 @@ viewBox/尺寸)、`graticule`(经纬刻度)、`labels`(地名候选: id/role/文
 内部 id 固定, 同一份数据重复运行得到相同内容. 实现与理由见
 [docs/reference/output.md](docs/reference/output.md).
 
-产物不入库: `.gitignore` 忽略 `*.svg` / `*.geo.json` / `*.png`, 仓内不放成品文件, 需要时按上表跑
-脚本生成. 与前端排版的衔接(契约字段、字体嵌入等)见 `miko_svg_editor` 的
+产物不入库: `.gitignore` 忽略 `*.svg` / `*.geo.json` / `*.png`, 仓内不放成品文件, 需要时按上表命令生成. 与前端排版的衔接(契约字段、字体嵌入等)见 `miko_svg_editor` 的
 `docs/CARTOPY-MIGRATION.md`.
 
-`AmericaArmy/` 是**框架用法的最小演示**: 一个 `config.py`(本地点位 + 一个 Sheet)加一个
-`main.py`(一对 draw/collect 回调), 走和正式图种完全相同的出图流水线, 产物是
-`AmericaArmy/map/america_army_bases.svg` 与 `AmericaArmy/text/america_army_bases.geo.json`
-(同 stem 分目录). 想新增子项目时从这个目录抄结构, 见
+`AmericaArmy/` 是**框架用法的最小演示**: 一个 `config.py`(本地点位 + 一个 Sheet)、一个
+`main.py`(唯一入口)加一个 `america_army.py`(一对 draw/collect 回调), 走和正式图种完全相同的
+出图流水线, 产物是 `AmericaArmy/map/america_army_bases.svg` 与
+`AmericaArmy/text/america_army_bases.geo.json`(同 stem 分目录). 想新增子项目时从这个目录抄结构, 见
 [docs/add-map.md](docs/add-map.md).
 
 ## 缓存

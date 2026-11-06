@@ -1,6 +1,7 @@
 # 掸邦/特区地形图 (Myanmar/northern_shan.py)
 
 - 源码: [`Myanmar/northern_shan.py`](../../Myanmar/northern_shan.py)
+- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(子命令 download / prepare / render / all)
 - 产物: `Myanmar/map/northern_shan_topography_etopo2022_lambert_conformal.svg`(地图) 与
   `Myanmar/text/northern_shan_topography_etopo2022_lambert_conformal.geo.json`(文字信息)
 
@@ -66,8 +67,8 @@ Ukraine 图一致: 下面的地形与区域填色透出来, 与它重合的区�
 
 | 文件 | 内容 | 生成方式 |
 | --- | --- | --- |
-| `Myanmar/data/raw/ETOPO_2022_v1_15s_northern_shan_stride1.nc` | 15 弧秒高程子集 | `python Myanmar/download_etopo.py --region northern_shan --stride 1` |
-| `Myanmar/data/raw/regions/shan_north_boundaries.geojson` | 特区/自治区域多边形 | `python Myanmar/download_regions.py` |
+| `Myanmar/data/raw/ETOPO_2022_v1_15s_northern_shan_stride1.nc` | 15 弧秒高程子集 | `python Myanmar/main.py download --region northern-shan` |
+| `Myanmar/data/raw/regions/shan_north_boundaries.geojson` | 特区/自治区域多边形 | `python Myanmar/main.py download` |
 | `Myanmar/data/raw/regions/osm_country_borders.geojson` | 画框附近 OSM 国界线 | 同上 |
 | `data/cartopy/` | 共享缓存的 Natural Earth 10m 国界(海陆底图)/河流/湖泊 | `python download_data.py` |
 
@@ -76,19 +77,22 @@ ETOPO 子集范围 94.6~102.1°E, 18.8~25.2°N: 画框南界是 19.0°N, 子集�
 
 ## 运行
 
+唯一入口是 `Myanmar/main.py`, 其余 `Myanmar/*.py` 都是模块(直接运行会报错并提示入口):
+
 ```bash
-python download_data.py                                              # 首次: 共享 Natural Earth 底图
-python Myanmar/download_etopo.py --region northern_shan --stride 1   # 高程子集
-python Myanmar/download_regions.py                                   # OSM 区域/国界
-python Myanmar/northern_shan.py                                      # 出图
+python download_data.py                                  # 首次: 共享 Natural Earth 底图
+python Myanmar/main.py download --region northern-shan   # 高程子集(缺省 stride 1) + OSM 区域/国界
+python Myanmar/main.py render --sheet northern-shan      # 出图
 ```
 
-数据准备脚本在文件已就位时只跳过、不联网. `northern_shan.py` 的选项: `--stride`(指定
-`Myanmar/data/raw/` 下的采样步长)、`--dpi`(内嵌晕渲像素密度, 默认 300)、`--show`(保存后弹窗).
+`download --region northern-shan` 下掸邦的 ETOPO 子集(该区域登记 stride 1, 可用 `--stride`
+覆盖)并抓取 OSM 区域/国界; 加 `--skip-regions` 可跳过后者. 数据准备脚本在文件已就位时
+只跳过、不联网. `render` 的选项: `--stride`(指定 `Myanmar/data/raw/` 下的采样步长)、
+`--dpi`(内嵌晕渲像素密度, 默认 300)、`--show`(保存后弹窗).
 
 ## 注意事项
 
-- 两个数据准备脚本都要先跑, 缺文件时绘图脚本报错并提示对应命令;
+- ETOPO 与 OSM 边界都要先准备(一条 `download` 同时跑两步), 缺文件时绘图报错并提示对应命令;
 - 下载都是"文件已存在就跳过", 刷新加 `--force`;
 - Overpass 公共实例常满负荷(502): 脚本分批请求(佤邦整体单独一组, 否则与 5 个县关系合在一
   起容易 504), 并在多个镜像间轮换重试;

@@ -1,77 +1,58 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""AmericaArmy demo: world basemap + base markers, rendered through the shared pipeline.
+"""AmericaArmy subproject entry point: render the demonstration map.
 
-是什么: 框架用法的最小示例——``config.py`` 里放数据清单与 Sheet, 本文件只写一对回调
-(``draw`` 画图种特有图层, ``collect`` 登记 geo 元数据), 其余(建画布、定范围、量地图框、
-保存纯几何 SVG 与同名 geo.json)由 ``cartopy_file.runner`` 统一完成.
-为什么底图要素显式钉死 Natural Earth 110m: cartopy 的 ``cfeature.*`` 默认用
-AdaptiveScaler, 会按当前视野自动换成 50m/10m, 缩放重绘时就会联网下载(50m 不在预取
-清单里), 违背「出图时不联网」的约定. 这不是需要维护的图种, 只用来演示新增子项目
-最少要写什么, 见 ``docs/add-map.md``.
+是什么: 框架演示子项目的唯一可执行入口, 只有 ``render`` 一个子命令; ``--dpi`` 控制内嵌
+栅格的像素密度, ``--show`` 保存后弹出交互窗口. 图规格在 ``config.py``、draw/collect 回调
+在 ``america_army.py``; 本文件只解析命令行并懒导入渲染模块——演示子项目没有数据准备步骤,
+所以没有 download/prepare 子命令.
+完整说明(最小子项目要写什么、回调契约)见 ``docs/add-map.md``.
 """
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
-# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
-ROOT = Path(__file__).resolve().parent
-os.environ.setdefault("MPLCONFIGDIR", str(ROOT.parent / "data" / ".mplcache"))
-
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-
-# 子项目配置(数据集清单 + Sheet), 见 docs/reference/spec.md.
-import config
-
-# 共享图层原语与统一出图流程, 见 docs/reference/layers.md / docs/reference/runner.md.
-from cartopy_file import layers, runner
-
-SHEET = config.SHEET_WORLD
-DATASETS = config.DATASETS
-
-# 预取清单只准备了 110m(见 docs/data-preparation.md), 这里钉死, 缩放也不换分辨率.
-SCALE = "110m"
+import argparse
+import sys
 
 
-def draw(ctx: runner.RenderContext) -> None:
-    """画世界底图要素与基地点位; 底图用 cfeature 是为了演示「固定分辨率」的写法."""
-    for feature, style in (
-        (cfeature.LAND, {}),
-        (cfeature.OCEAN, {}),
-        (cfeature.COASTLINE, {}),
-        (cfeature.BORDERS, {"linestyle": ":"}),
-        (cfeature.LAKES, {"alpha": 0.5}),
-        (cfeature.RIVERS, {}),
-    ):
-        # with_scale 返回一份固定 Scaler 的要素, 缩放重绘时不会再去解析视野.
-        ctx.ax.add_feature(feature.with_scale(SCALE), **style)
-
-    # 经纬度符号约定: E 东经为正, W 西经为负, N 北纬为正, S 南纬为负.
-    for feature in config.BASES:
-        lon, lat = feature["geometry"]["coordinates"]
-        ctx.ax.plot(lon, lat, "+", transform=ccrs.PlateCarree())
-
-    layers.add_gridlines(ctx.ax, SHEET)
-
-
-def collect(doc, ctx: runner.RenderContext) -> None:
-    """登记 geo: 地名(基地名) + 经纬刻度 + 文案; 本图没有高程, 所以不登记色标."""
-    layers.standard_collect(doc, ctx.ax, SHEET, DATASETS)
-
-
-def main() -> None:
-    runner.run(
-        SHEET,
-        root=ROOT,
-        catalog=DATASETS,
-        draw=draw,
-        collect=collect,
-        description=__doc__,
+def build_parser() -> argparse.ArgumentParser:
+    """构造命令行: 只有 render 子命令(演示子项目没有数据准备)."""
+    parser = argparse.ArgumentParser(
+        prog="python AmericaArmy/main.py",
+        description="AmericaArmy 演示子项目统一入口: 出一张世界底图 + 基地点位演示图.",
     )
+    subparsers = parser.add_subparsers(dest="command", required=True, metavar="<子命令>")
+
+    render = subparsers.add_parser("render", help="出图(地图 SVG + 同名 geo.json)")
+    render.add_argument(
+        "--dpi",
+        type=int,
+        default=None,
+        help="内嵌栅格的像素密度(dpi); 矢量部分与 dpi 无关, 缺省用 spec 里的值",
+    )
+    render.add_argument("--show", action="store_true", help="保存后弹出交互窗口(需要图形界面)")
+    return parser
+
+
+def run(argv: list[str] | None = None) -> int:
+    """解析命令行并调用渲染模块; 返回进程退出码(0 成功).
+
+    为什么渲染模块在函数里才 import: 命令行解析应当与绘图栈(matplotlib/cartopy)解耦,
+    只有真正出图时才付出加载成本.
+    """
+    args = build_parser().parse_args(argv)
+    from america_army import run as render_run
+
+    return render_run(dpi=args.dpi, show=args.show)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        raise SystemExit(run())
+    except KeyboardInterrupt:
+        print("\n用户中断。", file=sys.stderr)
+        raise SystemExit(130)
+    except Exception as exc:
+        print(f"错误: {exc}", file=sys.stderr)
+        raise SystemExit(1)

@@ -13,12 +13,13 @@
 | `AmericaArmy/data.geojson` | 基地点位, 仓库自带 | — |
 
 `raw` 与 `derived` 分开的理由: 前者是一次下载、永不改写的原始资产, 后者可以随时删掉重算
-(删它不会触发重新联网). 因此脚本也按目录拆开, 各只做一件事:
+(删它不会触发重新联网). 因此模块也按职责拆开, 各只做一件事:
 
 - `download_*.py`: 只把数据下载/解压进 `raw/`, 不加工; 已存在就跳过;
 - `prepare_*.py`: 只读 `raw/`、只写 `derived/`, 不联网; 每次运行都全量重建;
-- 两者各自有 `main()`, 互不 import 对方的私有函数; 一个子项目没有派生需求时(缅甸的 ETOPO、
-  苏联的高程)就没有 `prepare_*.py`.
+- 这些模块**不是可执行文件**: 每个子项目只有一个入口 `<子项目>/main.py`, 用 `download` /
+  `prepare` 子命令调用它们, 模块之间不 import 对方的私有函数;
+- 一个子项目没有派生需求时(缅甸的 ETOPO、苏联的高程)就没有 `prepare_*.py`.
 
 `**/data` 在 `.gitignore` 里, 数据不随仓库提交; 换机器或重新 clone 后重跑准备命令即可恢复.
 唯一入库的数据文件是 `AmericaArmy/data.geojson`.
@@ -54,21 +55,23 @@
 
 ## 准备命令总表
 
-下载命令"文件已存在就跳过", 重复执行不会重新下载; 派生命令每次都重建(不联网). 下载与派生
-是两条独立的命令: 先下载, 再派生.
+下载命令"文件已存在就跳过", 重复执行不会重新下载; 派生命令每次都重建(不联网). 命令都从子项目的
+唯一入口 `main.py` 发出: 先 `download`, 再 `prepare`; 出图是同一个入口的 `render`.
 
 | 命令 | 产物 | 什么时候需要 |
 | --- | --- | --- |
 | `python download_data.py` | `data/cartopy/` 共用底图 | 每台机器一次 |
-| `python Myanmar/download_etopo.py` | 缅甸 ETOPO(stride=2) | 缅甸全境图 |
-| `python Myanmar/download_etopo.py --region northern_shan --stride 1` | 掸邦 15 弧秒高程 | 掸邦/特区图 |
-| `python Myanmar/download_regions.py` | OSM 特区边界与画框附近国界 | 掸邦/特区图 |
-| `python Myanmar/prepare_admin_data.py` | `Myanmar/data/derived/myanmar_admin1.geojson` 等 | 缅甸行政区图 |
-| `python USSR/download_etopo.py` | 苏联 ETOPO(默认 stride=8) | 苏联图 |
-| `python Ukraine/download_data.py` | `Ukraine/data/raw/` 全部原始数据 | 乌克兰图首次 |
-| `python Ukraine/prepare_data.py` | `Ukraine/data/derived/` 边界/水系 GeoJSON | 原始数据就位后 |
-| `python Volga/download_data.py` | `Volga/data/raw/` 原始数据 | 伏尔加河流域图首次 |
-| `python Volga/prepare_data.py` | `Volga/data/derived/` 行政区/流域/国界 GeoJSON | 原始数据就位后 |
+| `python Myanmar/main.py download` | 缅甸 ETOPO(stride=2, 掸邦 stride=1) 与 OSM 特区边界/国界 | 缅甸首次 |
+| `python Myanmar/main.py prepare` | `Myanmar/data/derived/myanmar_admin1.geojson` 等 | 缅甸行政区图 |
+| `python USSR/main.py download` | 苏联 ETOPO(默认 stride=8) | 苏联图 |
+| `python Ukraine/main.py download` | `Ukraine/data/raw/` 全部原始数据 | 乌克兰图首次 |
+| `python Ukraine/main.py prepare` | `Ukraine/data/derived/` 边界/水系 GeoJSON | 原始数据就位后 |
+| `python Volga/main.py download` | `Volga/data/raw/` 原始数据 | 伏尔加河流域图首次 |
+| `python Volga/main.py prepare` | `Volga/data/derived/` 行政区/流域/国界 GeoJSON | 原始数据就位后 |
+
+只想备其中一部分时用子命令选项: 缅甸 `download --region {all,myanmar,northern-shan} --stride N`,
+伏尔加 `download` / `prepare --skip-basin`(缺 HydroBASINS 时), 乌克兰与伏尔加 `download --check`
+只检查不下载. 出图命令与可用选项见各图种页的"运行"一节.
 
 想确认数据是否齐全(不联网、不下载):
 
@@ -112,4 +115,4 @@ python download_data.py --check   # 全部就位退出码 0, 有缺失退出码 
   `data/raw/` 目录, 文件名按各子项目 `config.py` 里的 `dest` 约定, 脚本检测到就不下载;
 - OSM 数据经公共 Overpass API 获取: 首次运行请求 relation 并缓存原始 JSON, 公共实例满负荷
   (502)时会轮换镜像; Overpass 是实时查询接口, 没有版本号, 缓存只能当快照用;
-- 数据缺失时绘图脚本会 `FileNotFoundError` 并提示对应的准备命令, 按提示跑即可.
+- 数据缺失时绘图会 `FileNotFoundError` 并提示对应的 `main.py` 子命令, 按提示跑即可.

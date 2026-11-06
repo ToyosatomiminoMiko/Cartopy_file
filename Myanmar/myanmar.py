@@ -8,14 +8,15 @@
 并画出主要城市点; 海岸线不单独绘制, 海陆界线由地形配色在 0 m 处的跳变表达.
 文字与版面由前端接管, 本脚本同时产出同名的 geo.json: 底图只画地理要素, 地名/
 色标/标题/来源只以 ``GeoDoc`` 数据形式登记, 不再画任何文字; 字段与口径见
-``docs/reference/geo.md``. 画框/色带/地名/文案全部来自 ``Myanmar/config.py``;
+``docs/reference/geo.md``. 本文件是模块, 只导出 ``run()``, 由统一入口
+``python Myanmar/main.py render`` 调用. 画框/色带/地名/文案全部来自 ``Myanmar/config.py``;
 完整说明(投影选择、数据来源、运行方式)见 ``docs/maps/myanmar.md``.
 """
 
 from __future__ import annotations
 
-import argparse
 import os
+import sys
 from pathlib import Path
 
 # 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
@@ -151,34 +152,35 @@ def collect(doc, ctx: runner.RenderContext) -> None:
     layers.standard_collect(doc, ctx.ax, SHEET, DATASETS)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--stride",
-        type=int,
-        default=None,
-        help="使用 data/raw 下对应采样步长的高程文件; 缺省自动选分辨率最高(步长最小)的一个",
-    )
-    runner.add_standard_arguments(parser)
-    args = parser.parse_args()
-
-    etopo_path = find_etopo(
-        DATA_DIR / "raw",
-        "myanmar",
-        args.stride,
-        env_path=os.environ.get("MYANMAR_ETOPO_PATH"),
-    )
-    runner.render(
-        SHEET,
-        root=ROOT,
-        catalog=DATASETS,
-        draw=draw,
-        collect=collect,
-        dem_path=etopo_path,
-        dpi=args.dpi,
-        show=args.show,
-    )
+def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False) -> int:
+    """渲染缅甸全境地形图并写出同名 geo.json; 返回 0=成功, 1=高程数据缺失."""
+    try:
+        etopo_path = find_etopo(
+            DATA_DIR / "raw",
+            "myanmar",
+            stride,
+            env_path=os.environ.get("MYANMAR_ETOPO_PATH"),
+        )
+        if not etopo_path.exists():
+            raise FileNotFoundError(
+                f"未找到高程数据: {etopo_path}\n"
+                "请先运行: python Myanmar/main.py download --region myanmar"
+            )
+        runner.render(
+            SHEET,
+            root=ROOT,
+            catalog=DATASETS,
+            draw=draw,
+            collect=collect,
+            dem_path=etopo_path,
+            dpi=dpi,
+            show=show,
+        )
+    except FileNotFoundError as exc:
+        print(f"错误: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit("本文件是模块, 不能直接运行; 请用统一入口: python Myanmar/main.py <子命令>")

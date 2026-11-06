@@ -76,8 +76,8 @@ ax.imshow(relief_rgba, origin="lower", extent=(lon[0], lon[-1], lat[0], lat[-1])
 - 警告: 本模块导入即加载 matplotlib/cartopy, 调用方必须在 import 本模块**之前**设置好
   `MPLCONFIGDIR`(用 [`cartopy_file.data.prepare_matplotlib_env()`](data.md)), 否则本机只读
   的 `~/.config` 会让 matplotlib 每次重建字体缓存;
-- 各子项目脚本直接 `from cartopy_file.relief import ...`(以前缅甸目录里有一层
+- 各子项目模块直接 `from cartopy_file.relief import ...`(以前缅甸目录里有一层
   `Myanmar/map_lib.py` 兼容 shim, 迁移到新架构时已删除);
 - 共享的 cartopy 底图在仓库 `data/cartopy`; 各子项目自己的高程/矢量在
-  `<子项目>/data/raw`(下载原样)与 `<子项目>/data/derived`(脚本生成), `find_etopo` 的
+  `<子项目>/data/raw`(下载原样)与 `<子项目>/data/derived`(模块生成), `find_etopo` 的
   `data_dir` 传 `raw` 那层, 分工见 [`data-preparation.md`](../data-preparation.md).

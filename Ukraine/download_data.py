@@ -12,9 +12,7 @@
 
 from __future__ import annotations
 
-import argparse
 import json
-import sys
 import urllib.parse
 from pathlib import Path
 
@@ -156,16 +154,16 @@ _STATE_LABELS = {
 
 
 def _missing_hint(dataset_id: str) -> str:
-    """缺失项该跑哪个脚本: 原始数据归本脚本, 派生 GeoJSON 归 prepare_data.py.
+    """缺失项该跑哪个子命令: 原始数据归 download, 派生 GeoJSON 归 prepare.
 
-    为什么要分流: 两个脚本各自只做一件事, 打印一条"万能命令"会让用户先跑错再发现.
+    为什么要分流: 各脚本只做一件事, 打印一条"万能命令"会让用户先跑错再发现.
     """
     kind = DATASETS.get(dataset_id).kind
     if kind == "derived":
-        return "python Ukraine/prepare_data.py"
+        return "python Ukraine/main.py prepare"
     if kind == "cartopy-ne":
         return "python download_data.py"
-    return "python Ukraine/download_data.py"
+    return "python Ukraine/main.py download"
 
 
 def check_outputs(verbose: bool = True) -> int:
@@ -180,36 +178,25 @@ def check_outputs(verbose: bool = True) -> int:
             for command in sorted({_missing_hint(line.dataset_id) for line in failed}):
                 print(f"  {command}")
         else:
-            print("\n全部数据已就位, 可以运行: python Ukraine/ukraine.py")
+            print("\n全部数据已就位, 可以运行: python Ukraine/main.py render")
     return len(failed)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="只检查数据是否齐全, 不联网")
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="强制重新下载原始数据(派生 GeoJSON 由 prepare_data.py 重建, 不受影响)",
-    )
-    args = parser.parse_args()
+def run(*, force: bool = False, check: bool = False) -> int:
+    """下载/入库原始数据; check=True 时只检查不下载, 返回 0=齐全, 1=有缺失."""
+    if check:
+        return 0 if check_outputs(verbose=True) == 0 else 1
 
-    if args.check:
-        sys.exit(0 if check_outputs(verbose=True) == 0 else 1)
-
-    fetch_etopo(force=args.force)
+    fetch_etopo(force=force)
     ensure_shared_layers()
-    fetch_gadm(force=args.force)
-    fetch_ocha(force=args.force)
-    fetch_osm(force=args.force)
+    fetch_gadm(force=force)
+    fetch_ocha(force=force)
+    fetch_osm(force=force)
 
-    print("\n原始数据下载完成; 派生 GeoJSON 请运行: python Ukraine/prepare_data.py")
+    print("\n原始数据下载完成; 派生 GeoJSON 请运行: python Ukraine/main.py prepare")
     check_outputs(verbose=True)
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n用户中断; 重新运行可继续下载未完成的文件.")
-        sys.exit(130)
+    raise SystemExit("本文件是模块, 不能直接运行; 请用统一入口: python Ukraine/main.py <子命令>")

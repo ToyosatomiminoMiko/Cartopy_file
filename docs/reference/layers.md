@@ -5,11 +5,11 @@
 
 ## 是什么
 
-各图种脚本里重复的图层代码收成一组函数: 建画布与坐标区、铺海陆底色、画 ETOPO 晕渲、
+各图种模块里重复的图层代码收成一组函数: 建画布与坐标区、铺海陆底色、画 ETOPO 晕渲、
 经纬网、城市点、地名/刻度/色标/文案的 geo 收集.
 
 只把「每张图都一样」的部分收上来; 国界、行政区填色、河流、流域这些图种特有的图层仍留在
-各自脚本里, 用这里的原语和 `spec.py` 的数据去画.
+各自的绘图模块里, 用这里的原语和 `spec.py` 的数据去画.
 
 ## 关键行为
 
@@ -57,13 +57,13 @@ def collect(doc, ctx):
   传进去按 `*.shp` 排序取第一个——同一目录下有几十个图层, 取错就是另一张图;
 - 经纬网颜色按 `Graticule.color` 原样传给 `ax.gridlines`(`"gray"` 与 `"#808080"` 在
   matplotlib 里不是同一个颜色值), geo.json 那一侧用 `Graticule.stroke` 的 `#rrggbb`;
-- `layers` 在 import 时就会调 `configure_cartopy()` 与 `apply_svg_output()`, 所以脚本
+- `layers` 在 import 时就会调 `configure_cartopy()` 与 `apply_svg_output()`, 所以模块
   仍然必须在 import matplotlib 之前设好 `MPLCONFIGDIR`(见 [reference/data.md](data.md));
 - 这里不做 `tight_layout`/`bbox_inches="tight"`: 版面由 `Sheet.tight_layout` 与
   `runner` 控制, 原因见 [reference/runner.md](runner.md);
 - `add_relief` 覆盖三种常见形态: 锚点色带 + 晕渲合成(`rgba`)、命名色带直出(`scalar`).
   图种需要更特别的合成时——例如「0 m 以下透明 + 双线性插值」(缅甸行政区图)或
   「命名色带 + soft 混合晕渲」(掸邦图)——在 `draw()` 里直接用 `relief.make_relief` 与
-  `ax.imshow` 复刻, 色带/范围/来光/夸张系数仍从 `Sheet.relief` 取, 并把定制原因写在脚本
-  顶部. 这类图把 `Sheet.dem_id` 留空, 由脚本自己读高程, 免得 runner 重复铺一层. 若以后
+  `ax.imshow` 复刻, 色带/范围/来光/夸张系数仍从 `Sheet.relief` 取, 并把定制原因写在模块
+  顶部. 这类图把 `Sheet.dem_id` 留空, 由绘图模块自己读高程, 免得 runner 重复铺一层. 若以后
   要收编, 需要给 `Relief` 增加插值/混合开关, 属于会改产物字节的改动, 要单独评审.

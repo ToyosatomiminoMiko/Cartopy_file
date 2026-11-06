@@ -8,17 +8,18 @@
 上的国界段, 海岸线不单独绘制. 底图只画地理要素, 文字/图例/色标/标题/刻度文字都由
 同名 ``<产物>.geo.json`` 交给前端排版; 画框/投影/色带/经纬网/文案取自
 ``Myanmar/config.py``. 本图的特殊图层(行政区填色与双语图例、特区填色、河网、国界线型、
-自定义地形底纹)留在本脚本, 用共享原语画.
+自定义地形底纹)留在本脚本, 用共享原语画. 本文件是模块, 只导出 ``run()``, 由统一入口
+``python Myanmar/main.py render`` 调用.
 完整说明(配色、投影、数据来源、运行方式)见 ``docs/maps/myanmar-admin.md``;
 出图流程见 ``docs/reference/runner.md``, 图层原语见 ``docs/reference/layers.md``.
 """
 
 from __future__ import annotations
 
-import argparse
 import functools
 import json
 import os
+import sys
 from pathlib import Path
 
 # 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
@@ -220,7 +221,7 @@ def load_admin_units():
     """读取预处理后的 15 个一级行政区, 按邦/省/联邦区分组."""
     if not ADMIN_GEOJSON.exists():
         raise FileNotFoundError(
-            f"未找到行政区数据: {ADMIN_GEOJSON}\n请先运行: python prepare_admin_data.py"
+            f"未找到行政区数据: {ADMIN_GEOJSON}\n请先运行: python Myanmar/main.py prepare"
         )
     payload = json.loads(ADMIN_GEOJSON.read_text(encoding="utf-8"))
     units = []
@@ -379,7 +380,7 @@ def add_rivers(ax: plt.Axes) -> None:
     """
     if not RIVER_SHP.exists():
         raise FileNotFoundError(
-            f"未找到河流数据: {RIVER_SHP}\n请先运行: python prepare_admin_data.py"
+            f"未找到河流数据: {RIVER_SHP}\n请先运行: python Myanmar/main.py prepare"
         )
     rivers = gpd.read_file(RIVER_SHP)
     selected = rivers[rivers["name_en"].isin(["Irrawaddy", "Salween"])]
@@ -812,53 +813,54 @@ def collect(doc, ctx: runner.RenderContext, *, units) -> None:
     collect_suggestions(doc)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--stride", type=int, default=None, help="ETOPO 采样步长; 缺省选分辨率最高的一个")
-    runner.add_standard_arguments(parser)
-    args = parser.parse_args()
-
-    etopo_path = find_etopo(
-        DATA_DIR / "raw",
-        "myanmar",
-        args.stride,
-        env_path=os.environ.get("MYANMAR_ETOPO_PATH"),
-    )
-    if not etopo_path.exists():
-        raise FileNotFoundError(
-            f"未找到高程数据: {etopo_path}\n"
-            "请先运行: python download_etopo.py"
+def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False) -> int:
+    """渲染行政区划图并写出同名 geo.json; 返回 0=成功, 1=数据缺失."""
+    try:
+        etopo_path = find_etopo(
+            DATA_DIR / "raw",
+            "myanmar",
+            stride,
+            env_path=os.environ.get("MYANMAR_ETOPO_PATH"),
         )
+        if not etopo_path.exists():
+            raise FileNotFoundError(
+                f"未找到高程数据: {etopo_path}\n"
+                "请先运行: python Myanmar/main.py download --region myanmar"
+            )
 
-    units = load_admin_units()
-    # 国界与省/邦界都以 15 个行政区合并后的外环为基准: 填色与红线同源,
-    # 岸上不会出现两套边界; border_zone 用来剪掉省/邦界里与国界/海岸重合的段.
-    # 只取外环是为了丢掉并集内部因浮点误差产生的零面积细缝 —— 否则红线会在
-    # 掸邦-克钦邦、仰光省-勃固省等内部边界上残留一串红色短段.
-    myanmar_geom = unary_union([unit["geometry"] for unit in units])
-    country_border = country_exterior(myanmar_geom)
-    if country_border is None:
-        raise ValueError("行政区并集没有外环, 无法确定国界")
-    border_zone = country_border.buffer(BORDER_ZONE_DEG)
+        units = load_admin_units()
+        # 国界与省/邦界都以 15 个行政区合并后的外环为基准: 填色与红线同源,
+        # 岸上不会出现两套边界; border_zone 用来剪掉省/邦界里与国界/海岸重合的段.
+        # 只取外环是为了丢掉并集内部因浮点误差产生的零面积细缝 —— 否则红线会在
+        # 掸邦-克钦邦、仰光省-勃固省等内部边界上残留一串红色短段.
+        myanmar_geom = unary_union([unit["geometry"] for unit in units])
+        country_border = country_exterior(myanmar_geom)
+        if country_border is None:
+            raise ValueError("行政区并集没有外环, 无法确定国界")
+        border_zone = country_border.buffer(BORDER_ZONE_DEG)
 
-    # 画布/坐标区/范围/底图由 runner 按 Sheet 建好; 本图的特有图层按叠放顺序在 draw 里画.
-    runner.render(
-        SHEET,
-        root=ROOT,
-        catalog=DATASETS,
-        draw=functools.partial(
-            draw,
-            etopo_path=etopo_path,
-            units=units,
-            myanmar_geom=myanmar_geom,
-            border_zone=border_zone,
-            country_border=country_border,
-        ),
-        collect=functools.partial(collect, units=units),
-        dpi=args.dpi,
-        show=args.show,
-    )
+        # 画布/坐标区/范围/底图由 runner 按 Sheet 建好; 本图的特有图层按叠放顺序在 draw 里画.
+        runner.render(
+            SHEET,
+            root=ROOT,
+            catalog=DATASETS,
+            draw=functools.partial(
+                draw,
+                etopo_path=etopo_path,
+                units=units,
+                myanmar_geom=myanmar_geom,
+                border_zone=border_zone,
+                country_border=country_border,
+            ),
+            collect=functools.partial(collect, units=units),
+            dpi=dpi,
+            show=show,
+        )
+    except FileNotFoundError as exc:
+        print(f"错误: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit("本文件是模块, 不能直接运行; 请用统一入口: python Myanmar/main.py <子命令>")

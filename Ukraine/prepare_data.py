@@ -6,17 +6,18 @@
 是什么: 读取 ``Ukraine/data/raw/`` 下的原始数据(GADM/OCHA/OSM 缓存与共享的 Natural
 Earth 缓存), 派生出 1991/2014/2022 边界、德左参照面与河流/水库的 GeoJSON 到
 ``Ukraine/data/derived/``, 供 ``ukraine.py`` 离线读取; 每次运行全量重建.
-原始数据由 ``Ukraine/download_data.py`` 下载, 路径与参数全部来自 ``Ukraine/config.py``.
+原始数据由 ``Ukraine/download_data.py`` 下载, 路径与参数全部来自 ``Ukraine/config.py``;
+几何修整/GeoJSON 写出/面积长度量算复用框架层 ``cartopy_file.geometry``.
 完整说明: ``docs/maps/ukraine.md``(数据源选择/输出文件/运行方式); 数据集层口径见
 ``docs/reference/datasets.md``.
 """
 
 from __future__ import annotations
 
+import functools
 import json
 import math
 import os
-import sys
 from pathlib import Path
 
 # 缓存目录必须在导入绘图栈之前指定, 见 docs/reference/data.md.
@@ -25,10 +26,18 @@ DATA_DIR = ROOT / "data"
 os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
 import geopandas as gpd
-from pyproj import Geod
-from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box, mapping
+from shapely.geometry import LineString, Point, box
 from shapely.ops import linemerge, polygonize, substring, unary_union
-from shapely.validation import make_valid
+
+# 几何修整/GeoJSON 写出/面积长度量算的通用实现(与图种无关), 见 docs/reference/geometry.md.
+from cartopy_file.geometry import (
+    feature,
+    geodesic_area_km2,
+    geodesic_length_km,
+    n_vertices,
+    valid_geometry,
+    write_geojson,
+)
 
 # 数据集清单(路径/文件名唯一真源), 见 docs/reference/spec.md.
 import config
@@ -116,8 +125,6 @@ RIVER_JOIN_SCAN = 0.6          # 只在前 60% 弧长里找接缝, 保证下游�
 RIVER_JOIN_DIST_DEG = 0.01     # 距离权重: 0.01°(约 1.1 km) 记 1 个单位
 RIVER_JOIN_ANGLE_DEG = 30.0    # 方向权重: 30° 记 1 个单位
 
-GEOD = Geod(ellps="WGS84")
-
 # GADM 英文名 -> (中文名, 显示用英文名). 只用于图面标注与属性, 不影响几何.
 # 名字带撇号是 GADM 的原文(如 Donets'k), 显示时统一成通行英文拼写.
 UNIT_NAMES: dict[str, tuple[str, str]] = {
@@ -159,96 +166,13 @@ CLAIMED_2022_UNITS = [
 ]
 
 # ============================
-# 2. 几何工具
+# 2. 几何工具与 GADM 读取
 # ============================
-def round_coords(obj, nd: int = 6):
-    """递归把坐标四舍五入到 nd 位小数, 控制 GeoJSON 体积(1e-6° ≈ 0.11 m)."""
-    if isinstance(obj, (list, tuple)):
-        if obj and isinstance(obj[0], (int, float)):
-            return [round(float(v), nd) for v in obj]
-        return [round_coords(v, nd) for v in obj]
-    return obj
-
-
-def geod_area_km2(geom) -> float:
-    """用 WGS84 椭球算测地面积(km²); 比在经纬度上直接 area 可靠."""
-    polys = [geom] if geom.geom_type == "Polygon" else list(geom.geoms)
-    return sum(abs(GEOD.geometry_area_perimeter(p)[0]) for p in polys) / 1e6
-
-
-def geod_length_km(geom) -> float:
-    """测地长度(km), 用于核对接触线长度是否在合理量级.
-
-    pyproj 的 ``Geod.geometry_length`` 返回米, 要 /1000; 这里原先误写成
-    /1e6(米->千公里), 接触线长度元数据小了 1000 倍, 2026-10 修正.
-    """
-    lines = [geom] if geom.geom_type == "LineString" else list(geom.geoms)
-    return sum(abs(GEOD.geometry_length(line)) for line in lines) / 1000
-
-
-def n_vertices(geom) -> int:
-    """几何顶点数, 用于确认简化后没有丢掉细节."""
-    if geom.geom_type in ("Polygon", "MultiPolygon"):
-        polys = [geom] if geom.geom_type == "Polygon" else list(geom.geoms)
-        return sum(
-            len(p.exterior.coords) + sum(len(r.coords) for r in p.interiors) for p in polys
-        )
-    if geom.geom_type in ("LineString", "MultiLineString"):
-        lines = [geom] if geom.geom_type == "LineString" else list(geom.geoms)
-        return sum(len(line.coords) for line in lines)
-    return 0
-
-
-def valid(geom):
-    """GADM/OCHA 数据里偶有自相交, 统一 make_valid 后再写."""
-    return geom if geom.is_valid else make_valid(geom)
-
-
-def drop_small_holes(geom, min_hole_area: float = 1e-4):
-    """删掉面积小于阈值的内部环(单位: 平方度).
-
-    为什么需要: GADM 相邻州/克里米亚单元在拼接处会留下针状小孔(实测面积都
-    < 2e-6 平方度, 但长度可达 0.03°, 约 3 km). 画成边界线时这些孔会变成
-    地图上一串黑色小椭圆, 像脏点; 真实的内部环(基辅市被基辅州包围, 面积
-    ~0.1 平方度)远大于阈值, 会保留.
-    """
-    if geom.geom_type == "Polygon":
-        polys = [geom]
-    elif geom.geom_type == "MultiPolygon":
-        polys = list(geom.geoms)
-    else:
-        return geom
-    cleaned = []
-    for poly in polys:
-        holes = [ring for ring in poly.interiors if Polygon(ring).area >= min_hole_area]
-        cleaned.append(Polygon(poly.exterior, holes))
-    return MultiPolygon(cleaned) if len(cleaned) > 1 else cleaned[0]
-
-
-def write_fc(path: Path, features: list[dict]) -> None:
-    """写 RFC 7946 GeoJSON(坐标统一 6 位小数), 方便其他脚本直接读."""
-    fc = {
-        "type": "FeatureCollection",
-        "name": path.stem,
-        "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
-        "features": features,
-    }
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(fc, fh, ensure_ascii=False, separators=(",", ":"))
-    print(f"写入: {path.name} ({path.stat().st_size/1024:.1f} KiB, {len(features)} 要素)")
-
-
-def feat(geom, props: dict) -> dict:
-    """把 shapely 几何包成 GeoJSON Feature, 坐标做定点舍入."""
-    geom = drop_small_holes(valid(geom))
-    return {
-        "type": "Feature",
-        "properties": props,
-        "geometry": {
-            "type": geom.geom_type,
-            "coordinates": round_coords(list(mapping(geom)["coordinates"])),
-        },
-    }
+# 几何修整/GeoJSON 写出/面积长度量算已上移到框架层(cartopy_file.geometry), 这里只留
+# 本图幅的小孔阈值; 阈值与图幅尺度有关, 不能做成全局常数(见 docs/reference/geometry.md).
+MIN_HOLE_AREA_DEG = 1e-4
+# feat() 调用点保持旧写法: 用 partial 把本图幅的阈值固定进去(坐标精度用框架缺省的 6 位).
+feat = functools.partial(feature, min_hole_area=MIN_HOLE_AREA_DEG)
 
 
 def load_gadm() -> gpd.GeoDataFrame:
@@ -281,7 +205,7 @@ def build_oblasts(gdf: gpd.GeoDataFrame):
                 print(f"警告: 未登记的一级行政区 {name!r}, 已跳过")
             continue
         name_zh, name_en = UNIT_NAMES[name]
-        geom = valid(row.geometry)
+        geom = valid_geometry(row.geometry)
         feats.append(
             feat(
                 geom,
@@ -296,12 +220,12 @@ def build_oblasts(gdf: gpd.GeoDataFrame):
                 },
             )
         )
-    write_fc(OBLASTS_PATH, feats)
+    write_geojson(OBLASTS_PATH, feats)
 
     # 1991 年边界 = 全部 GADM 一级单元(含 '?' 碎块)合并; 保留克里米亚与
     # 塞瓦斯托波尔, 因为 GADM 是法理口径.
-    border_1991 = unary_union([valid(g) for g in gdf.geometry])
-    write_fc(
+    border_1991 = unary_union([valid_geometry(g) for g in gdf.geometry])
+    write_geojson(
         BORDER_1991_PATH,
         [
             feat(
@@ -311,7 +235,7 @@ def build_oblasts(gdf: gpd.GeoDataFrame):
                     "name_zh": "1991 年乌克兰国际承认边界(含克里米亚)",
                     "note": "苏联解体时乌克兰的国界; 含克里米亚自治共和国与塞瓦斯托波尔.",
                     "source": "GADM 4.1 gadm41_UKR_1.json dissolved (de jure)",
-                    "area_km2_geodesic": round(geod_area_km2(border_1991), 1),
+                    "area_km2_geodesic": round(geodesic_area_km2(border_1991), 1),
                     "contains_crimea": True,
                 },
             )
@@ -329,16 +253,16 @@ def build_crimea_line(gdf: gpd.GeoDataFrame) -> None:
     共享段, 比手工裁切稳定.
     """
     crimea = unary_union(
-        [valid(g) for g in gdf[gdf["NAME_1"].isin(["Crimea", "Sevastopol'"])].geometry]
+        [valid_geometry(g) for g in gdf[gdf["NAME_1"].isin(["Crimea", "Sevastopol'"])].geometry]
     )
-    kherson = valid(gdf[gdf["NAME_1"] == "Kherson"].geometry.iloc[0])
+    kherson = valid_geometry(gdf[gdf["NAME_1"] == "Kherson"].geometry.iloc[0])
     shared = crimea.boundary.intersection(kherson.buffer(0.005))
     line = linemerge(shared) if shared.geom_type != "LineString" else shared
     parts = [p for p in (line.geoms if hasattr(line, "geoms") else [line]) if p.geom_type == "LineString"]
     # 0.001° ≈ 110 m, 去掉数字化噪音; 共享边界本身不长, 保留全部主要段.
     parts = [p.simplify(0.001, preserve_topology=False) for p in parts if p.length > 0.005]
     line = unary_union(parts)
-    write_fc(
+    write_geojson(
         CRIMEA_LINE_PATH,
         [
             feat(
@@ -348,7 +272,7 @@ def build_crimea_line(gdf: gpd.GeoDataFrame) -> None:
                     "name_zh": "2014 年克里米亚陆上实际控制线",
                     "note": "克里米亚与赫尔松州的行政边界; 海上部分未画.",
                     "source": "GADM 4.1 Crimea + Sevastopol' vs Kherson shared boundary",
-                    "length_km_geodesic": round(geod_length_km(line), 1),
+                    "length_km_geodesic": round(geodesic_length_km(line), 1),
                 },
             )
         ],
@@ -380,7 +304,7 @@ def build_donbas_2014() -> None:
     # 卢甘斯克人民共和国"的实际控制范围.
     occ_feats = []
     for _, row in ngca.iterrows():
-        geom = valid(row.geometry).simplify(0.0003, preserve_topology=True)
+        geom = valid_geometry(row.geometry).simplify(0.0003, preserve_topology=True)
         name_en = row["adm1NameEN"]
         occ_feats.append(
             feat(
@@ -392,11 +316,11 @@ def build_donbas_2014() -> None:
                     "control": "Russian-backed separatist forces",
                     "approx": True,
                     "source": "OCHA/HDX 2021 HNO GCA_NGCA (dataset 0a24205d)",
-                    "area_km2_geodesic": round(geod_area_km2(geom), 1),
+                    "area_km2_geodesic": round(geodesic_area_km2(geom), 1),
                 },
             )
         )
-    occupied = unary_union([valid(r.geometry) for _, r in ngca.iterrows()])
+    occupied = unary_union([valid_geometry(r.geometry) for _, r in ngca.iterrows()])
     occ_feats.append(
         feat(
             occupied,
@@ -404,14 +328,14 @@ def build_donbas_2014() -> None:
                 "name": "NGCA union, Donetsk + Luhansk",
                 "name_zh": "顿巴斯分离武装控制区合计",
                 "approx": True,
-                "area_km2_geodesic": round(geod_area_km2(occupied), 1),
+                "area_km2_geodesic": round(geodesic_area_km2(occupied), 1),
             },
         )
     )
-    write_fc(OCCUPIED_2014_PATH, occ_feats)
+    write_geojson(OCCUPIED_2014_PATH, occ_feats)
 
     # 3.2 接触线.
-    band = unary_union([valid(g) for g in gca.geometry]).buffer(0.0012)
+    band = unary_union([valid_geometry(g) for g in gca.geometry]).buffer(0.0012)
     raw = occupied.boundary.intersection(band)
     merged = linemerge(raw) if raw.geom_type != "LineString" else raw
     segments = [s for s in (merged.geoms if hasattr(merged, "geoms") else [merged]) if s.geom_type == "LineString" and s.length > 0.005]
@@ -422,7 +346,7 @@ def build_donbas_2014() -> None:
         tol = min(tol * 1.5, 0.005)
         simplified = [s.simplify(tol, preserve_topology=False) for s in segments]
     contact = unary_union(simplified)
-    write_fc(
+    write_geojson(
         CONTACT_2014_PATH,
         [
             feat(
@@ -433,7 +357,7 @@ def build_donbas_2014() -> None:
                     "period": "2014-2015 (proxy: Minsk line, 2018-08 digitised)",
                     "approx": True,
                     "source": "derived from OCHA/HDX 2021 HNO GCA_NGCA shared boundary",
-                    "length_km_geodesic": round(geod_length_km(contact), 1),
+                    "length_km_geodesic": round(geodesic_length_km(contact), 1),
                     "uncertainty": "positional error ~1-2 km; stands in for end-2014 contact line",
                 },
             )
@@ -452,7 +376,7 @@ def build_claimed_2022(gdf: gpd.GeoDataFrame) -> None:
     feats = []
     for gadm_name, name_zh in CLAIMED_2022_UNITS:
         row = gdf[gdf["NAME_1"] == gadm_name].iloc[0]
-        geom = valid(row.geometry)
+        geom = valid_geometry(row.geometry)
         feats.append(
             feat(
                 geom,
@@ -462,11 +386,11 @@ def build_claimed_2022(gdf: gpd.GeoDataFrame) -> None:
                     "claim": "Russia, 2022-09-30, full oblast territory",
                     "approx_claim": True,
                     "source": "GADM 4.1 admin-1 boundary (full oblast, de jure)",
-                    "area_km2_geodesic": round(geod_area_km2(geom), 1),
+                    "area_km2_geodesic": round(geodesic_area_km2(geom), 1),
                 },
             )
         )
-    write_fc(CLAIMED_2022_PATH, feats)
+    write_geojson(CLAIMED_2022_PATH, feats)
 
 
 # ============================
@@ -505,7 +429,7 @@ def build_dnieper_river() -> None:
     )
     lines = [g.simplify(RIVER_SIMPLIFY_DEG, preserve_topology=False) for g in lines]
     line = lines[0] if len(lines) == 1 else unary_union(lines)
-    write_fc(
+    write_geojson(
         DNIEPER_RIVER_PATH,
         [
             feat(
@@ -516,7 +440,7 @@ def build_dnieper_river() -> None:
                     "source": f"OpenStreetMap relation {DNIEPER_RIVER_RELATION} "
                     "(waterway=river, main_stream members); ODbL 1.0",
                     "note": "仅取 main_stream; 三角洲 side_stream 与水库内的中心线不单独画.",
-                    "length_km_geodesic": round(geod_length_km(line), 1),
+                    "length_km_geodesic": round(geodesic_length_km(line), 1),
                     "vertices": n_vertices(line),
                     "simplify_deg": RIVER_SIMPLIFY_DEG,
                 },
@@ -542,7 +466,7 @@ def load_kakhovka_from_ne():
     if row.empty:
         print(f"警告: NE 10m 湖泊里没有 {KAKHOVKA_NE_NAME}, 卡霍夫卡水库将不画")
         return None
-    return valid(row.geometry.iloc[0])
+    return valid_geometry(row.geometry.iloc[0])
 
 
 def build_dnieper_water() -> None:
@@ -568,11 +492,11 @@ def build_dnieper_water() -> None:
 
     kakhovka = load_kakhovka_from_ne()
     if kakhovka is not None:
-        polygons.append(valid(kakhovka).simplify(WATER_SIMPLIFY_DEG, preserve_topology=True))
+        polygons.append(valid_geometry(kakhovka).simplify(WATER_SIMPLIFY_DEG, preserve_topology=True))
         sources.append("Natural Earth 10m lakes (Kakhovka Reservoir, pre-2023)")
 
     water = unary_union(polygons).intersection(box(*DNIEPER_CLIP))
-    write_fc(
+    write_geojson(
         DNIEPER_WATER_PATH,
         [
             feat(
@@ -582,7 +506,7 @@ def build_dnieper_water() -> None:
                     "name_zh": "第聂伯河梯级水库水面",
                     "source": "; ".join(sources) + "; ODbL 1.0",
                     "note": "只取 outer 环; 水库岛屿(inner)在图上小于 1 px, 未画.",
-                    "area_km2_geodesic": round(geod_area_km2(water), 1),
+                    "area_km2_geodesic": round(geodesic_area_km2(water), 1),
                     "vertices": n_vertices(water),
                     "simplify_deg": WATER_SIMPLIFY_DEG,
                 },
@@ -711,7 +635,7 @@ def build_dniester_river() -> LineString:
     )
     line = _bridge_line_parts(parts, DNIESTER_BRIDGE_DEG)
     line = line.simplify(RIVER_SIMPLIFY_DEG, preserve_topology=False)
-    write_fc(
+    write_geojson(
         DNIESTER_RIVER_PATH,
         [
             feat(
@@ -723,7 +647,7 @@ def build_dniester_river() -> LineString:
                     "(waterway=river, main_stream members); ODbL 1.0",
                     "note": "仅取 main_stream; 三角洲 side_stream 不画. "
                     "德左参照面的西缘用的就是这条线.",
-                    "length_km_geodesic": round(geod_length_km(line), 1),
+                    "length_km_geodesic": round(geodesic_length_km(line), 1),
                     "vertices": n_vertices(line),
                     "simplify_deg": RIVER_SIMPLIFY_DEG,
                 },
@@ -775,10 +699,10 @@ def build_transnistria(dniester_line: LineString, border_1991) -> None:
             for part in (
                 region.geoms if region.geom_type == "MultiPolygon" else [region]
             )
-            if geod_area_km2(part) >= TRANSNISTRIA_MIN_AREA_KM2
+            if geodesic_area_km2(part) >= TRANSNISTRIA_MIN_AREA_KM2
         ]
     )
-    write_fc(
+    write_geojson(
         TRANSNISTRIA_PATH,
         [
             feat(
@@ -797,14 +721,14 @@ def build_transnistria(dniester_line: LineString, border_1991) -> None:
                     "note": "只保留德涅斯特河东岸、1991 国界以西南的地带: 西缘=OSM 河心线, "
                     "东缘=1991 国界, 因此与图上蓝河/红线严格重合. Bender(河右岸)已裁掉; "
                     "PMR 关系里的杜伯萨里区飞地内环按改前 GADM 口径一并填上, 不区分实际控制.",
-                    "area_km2_geodesic": round(geod_area_km2(region), 1),
+                    "area_km2_geodesic": round(geodesic_area_km2(region), 1),
                     "vertices": n_vertices(region),
                 },
             )
         ],
     )
     print(
-        f"  德左参照面: {n_vertices(region)} 顶点, 面积 {geod_area_km2(region):.0f} km², "
+        f"  德左参照面: {n_vertices(region)} 顶点, 面积 {geodesic_area_km2(region):.0f} km², "
         f"范围 {[round(v, 2) for v in region.bounds]}"
     )
 
@@ -944,7 +868,7 @@ def build_river_extension(spec: dict) -> None:
     coords.extend(list(tail.coords)[1:])
     line = LineString(coords).simplify(RIVER_SIMPLIFY_DEG, preserve_topology=False)
 
-    write_fc(
+    write_geojson(
         spec["path"],
         [
             feat(
@@ -957,7 +881,7 @@ def build_river_extension(spec: dict) -> None:
                     "note": "NE 10m 在河口前收笔; 接缝以上用 NE, 以下用 OSM, "
                     "接缝点按距离/走向自动挑选.",
                     "replaces_ne_id": ne_id,
-                    "length_km_geodesic": round(geod_length_km(line), 1),
+                    "length_km_geodesic": round(geodesic_length_km(line), 1),
                     "vertices": n_vertices(line),
                     "simplify_deg": RIVER_SIMPLIFY_DEG,
                 },
@@ -967,7 +891,7 @@ def build_river_extension(spec: dict) -> None:
     print(
         f"  接缝: OSM 上游 {frac:.0%} 处, 距 NE 线 {dist * 111000:.0f} m, "
         f"走向差 {angle:.1f}°; 合并后 {len(line.coords)} 顶点, "
-        f"{geod_length_km(line):.0f} km"
+        f"{geodesic_length_km(line):.0f} km"
     )
 
 
@@ -989,27 +913,27 @@ RAW_INPUT_IDS = (
 )
 
 
-def check_raw_inputs() -> None:
-    """派生所需的原始数据是否就位; 缺失时打印准备命令并以退出码 1 结束(不联网)."""
+def check_raw_inputs() -> bool:
+    """派生所需的原始数据是否就位(不联网); 缺失时打印准备命令并返回 False."""
     missing = [
         item for item in DATASETS if item.id in RAW_INPUT_IDS and not DATASETS.exists(item)
     ]
     if not missing:
-        return
+        return True
     for item in missing:
         print(f"  缺失: {item.id} ({item.note})")
     commands = sorted(
         {
             "python download_data.py"
             if item.kind == "cartopy-ne"
-            else "python Ukraine/download_data.py"
+            else "python Ukraine/main.py download"
             for item in missing
         }
     )
     print("\n原始数据不全, 请先运行(已存在的会自动跳过):")
     for command in commands:
         print(f"  {command}")
-    sys.exit(1)
+    return False
 
 
 def print_summary() -> None:
@@ -1030,8 +954,10 @@ def print_summary() -> None:
         )
 
 
-def main() -> None:
-    check_raw_inputs()
+def run() -> int:
+    """全量重建派生 GeoJSON 并打印汇总; 返回 0=成功, 1=原始数据不全."""
+    if not check_raw_inputs():
+        return 1
     print("\n" + "=" * 60)
     print("派生 GeoJSON(每次运行都全量重建; 原始数据来自 download_data.py)")
     print("=" * 60)
@@ -1057,11 +983,8 @@ def main() -> None:
         build_river_extension(extension)
 
     print_summary()
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n用户中断; 重新运行会全量重建派生文件.")
-        sys.exit(130)
+    raise SystemExit("本文件是模块, 不能直接运行; 请用统一入口: python Ukraine/main.py <子命令>")

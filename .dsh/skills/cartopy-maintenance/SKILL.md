@@ -34,27 +34,30 @@ uv run python tools/check_all.py
 
 1. 读 `docs/maps/<slug>.md` 的「设计要点」与「注意事项」——投影、范围、数据源是既定取舍,
    不擅自改(`AGENTS.md` 规则 2)。
-2. 改 `<Dir>/<name>.py`; 复用 `src/cartopy_file/` 的 `relief`/`overlap`/`geo`, 不复制实现。
-3. 重新生成:`uv run python <Dir>/<name>.py`; 地图落到 `<Dir>/map/`, 文字信息落到 `<Dir>/text/`
+2. 改 `<Dir>/<name>.py`(绘图模块); 参数与选项在 `<Dir>/main.py` 里加, 复用
+   `src/cartopy_file/` 的 `relief`/`overlap`/`geometry`/`geo`, 不复制实现。
+3. 重新生成:`uv run python <Dir>/main.py render`(多图子项目用 `--sheet`); 地图落到
+   `<Dir>/map/`, 文字信息落到 `<Dir>/text/`
 4. `uv run python tools/check_geo.py <Dir>/map/<产物>.svg`
 5. 文档页同步:设计要点、数据、注意事项哪条变了改哪条。
 6. 收尾。
 
 ## 3. 路径 B: 新增图种
 
-按 `docs/add-map.md` 的 5 节**逐项**做, 不许挑着做。额外三条容易漏的:
+按 `docs/add-map.md` 的 6 节**逐项**做, 不许挑着做。额外三条容易漏的:
 
-- 脚本顶部的导入顺序是硬约束(缓存目录必须设在导入 matplotlib 之前), 抄现有脚本的头部;
+- 模块顶部的导入顺序是硬约束(缓存目录必须设在导入 matplotlib 之前), 抄现有模块的头部;
+- 唯一的可执行文件是 `<Dir>/main.py`, 其余模块只导出 `run()`, 直接运行会报错;
 - 产物路径不用手写:`tools/check_geo.py` 从各子项目 `config.py` 的 `SHEETS` 自动派生
   `map/` 与 `text/` 两个路径;
-- 新页面必须被 `docs/index.md` 收录, 脚本 docstring 必须带 `docs/...` 指针——这两项
+- 新页面必须被 `docs/index.md` 收录, 每个 `.py` docstring 必须带 `docs/...` 指针——这两项
   `check_docs` 会各自报错。
 
 ## 4. 路径 C: 改共享模块
 
 1. 读 `docs/reference/<module>.md`。
-2. 改 `src/cartopy_file/`; 纯几何模块(如 `overlap`)不许 import matplotlib/cartopy, 数据准备
-   脚本也要能用它。
+2. 改 `src/cartopy_file/`; 纯几何模块(如 `overlap`、`geometry`)不许 import matplotlib/cartopy,
+   数据准备模块也要能用它。
 3. 被多个图种调用的函数:先 grep 出**全部**调用点, 再逐个跑受影响的脚本验证, 不能只验证一个。
 4. 同步 reference 页; 影响多个图种时还要看 `docs/overview.md` 的模块表。
 5. 收尾。
@@ -64,12 +67,13 @@ uv run python tools/check_all.py
 1. `git log --oneline -20` 看这段时间改了什么; `git status` 必须干净再开工。
 2. `uv sync` → `uv run python download_data.py --check`。
 3. `uv run python tools/check_all.py`, 先拿到当前基线。
-4. 需要重出全部图:按 `docs/index.md` 的出图表逐个跑, 再收尾。
+4. 需要重出全部图:按 `docs/index.md` 的出图表逐个跑 `<子项目>/main.py render`, 再收尾。
 
 ## 6. 常见坑对照
 
 | 现象 | 原因 |
 | --- | --- |
+| `本文件是模块, 不能直接运行` | 直接跑了子项目里的模块; 统一走 `<子项目>/main.py <子命令>` |
 | `geo.base.sha256 与底图字节不一致` | 改了代码没重新出图, 或手改了产物 |
 | 产物还写在脚本目录 | 用了旧版 `save_map` 或旧路径; 新布局是 `<子项目>/map/` + `<子项目>/text/` |
 | `源码指针不存在` | docstring 里的 `docs/...` 路径写错, 或页面被删 |

@@ -8,6 +8,7 @@
 文字/图例/色标/标题/刻度文字都以数据形式写进同名 ``<产物>.geo.json``, 由前端排版.
 画框/投影/色带/经纬网/地名/文案取自 ``Myanmar/config.py``; 本图的特殊图层
 (特区填色与斜线、原果敢自治区、干流强调、OSM 国界)留在本脚本, 用共享原语画.
+本文件是模块, 只导出 ``run()``, 由统一入口 ``python Myanmar/main.py render`` 调用.
 完整说明(范围、南界取值理由、投影、果敢关系、国界处理)见
 ``docs/maps/northern-shan.md``; 出图流程见 ``docs/reference/runner.md``,
 图层原语见 ``docs/reference/layers.md``.
@@ -15,10 +16,10 @@
 
 from __future__ import annotations
 
-import argparse
 import functools
 import json
 import os
+import sys
 from pathlib import Path
 
 # 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
@@ -127,7 +128,7 @@ def load_regions(path: Path) -> dict[str, list]:
     """
     if not path.exists():
         raise FileNotFoundError(
-            f"未找到区域边界: {path}\n请先运行: python download_regions.py"
+            f"未找到区域边界: {path}\n请先运行: python Myanmar/main.py download"
         )
     data = json.loads(path.read_text(encoding="utf-8"))
     grouped: dict[str, list] = {}
@@ -143,7 +144,7 @@ def load_borders(path: Path):
     """读取 download_regions.py 缓存的国界折线, 合并成一个 MultiLineString."""
     if not path.exists():
         raise FileNotFoundError(
-            f"未找到国界数据: {path}\n请先运行: python download_regions.py"
+            f"未找到国界数据: {path}\n请先运行: python Myanmar/main.py download"
         )
     data = json.loads(path.read_text(encoding="utf-8"))
     return unary_union([shape(feature["geometry"]) for feature in data["features"]])
@@ -533,39 +534,40 @@ def collect(doc, ctx: runner.RenderContext) -> None:
     collect_suggestions(doc)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--stride", type=int, default=None, help="指定 data/raw 下的采样步长文件")
-    runner.add_standard_arguments(parser)
-    args = parser.parse_args()
+def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False) -> int:
+    """渲染掸邦/特区地形图并写出同名 geo.json; 返回 0=成功, 1=数据缺失."""
+    try:
+        etopo_path = find_etopo(DATA_DIR / "raw", "northern_shan", stride)
+        if not etopo_path.exists():
+            raise FileNotFoundError(
+                f"未找到高程数据: {etopo_path}\n"
+                "请先运行: python Myanmar/main.py download --region northern-shan --stride 1"
+            )
+        regions = load_regions(REGION_GEOJSON)
+        border_line = load_borders(BORDER_GEOJSON)
+        # 国界走廊: 用来把区域/省界描边里与国界重合的段裁掉.
+        border_zone = border_line.buffer(BORDER_ZONE_DEG, cap_style="flat", join_style="mitre")
 
-    etopo_path = find_etopo(DATA_DIR / "raw", "northern_shan", args.stride)
-    if not etopo_path.exists():
-        raise FileNotFoundError(
-            f"未找到高程数据: {etopo_path}\n"
-            "请先运行: python download_etopo.py --region northern_shan --stride 1"
+        runner.render(
+            SHEET,
+            root=ROOT,
+            catalog=DATASETS,
+            draw=functools.partial(
+                draw,
+                etopo_path=etopo_path,
+                regions=regions,
+                border_line=border_line,
+                border_zone=border_zone,
+            ),
+            collect=collect,
+            dpi=dpi,
+            show=show,
         )
-    regions = load_regions(REGION_GEOJSON)
-    border_line = load_borders(BORDER_GEOJSON)
-    # 国界走廊: 用来把区域/省界描边里与国界重合的段裁掉.
-    border_zone = border_line.buffer(BORDER_ZONE_DEG, cap_style="flat", join_style="mitre")
-
-    runner.render(
-        SHEET,
-        root=ROOT,
-        catalog=DATASETS,
-        draw=functools.partial(
-            draw,
-            etopo_path=etopo_path,
-            regions=regions,
-            border_line=border_line,
-            border_zone=border_zone,
-        ),
-        collect=collect,
-        dpi=args.dpi,
-        show=args.show,
-    )
+    except FileNotFoundError as exc:
+        print(f"错误: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit("本文件是模块, 不能直接运行; 请用统一入口: python Myanmar/main.py <子命令>")

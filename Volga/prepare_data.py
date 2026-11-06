@@ -7,16 +7,15 @@
 ``Volga/data/derived/`` 里解压好的 HydroBASINS 5 级欧洲区 shapefile 派生出
 ``volga_subjects`` / ``volga_basin`` / ``russia_border`` 三个 GeoJSON 供
 ``Volga/volga.py`` 离线读取; 只做 raw → derived 派生, 原始数据的下载/解压由
-``Volga/download_data.py`` 负责. 画框与流域核验口径来自 ``Volga/config.py``.
-完整说明(数据源/输出契约/运行方式)见 ``docs/maps/volga.md`` 与
-``docs/data-preparation.md``.
+``Volga/download_data.py``(经 ``python Volga/main.py download``)负责. 几何修复/写
+GeoJSON/量面积等通用操作走 ``cartopy_file.geometry``, 本文件只保留本图种的路径、
+阈值与派生流程.
+完整说明(数据源/输出契约/运行方式)见 ``docs/maps/volga.md``.
 """
 
 from __future__ import annotations
 
-import argparse
 import os
-import sys
 from pathlib import Path
 
 # 与下载/绘图脚本共用同一份 matplotlib 缓存目录: 数据集路径定位可能经 cartopy 触到
@@ -27,9 +26,22 @@ os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import MultiLineString, MultiPolygon, Point, Polygon, box
+import shapely
+from shapely.geometry import Point, box
 from shapely.ops import unary_union
-from shapely.validation import make_valid
+
+# 共享几何与 GeoJSON 工具: 修几何/拆面线/删小孔/写确定性 GeoJSON/椭球面积,
+# 见 docs/reference/geometry.md.
+from cartopy_file.geometry import (
+    clean_text,
+    drop_small_holes,
+    extract_lines,
+    extract_polygons,
+    feature,
+    geodesic_area_km2,
+    valid_geometry,
+    write_geojson,
+)
 
 # 数据集清单与画框的唯一真源; 路径都从这里取, 见 docs/reference/spec.md.
 import config
@@ -39,8 +51,7 @@ import config
 # ============================
 # 派生范围: 由 config 的画框外扩 0.5° 得到(shapely 顺序: min_lon, min_lat,
 # max_lon, max_lat); 与下载脚本用的是同一份 Extent, 不再各写一套顺序.
-ETOPO_BBOX = config.ETOPO_BBOX
-BBOX = ETOPO_BBOX.as_bbox
+BBOX = config.ETOPO_BBOX.as_bbox
 BBOX_POLYGON = box(*BBOX)
 
 CATALOG = config.DATASETS
@@ -51,6 +62,18 @@ HYBAS_SHAPES = CATALOG.path("hybas-eu-lev05")
 SUBJECTS_PATH = CATALOG.path("volga-subjects")
 BASIN_PATH = CATALOG.path("volga-basin")
 BORDER_PATH = CATALOG.path("russia-border")
+
+# 坐标精度: 1e-5° ≈ 1.1 m, 远小于本图 1:770 万的出图精度; 与改前产物一致, 不随框架
+# 默认的 6 位(见 docs/reference/geometry.md 注意事项).
+COORD_PRECISION = 5
+# 对应 1e-5° 的坐标网格. 旧产物由 GDAL 按 COORDINATE_PRECISION=5 写出, 它在坐标舍入会
+# 产生重合顶点时用 GEOS 精度模型压网格(顺带删点、重排环起点); 直接用 feature() 的 Python
+# 舍入会保留那些顶点, 顶点序列一变出图产物就不再与基线逐字节一致. 本图要求产物不动,
+# 所以流域面先用 set_precision 复现同一份网格几何(见 docs/maps/volga.md 注意事项).
+COORD_GRID_DEG = 10 ** -COORD_PRECISION
+# GADM 相邻州边界 union 后接缝处针孔的面积上限(平方度); 阈值出处见
+# docs/reference/geometry.md 与 drop_small_holes 的说明.
+MIN_HOLE_AREA_DEG = 1e-3
 
 # 伏尔加入海口/三角洲一带: 在 HydroBASINS 里找 UP_AREA 最大的单元, 其
 # MAIN_BAS 即整个伏尔加流域. 用小窗口而非单点, 避免点落在里海水面或
@@ -75,123 +98,6 @@ HYBAS_COLUMNS = ["MAIN_BAS", "UP_AREA"]
 
 
 # ============================
-# 几何工具
-# ============================
-def valid_geometry(geom):
-    """GADM/HydroBASINS 偶有自相交, 写文件前统一修成有效几何."""
-    if geom is None or geom.is_empty:
-        return None
-    return geom if geom.is_valid else make_valid(geom)
-
-
-def extract_geometries(geom, kinds: tuple[str, ...]):
-    """从 (可能嵌套的) GeometryCollection 里取出指定类型的部件."""
-    if geom is None or geom.is_empty:
-        return []
-    if geom.geom_type in kinds:
-        return [geom]
-    if geom.geom_type == "GeometryCollection":
-        out = []
-        for child in geom.geoms:
-            out.extend(extract_geometries(child, kinds))
-        return out
-    return []
-
-
-def extract_polygons(geom):
-    """把任意几何裁成面(MultiPolygon 拆平再合并), 空则返回 None."""
-    parts = extract_geometries(geom, ("Polygon", "MultiPolygon"))
-    polys = []
-    for part in parts:
-        polys.extend(part.geoms if part.geom_type == "MultiPolygon" else [part])
-    polys = [p for p in polys if not p.is_empty and p.area > 0]
-    if not polys:
-        return None
-    return valid_geometry(unary_union(polys))
-
-
-def extract_lines(geom):
-    """把任意几何裁成线, 空则返回 None."""
-    parts = extract_geometries(geom, ("LineString", "MultiLineString"))
-    lines = []
-    for part in parts:
-        lines.extend(part.geoms if part.geom_type == "MultiLineString" else [part])
-    lines = [line for line in lines if not line.is_empty and line.length > 0]
-    if not lines:
-        return None
-    return MultiLineString(lines) if len(lines) > 1 else lines[0]
-
-
-def drop_small_holes(geom, min_hole_area: float = 1e-3):
-    """删掉面积小于阈值的内部环(单位: 平方度).
-
-    为什么需要: GADM 相邻一级行政区的边界并不严格共线, union 成一个
-    国家面时会在接缝处留下 215 个针状小孔(最大 1.6e-4 平方度, 但周长
-    可达 0.2°, 画成国界就是一串黑色小圈, 像脏点). 真正的内部环(如
-    莫斯科市被莫斯科州包住, 面积 0.15 平方度)远大于阈值, 会保留.
-    """
-    if geom is None or geom.is_empty:
-        return geom
-    if geom.geom_type == "Polygon":
-        polys = [geom]
-    elif geom.geom_type == "MultiPolygon":
-        polys = list(geom.geoms)
-    else:
-        return geom
-    cleaned = []
-    for poly in polys:
-        holes = [ring for ring in poly.interiors if Polygon(ring).area >= min_hole_area]
-        cleaned.append(Polygon(poly.exterior, holes))
-    return MultiPolygon(cleaned) if len(cleaned) > 1 else cleaned[0]
-
-
-def write_geojson(gdf: gpd.GeoDataFrame, path: Path, *, promote_to_multi: bool = True) -> None:
-    """写 EPSG:4326 GeoJSON; 坐标统一保留 5 位小数(≈1 m, 远小于出图精度).
-
-    用 GDAL GeoJSON 驱动的 COORDINATE_PRECISION 而不是先把 shapely 坐标舍入:
-    舍入可能把细长多边形压成零面积/自相交几何, 而写文件阶段做格式化不会
-    改变内存中的有效几何.
-    """
-    gdf = gdf.to_crs("EPSG:4326").reset_index(drop=True)
-    gdf.to_file(
-        path,
-        driver="GeoJSON",
-        engine="pyogrio",
-        promote_to_multi=promote_to_multi,
-        layer_options={"COORDINATE_PRECISION": "5"},
-    )
-    print(f"写入: {path.name} ({path.stat().st_size/1048576:.2f} MiB, {len(gdf)} 要素)")
-
-
-def gdf_from_records(records: list[dict], geometry_key: str = "geometry") -> gpd.GeoDataFrame:
-    """把 [{'geometry':..., 'name':...}] 转成 GeoDataFrame(保持字段顺序)."""
-    if not records:
-        return gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs="EPSG:4326")
-    prop_keys = [key for key in records[0] if key != geometry_key]
-    data = {key: [rec[key] for rec in records] for key in prop_keys}
-    data["geometry"] = [rec[geometry_key] for rec in records]
-    return gpd.GeoDataFrame(data, geometry="geometry", crs="EPSG:4326")
-
-
-def equal_area_km2(geom) -> float:
-    """用等积投影 EPSG:6933 算面积(km²); 经纬度直接算 area 在高纬会严重偏小."""
-    series = gpd.GeoSeries([geom], crs="EPSG:4326").to_crs("EPSG:6933")
-    return float(series.area.iloc[0]) / 1e6
-
-
-def clean_text(value) -> str:
-    """GADM 字符串字段可能有 NaN/None, 统一成空串以免写出 null."""
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    return str(value)
-
-
-# ============================
 # 派生 GeoJSON(不依赖 HydroBASINS 的两项可单独重建)
 # ============================
 def build_subjects() -> None:
@@ -204,7 +110,7 @@ def build_subjects() -> None:
     print("\n派生 volga_subjects.geojson (GADM 一级行政区)")
     if not GADM_JSON.exists():
         raise RuntimeError(
-            f"缺少 {GADM_JSON}; 请先运行 python Volga/download_data.py 下载 GADM 数据"
+            f"缺少 {GADM_JSON}; 请先运行 python Volga/main.py download 下载 GADM 数据"
         )
     gdf = gpd.read_file(GADM_JSON, engine="pyogrio")
     if gdf.crs is None:
@@ -212,26 +118,31 @@ def build_subjects() -> None:
     gdf = gdf.to_crs("EPSG:4326")
     print(f"   GADM RUS 一级行政区: {len(gdf)} 个")
 
-    records = []
+    features = []
     for _, row in gdf.iterrows():
         geom = valid_geometry(row.geometry)
         clipped = extract_polygons(geom.intersection(BBOX_POLYGON)) if geom else None
         if clipped is None:
             continue
-        records.append(
-            {
-                "name": clean_text(row.get("NAME_1")),
-                "engtype": clean_text(row.get("ENGTYPE_1")),
-                "type": clean_text(row.get("TYPE_1")),
-                "geometry": clipped,
-            }
+        features.append(
+            feature(
+                clipped,
+                {
+                    "name": clean_text(row.get("NAME_1")),
+                    "engtype": clean_text(row.get("ENGTYPE_1")),
+                    "type": clean_text(row.get("TYPE_1")),
+                },
+                precision=COORD_PRECISION,
+            )
         )
+    write_geojson(SUBJECTS_PATH, features)
 
-    out = gdf_from_records(records)
-    write_geojson(out, SUBJECTS_PATH)
-
-    republics = sorted(rec["name"] for rec in records if rec["engtype"] == "Republic")
-    print(f"   与画框相交的一级行政区: {len(records)} 个 (原始 {len(gdf)} 个)")
+    republics = sorted(
+        item["properties"]["name"]
+        for item in features
+        if item["properties"]["engtype"] == "Republic"
+    )
+    print(f"   与画框相交的一级行政区: {len(features)} 个 (原始 {len(gdf)} 个)")
     print(f"   画框内共和国 (ENGTYPE_1=='Republic', {len(republics)} 个): {', '.join(republics)}")
 
 
@@ -244,7 +155,7 @@ def build_border() -> None:
     print("\n派生 russia_border.geojson (GADM 口径俄罗斯国界)")
     if not GADM_JSON.exists():
         raise RuntimeError(
-            f"缺少 {GADM_JSON}; 请先运行 python Volga/download_data.py 下载 GADM 数据"
+            f"缺少 {GADM_JSON}; 请先运行 python Volga/main.py download 下载 GADM 数据"
         )
     gdf = gpd.read_file(GADM_JSON, engine="pyogrio")
     gdf = gdf.to_crs("EPSG:4326")
@@ -253,12 +164,14 @@ def build_border() -> None:
     country = valid_geometry(unary_union(geoms))
     # 相邻州边界不共线, union 后接缝处有 215 个针状小孔; 不去掉会画成一串
     # 黑色小圈. 阈值远离真实内部环(莫斯科市 0.15 平方度)的量级.
-    country = drop_small_holes(country, min_hole_area=1e-3)
+    country = drop_small_holes(country, min_hole_area=MIN_HOLE_AREA_DEG)
     border = extract_lines(country.boundary.intersection(BBOX_POLYGON))
     if border is None:
         raise RuntimeError("GADM 俄罗斯国界与画框求交后为空")
-    out = gpd.GeoDataFrame({"name": ["俄罗斯国界(GADM)"]}, geometry=[border], crs="EPSG:4326")
-    write_geojson(out, BORDER_PATH, promote_to_multi=True)
+    write_geojson(
+        BORDER_PATH,
+        [feature(border, {"name": "俄罗斯国界(GADM)"}, precision=COORD_PRECISION)],
+    )
     minx, miny, maxx, maxy = border.bounds
     print(f"   国界 bbox: {minx:.2f}~{maxx:.2f}°E / {miny:.2f}~{maxy:.2f}°N")
 
@@ -268,7 +181,7 @@ def _hybas_files() -> list[Path]:
     if not HYBAS_SHAPES.exists():
         raise RuntimeError(
             f"缺少 HydroBASINS shapefile: {HYBAS_SHAPES}; "
-            "请先运行 python Volga/download_data.py 下载并解压"
+            "请先运行 python Volga/main.py download 下载并解压"
         )
     return [HYBAS_SHAPES]
 
@@ -333,9 +246,11 @@ def build_basin() -> None:
     if basin is None or basin.is_empty:
         raise RuntimeError(f"MAIN_BAS={main_bas} 的单元合并后为空")
 
-    area_km2 = equal_area_km2(basin)
+    # 先压到 1e-5° 网格再量面积/写文件, 让写出的几何与旧产物逐字节一致.
+    basin = shapely.set_precision(basin, COORD_GRID_DEG)
+    area_km2 = geodesic_area_km2(basin)
     minx, miny, maxx, maxy = basin.bounds
-    print(f"   流域面积(EPSG:6933 等积): {area_km2:,.0f} km²")
+    print(f"   流域面积(WGS84 椭球): {area_km2:,.0f} km²")
     print(f"   流域 bbox: {minx:.2f}~{maxx:.2f}°E / {miny:.2f}~{maxy:.2f}°N")
 
     # 核验 (a): 面积在 HydroBASINS 口径的合理范围内, 且包含伏尔加三角洲.
@@ -358,30 +273,21 @@ def build_basin() -> None:
         if basin.contains(Point(lon, lat)):
             raise RuntimeError(f"流域面包含了相邻的{name} ({lon}, {lat}); MAIN_BAS 可能选错")
 
-    out = gpd.GeoDataFrame(
-        {"area_km2": [round(area_km2, 2)]},
-        geometry=[basin],
-        crs="EPSG:4326",
+    write_geojson(
+        BASIN_PATH,
+        [feature(basin, {"area_km2": round(area_km2, 2)}, precision=COORD_PRECISION)],
     )
-    write_geojson(out, BASIN_PATH, promote_to_multi=True)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--skip-basin",
-        action="store_true",
-        help="跳过流域派生(只重建行政区与国界, 缺 HydroBASINS 数据时用)",
-    )
-    args = parser.parse_args()
-
+def run(*, skip_basin: bool = False) -> int:
+    """派生入口: 重建三个派生 GeoJSON; 返回退出码(0 成功)."""
     print("\n" + "=" * 60)
     print("派生 GeoJSON(每次运行都重建; 不依赖 HydroBASINS 的先做)")
     print("=" * 60)
     build_subjects()
     build_border()
 
-    if args.skip_basin:
+    if skip_basin:
         print("\n--skip-basin: 跳过流域派生")
     else:
         build_basin()
@@ -391,16 +297,12 @@ def main() -> None:
     ]
     if missing:
         print("\n缺少派生文件: " + ", ".join(path.name for path in missing))
-        print("       先运行 python Volga/download_data.py 检查原始数据, 再重跑本脚本")
-        sys.exit(1)
+        print("       先运行 python Volga/main.py download 检查原始数据, 再重跑本子命令")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n用户中断; 重新运行会从头重建派生文件.")
-        sys.exit(130)
-    except Exception as exc:
-        print(f"错误: {exc}", file=sys.stderr)
-        sys.exit(1)
+    raise SystemExit(
+        "本文件是模块, 不能直接运行; 请用统一入口: python Volga/main.py prepare"
+    )

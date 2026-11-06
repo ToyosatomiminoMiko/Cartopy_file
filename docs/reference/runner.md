@@ -28,28 +28,26 @@
 `RenderContext` 字段: `sheet`、`catalog`、`root`、`fig`、`ax`、`world`、`lon`/`lat`/`z`
 (有高程时)、`covered`.
 
-`add_standard_arguments(parser)` 给脚本加全项目统一的 `--dpi` / `--show`; `run(...)` 是
-`render(...)` 的标准命令行外壳.
+`add_standard_arguments(parser)` 给 argparse 加全项目统一的 `--dpi` / `--show`(由子项目的
+`main.py` 调用); `run(...)` 是 `render(...)` 的标准命令行外壳.
 
 ## 用法
 
+绘图模块只暴露 `run(...)`, 命令行参数由子项目入口 `main.py` 解析后传入:
+
 ```python
-import argparse
 from cartopy_file import runner
 from cartopy_file.relief import find_etopo
 
 SHEET = config.SHEET_MYANMAR
 DATASETS = config.DATASETS
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--stride", type=int, default=None)
-    runner.add_standard_arguments(parser)
-    args = parser.parse_args()
-    etopo = find_etopo(ROOT / "data" / "raw", "myanmar", args.stride)
+def run(*, stride=None, dpi=None, show=False) -> int:
+    etopo = find_etopo(ROOT / "data" / "raw", "myanmar", stride)
     runner.render(SHEET, root=ROOT, catalog=DATASETS,
                   draw=draw, collect=collect,
-                  dem_path=etopo, dpi=args.dpi, show=args.show)
+                  dem_path=etopo, dpi=dpi, show=show)
+    return 0
 ```
 
 ## 注意事项
@@ -66,7 +64,7 @@ def main():
 - 一个进程出多张图时逐个 `render`(伏尔加的两张图), 每张都会独立建画布并在结束时关闭;
 - 回调里不要自己调 `save_map`/`figure_frame`: 那是 `render` 的职责, 两处都做会写出两份产物;
 - 需要在高程铺图**之前**预处理 z(例如按海岸线/湖泊把里海低地的负高程修正回陆地)时,
-  把 `Sheet.dem_id` 留空, 在 `main()` 里 `load_elevation()` 预处理一次, 再在 `draw()` 里调
+  把 `Sheet.dem_id` 留空, 在 `run()` 里 `load_elevation()` 预处理一次, 再在 `draw()` 里调
   `layers.add_relief`(伏尔加两张图就是这样): 图层仍是框架原语, 只是绕开了 runner 的自动
   铺图那一步, 代价是同时绕开它的数据覆盖警告, 所以 `config.py` 的 bbox 要自己核对;
 - 同理, 底纹需要特殊合成(透明遮罩/插值/命名色带软光)时也在 `draw()` 里画, 见

@@ -105,7 +105,7 @@ save_map(fig, MAP_PATH, doc, geo_path=TEXT_PATH, dpi=args.dpi)
 - 布局只有一种: 地图必须在 `<子项目>/map/` 下、文字信息必须在 `<子项目>/text/` 下; 只拿到
   地图路径时用 `cartopy_file.spec.geo_path_for()` 反推 geo 路径, 地图不在 `map/` 下会直接
   报错, 不做「同级找同名 geo」的回退;
-- 产物不入库: `.gitignore` 忽略 `*.svg` 与 `*.geo.json`, 需要时按图种页跑脚本生成;
+- 产物不入库: `.gitignore` 忽略 `*.svg` 与 `*.geo.json`, 需要时按图种页的命令生成;
 - 出图后跑 `python tools/check_geo.py <子项目>/map/<产物>.svg`(或直接无参检查全部产物):
   定位「根标签没裁、残留 `<text>`、sha 没更新、字段/枚举不合法、v1 旧字段残留」这类结构错误;
   它不做视觉判断, 前端标准校验仍以 miko 的 `mapdoc-geo` 实现为准.

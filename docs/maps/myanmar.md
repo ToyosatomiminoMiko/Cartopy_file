@@ -1,6 +1,7 @@
 # 缅甸全境地形图 (Myanmar/myanmar.py)
 
 - 源码: [`Myanmar/myanmar.py`](../../Myanmar/myanmar.py)
+- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(子命令 download / prepare / render / all)
 - 产物: `Myanmar/map/myanmar_topography_etopo2022_lambert_conformal.svg`(地图) 与
   `Myanmar/text/myanmar_topography_etopo2022_lambert_conformal.geo.json`(文字信息)
 
@@ -44,7 +45,7 @@
 
 | 文件 | 内容 | 生成方式 |
 | --- | --- | --- |
-| `Myanmar/data/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集(stride 2 = 30 弧秒) | `python Myanmar/download_etopo.py` |
+| `Myanmar/data/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集(stride 2 = 30 弧秒) | `python Myanmar/main.py download --region myanmar` |
 | `data/cartopy/` | 共享缓存的 Natural Earth 10m 国界/国界线/海岸线 | `python download_data.py` |
 
 下载范围由 `Myanmar/config.py` 的画框推出来: `EXTENT_MYANMAR.padded(lon=1.7, lat=0.1)`
@@ -56,23 +57,34 @@
 
 ## 运行
 
+唯一入口是 `Myanmar/main.py`, 其余 `Myanmar/*.py` 都是模块(直接运行会报错并提示入口):
+
 ```bash
-python download_data.py            # 首次: 共享 Natural Earth 底图
-python Myanmar/download_etopo.py   # 首次: ETOPO 高程子集(已存在则跳过)
-python Myanmar/myanmar.py          # 出图, 地图进 Myanmar/map/, 文字信息进 Myanmar/text/
+python download_data.py                            # 首次: 共享 Natural Earth 底图
+python Myanmar/main.py download --region myanmar   # 首次: ETOPO 高程子集(已存在则跳过)
+python Myanmar/main.py render --sheet myanmar      # 出图, 地图进 Myanmar/map/, 文字信息进 Myanmar/text/
 ```
 
 画框、投影、色带、经纬网、地名与文案都在 [`Myanmar/config.py`](../../Myanmar/config.py);
-本脚本只画特有条图层(陆上国界、邻国国界、城市点)并按同一份 spec 收集 geo.
+渲染模块只画特有条图层(陆上国界、邻国国界、城市点)并按同一份 spec 收集 geo.
 
-`myanmar.py` 的选项:
+`download` 的选项:
 
+- `--region {all,myanmar,northern-shan}`: 下载区域, 缺省 `all` 两个 ETOPO 区域都下;
+- `--stride`: 覆盖两个区域各自登记的默认步长(缅甸 2, 掸邦 1);
+- `--force`: 覆盖已存在的下载文件;
+- `--skip-regions`: 跳过 OSM 特区边界/国界下载(本图不需要).
+
+`render` 的选项(`--sheet myanmar`):
+
+- `--sheet {all,myanmar,myanmar-admin,northern-shan}`: 只出其中一张; 缺省 `all` 按
+  `config.SHEETS` 顺序出全部三张;
 - `--stride`: 用 `Myanmar/data/raw/` 下对应采样步长的高程文件, 缺省自动选步长最小的;
 - `--dpi`: 内嵌晕渲栅格的像素密度, 默认 300(矢量部分与 dpi 无关);
 - `--show`: 保存后弹出交互窗口(需要图形界面).
 
-高程文件也可用环境变量 `MYANMAR_ETOPO_PATH` 指定; 数据缺失时脚本报错并提示先跑
-`download_etopo.py`.
+高程文件也可用环境变量 `MYANMAR_ETOPO_PATH` 指定; 数据缺失时绘图报错并提示先跑
+`python Myanmar/main.py download`.
 
 ## 注意事项
 

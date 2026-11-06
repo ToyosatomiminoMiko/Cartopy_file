@@ -27,6 +27,12 @@
    当前代码生成的(否则 `geo.base.sha256` 会与底图不符)。
 4. 绘图脚本**不联网**; 新增数据源先写进 [docs/data-preparation.md](docs/data-preparation.md)。
 
+## 脚本入口
+
+1. 每个子项目**只有** `<子项目>/main.py` 可以执行(`download` / `prepare` / `render` / `all`
+   子命令); 其余 `.py` 是模块, 只导出 `run()`, 直接运行会报错并指向入口。
+2. 框架层脚本(根目录 `download_data.py`、`tools/*.py`)不受此限, 仍可独立运行。
+
 ## 代码与注释
 
  1. 注释只写三类: 是什么 / 为什么 / 元信息; 跨文件的原理与取舍写进 docs, 代码里只留指针。

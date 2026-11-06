@@ -7,13 +7,13 @@
 叠加 Natural Earth 110m 海岸线与 15 个前苏联加盟共和国合并出的红色外轮廓.
 文字与版面由前端接管, 本脚本同时产出同名的 geo.json: 底图只画地理要素, 色标/标题/
 副标题只以 ``GeoDoc`` 数据形式登记; 字段与口径见 ``docs/reference/geo.md``.
-画框/投影/色带/经纬网/文案全部来自 ``USSR/config.py``; 完整说明(投影选择、图幅内容、
-数据来源、运行方式)见 ``docs/maps/ussr.md``.
+画框/投影/色带/经纬网/文案全部来自 ``USSR/config.py``.
+本文件是模块, 只导出 ``run()``; 命令行入口是 ``USSR/main.py render``.
+完整说明(投影选择、图幅内容、数据来源、运行方式)见 ``docs/maps/ussr.md``.
 """
 
 from __future__ import annotations
 
-import argparse
 import os
 from pathlib import Path
 
@@ -148,21 +148,17 @@ def collect(doc, ctx: runner.RenderContext) -> None:
     doc.set_suggestions(layers.suggestions(SHEET, DATASETS))
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--stride",
-        type=int,
-        default=None,
-        help="使用 data/raw 下对应采样步长的高程文件; 缺省自动选分辨率最高(步长最小)的一个",
-    )
-    runner.add_standard_arguments(parser)
-    args = parser.parse_args()
+def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False) -> int:
+    """出图并写出地图与同名 geo.json; 返回 0. 由 ``USSR/main.py render`` 调用.
 
+    ``stride`` 是 data/raw 下高程文件的采样步长(缺省自动选分辨率最高的一个), ``dpi``
+    只影响内嵌晕渲栅格, ``show`` 保存后弹交互窗口; 三者语义见 docs/reference/relief.md
+    与 docs/reference/runner.md.
+    """
     etopo_path = find_etopo(
         DATA_DIR / "raw",
         "ussr",
-        args.stride,
+        stride,
         env_path=os.environ.get("ETOPO_PATH"),
     )
     runner.render(
@@ -172,10 +168,11 @@ def main() -> None:
         draw=draw,
         collect=collect,
         dem_path=etopo_path,
-        dpi=args.dpi,
-        show=args.show,
+        dpi=dpi,
+        show=show,
     )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit("本文件是模块, 不能直接运行; 请用统一入口: python USSR/main.py <子命令>")

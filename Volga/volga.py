@@ -15,9 +15,7 @@ SVG: 只画流域的流域图, 与画框收窄、保留六个周边共和国的�
 
 from __future__ import annotations
 
-import argparse
 import os
-import sys
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
@@ -82,16 +80,17 @@ _DATA: VolgaData | None = None
 def _data() -> VolgaData:
     """取主流程已载入的数据; 没载入说明调用顺序错了."""
     if _DATA is None:
-        raise RuntimeError("数据尚未载入: 先运行 main() 的 load_data()")
+        raise RuntimeError("数据尚未载入: 先运行 run() 入口里的 load_data()")
     return _DATA
 
 
 def _require(path: Path) -> Path:
-    """检查数据文件存在, 缺失时按 raw/derived 给出对应的准备脚本."""
+    """检查数据文件存在, 缺失时按 raw/derived 给出对应的准备子命令."""
     if not path.exists():
-        # raw/ 由下载脚本准备, derived/ 由派生脚本准备, 见 docs/maps/volga.md 运行一节.
-        script = "download_data.py" if "raw" in path.parts else "prepare_data.py"
-        raise FileNotFoundError(f"未找到数据: {path}\n请先运行: python Volga/{script}")
+        # raw/ 由 download 子命令准备, derived/ 由 prepare 子命令准备,
+        # 见 docs/maps/volga.md 运行一节.
+        command = "download" if "raw" in path.parts else "prepare"
+        raise FileNotFoundError(f"未找到数据: {path}\n请先运行: python Volga/main.py {command}")
     return path
 
 
@@ -760,42 +759,32 @@ def collect(doc, ctx: runner.RenderContext) -> None:
 # ============================
 # 主流程
 # ============================
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--stride",
-        type=int,
-        default=None,
-        help="使用 data/raw 下对应采样步长的 ETOPO 文件; 缺省自动选分辨率最高(步长最小)的一个",
-    )
-    parser.add_argument(
-        "--map",
-        choices=("all", "basin", "republics"),
-        default="all",
-        help="只出其中一张图; 缺省两张都出(产物与改前一致)",
-    )
-    runner.add_standard_arguments(parser)
-    args = parser.parse_args()
-
+def run(
+    *,
+    sheets: tuple[str, ...] | None = None,
+    stride: int | None = None,
+    dpi: int | None = None,
+    show: bool = False,
+) -> int:
+    """出图入口: ``sheets`` 为 None 出两张, 否则只出给定的 sheet id; 返回退出码."""
     etopo_path = find_etopo(
         DATA_DIR / "raw",
         "volga",
-        args.stride,
+        stride,
         env_path=os.environ.get("VOLGA_ETOPO_PATH"),
     )
     _require(etopo_path)
     load_data(etopo_path)
 
-    # 晕渲栅格密度按地图区宽度与 dpi 算(与原实现一致); --dpi 只影响这张内嵌栅格.
-    dpi = args.dpi or config.SHEET_BASIN.dpi
-    selected = (
-        config.SHEETS
-        if args.map == "all"
-        else tuple(sheet for sheet in config.SHEETS if sheet.id == args.map)
-    )
+    # 晕渲栅格密度按地图区宽度与 dpi 算(与原实现一致); dpi 只影响这张内嵌栅格.
+    regrid_dpi = dpi or config.SHEET_BASIN.dpi
+    if sheets is None:
+        selected = config.SHEETS
+    else:
+        selected = tuple(sheet for sheet in config.SHEETS if sheet.id in sheets)
     for sheet in selected:
         layout = config.LAYOUTS[sheet.id]
-        sheet = replace(sheet, regrid_shape=max(1200, int(layout.map_width_in * dpi)))
+        sheet = replace(sheet, regrid_shape=max(1200, int(layout.map_width_in * regrid_dpi)))
         # 注意: 不用 tight_layout / bbox_inches="tight";
         # cartopy 在非矩形投影上绘制经纬网时会触发 gridliner 用未闭合顶点构造
         # 多边形的 GEOSException, 且 tight bbox 会裁掉地图边缘(项目已踩过).
@@ -805,18 +794,17 @@ def main() -> None:
             catalog=config.DATASETS,
             draw=draw,
             collect=collect,
-            dpi=args.dpi,
+            dpi=dpi,
             show=False,
-            close=not args.show,
+            close=not show,
         )
 
-    if args.show:
+    if show:
         plt.show()
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except FileNotFoundError as exc:
-        print(f"错误: {exc}", file=sys.stderr)
-        sys.exit(1)
+    raise SystemExit(
+        "本文件是模块, 不能直接运行; 请用统一入口: python Volga/main.py render"
+    )

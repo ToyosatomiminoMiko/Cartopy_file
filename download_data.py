@@ -135,14 +135,13 @@ def check_inventory(verbose: bool = True) -> int:
             print(f"共 {total} 项数据, {failed} 项缺失或版本不符. 按下面命令准备(已就位的会自动跳过):")
             for command in (
                 "python download_data.py",
-                "python Myanmar/download_etopo.py",
-                "python Myanmar/download_regions.py",
-                "python Myanmar/prepare_admin_data.py",
-                "python USSR/download_etopo.py",
-                "python Ukraine/download_data.py",
-                "python Ukraine/prepare_data.py",
-                "python Volga/download_data.py",
-                "python Volga/prepare_data.py",
+                "python Myanmar/main.py download",
+                "python Myanmar/main.py prepare",
+                "python USSR/main.py download",
+                "python Ukraine/main.py download",
+                "python Ukraine/main.py prepare",
+                "python Volga/main.py download",
+                "python Volga/main.py prepare",
             ):
                 print(f"  {command}")
         else:

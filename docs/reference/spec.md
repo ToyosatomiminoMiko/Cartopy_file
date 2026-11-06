@@ -11,7 +11,7 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
 
 本模块只放**类型与校验**(spec = 规格模型); 具体数值写在子项目的 `config.py` 里(config = 该
 子项目的配置实例), 与数据集清单放在同一个文件: 下载范围和绘图范围因此只有一个作者, 不会再
-出现「下载脚本写一个画框、绘图脚本又写一个」的问题. 分开的理由: 类型不随图种变, 所以留在
+出现「下载模块写一个画框、绘图模块又写一个」的问题. 分开的理由: 类型不随图种变, 所以留在
 共享包; 配置每个子项目一份, 新增子项目只加 `config.py`, 不用改这里.
 
 ## 关键行为
@@ -72,7 +72,7 @@ SHEET = Sheet(
 )
 ```
 
-一个脚本出多张图时写 `SHEETS = (SHEET_A, SHEET_B)`; 工具(`download_data.py --check`、
+一个子项目出多张图时写 `SHEETS = (SHEET_A, SHEET_B)`; 工具(`download_data.py --check`、
 `tools/check_geo.py`)会把它们自动收进清单与自检范围.
 
 ## 注意事项

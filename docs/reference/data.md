@@ -69,5 +69,5 @@ existing, target = natural_earth_paths("10m", "physical", "coastline")
 
 - 下载内容不提交: `.gitignore` 忽略 `**/data`, 换机器后重跑各图的准备命令即可恢复(清单见
   [`data-preparation.md`](../data-preparation.md));
-- cartopy 缓存的预取入口是根目录 `download_data.py`; 各图种自己的数据由各自的脚本准备,
+- cartopy 缓存的预取入口是根目录 `download_data.py`; 各图种自己的数据由各自的 `main.py` 子命令准备,
   同样"文件已存在就跳过".

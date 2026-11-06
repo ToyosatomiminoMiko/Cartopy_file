@@ -6,18 +6,17 @@
 是什么: 按 ``Volga/config.py`` 的 ``DATASETS`` 下载 ETOPO 2022 高程子集与 GADM 4.1
 俄罗斯一级行政区到 ``Volga/data/raw/``, 下载并解压 HydroBASINS 5 级欧洲区到
 ``Volga/data/derived/``; 只做下载/解压与自检, raw → 派生 GeoJSON 由
-``Volga/prepare_data.py`` 完成, 绘图脚本 ``Volga/volga.py`` 离线读取两者的产物.
+``Volga/main.py prepare`` 完成(实现是 ``Volga/prepare_data.py``), 绘图脚本 ``Volga/volga.py``
+离线读取两者的产物.
 下载地址、下载范围与落盘路径全部来自 ``config.py``, 本脚本不再另写画框; 已就位的
 数据一律跳过, 不重复联网.
-完整说明(数据源/两个准备脚本的分工/运行方式)见 ``docs/maps/volga.md`` 与
+完整说明(数据源/两个准备子命令的分工/运行方式)见 ``docs/maps/volga.md`` 与
 ``docs/data-preparation.md``.
 """
 
 from __future__ import annotations
 
-import argparse
 import os
-import sys
 import zipfile
 from pathlib import Path
 
@@ -173,8 +172,8 @@ def _file_ok(path: Path) -> bool:
     return True
 
 
-# 失败项按数据集 kind 分流到对应的准备脚本: 下载类归本脚本, 派生类归
-# prepare_data.py, Natural Earth 共享缓存归仓库根的 download_data.py(本子项目不下载).
+# 失败项按数据集 kind 分流到对应的子命令: 下载类归 download, 派生类归 prepare,
+# Natural Earth 共享缓存归仓库根的 download_data.py(本子项目不下载).
 _DOWNLOAD_KINDS = frozenset({"file", "zip", "script"})
 
 
@@ -182,9 +181,9 @@ def _prepare_command(dataset_id: str) -> str:
     """一项缺失数据的准备命令(kind 决定该跑哪个脚本)."""
     kind = CATALOG.get(dataset_id).kind
     if kind == "derived":
-        return "python Volga/prepare_data.py"
+        return "python Volga/main.py prepare"
     if kind in _DOWNLOAD_KINDS:
-        return "python Volga/download_data.py"
+        return "python Volga/main.py download"
     return "python download_data.py"
 
 
@@ -209,7 +208,7 @@ def check_outputs(verbose: bool = True) -> int:
     ):
         if path.exists() and not _file_ok(path):
             failed += 1
-            commands.append("python Volga/download_data.py")
+            commands.append("python Volga/main.py download")
             if verbose:
                 print(f"  [损坏] {label}: {path.relative_to(ROOT)}")
 
@@ -219,7 +218,7 @@ def check_outputs(verbose: bool = True) -> int:
             for command in dict.fromkeys(commands):
                 print(f"  {command}")
         else:
-            print("\n全部数据已就位, 可以运行: python Volga/volga.py")
+            print("\n全部数据已就位, 可以运行: python Volga/main.py render")
     return failed
 
 
@@ -249,45 +248,30 @@ def print_summary() -> None:
             print(f"[{kind}] {path.name}: {size:.2f} MiB (读取要素数失败: {exc})")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="只检查数据是否齐全, 不联网")
-    parser.add_argument("--force", action="store_true", help="强制重新下载/解压原始数据")
-    parser.add_argument(
-        "--skip-basin",
-        action="store_true",
-        help="跳过 HydroBASINS 下载(只准备 ETOPO 与 GADM)",
-    )
-    args = parser.parse_args()
+def run(*, check: bool = False, force: bool = False, skip_basin: bool = False) -> int:
+    """下载入口: 只检查、下载/解压或两者都做; 返回退出码(0 表示数据齐全)."""
+    if check:
+        return 0 if check_outputs(verbose=True) == 0 else 1
 
-    if args.check:
-        sys.exit(0 if check_outputs(verbose=True) == 0 else 1)
+    fetch_etopo(force=force)
+    fetch_gadm(force=force)
 
-    fetch_etopo(force=args.force)
-    fetch_gadm(force=args.force)
-
-    if args.skip_basin:
+    if skip_basin:
         print("\n--skip-basin: 跳过 HydroBASINS 下载")
     else:
         # 单独 try: HydroBASINS 源偶尔不可达时, ETOPO/GADM 仍已就位, 把缺失留给
         # --check 报告, 而不是整个脚本失败.
         try:
-            fetch_hybas(force=args.force)
+            fetch_hybas(force=force)
         except Exception as exc:
             print(f"\n警告: HydroBASINS 下载失败: {exc}")
-            print("       可稍后重跑本脚本(原始文件会从 .part 断点续传), 或加 --skip-basin")
+            print("       可稍后重跑本子命令(原始文件会从 .part 断点续传), 或加 --skip-basin")
 
     print_summary()
-    missing = check_outputs(verbose=True)
-    sys.exit(0 if missing == 0 else 1)
+    return 0 if check_outputs(verbose=True) == 0 else 1
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n用户中断; 重新运行可继续下载未完成的文件.")
-        sys.exit(130)
-    except Exception as exc:
-        print(f"错误: {exc}", file=sys.stderr)
-        sys.exit(1)
+    raise SystemExit(
+        "本文件是模块, 不能直接运行; 请用统一入口: python Volga/main.py download"
+    )
