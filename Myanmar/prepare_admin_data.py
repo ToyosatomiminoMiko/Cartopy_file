@@ -3,48 +3,43 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Prepare the 15 first-order administrative units of Myanmar for mapping.
 
-是什么: 下载 GADM 4.1 缅甸一级行政区并从 OpenStreetMap 取内比都联邦区边界,
-经过裁剪、补缝、拓扑检查后输出 data/myanmar_admin1.geojson 供绘图读取.
-完整说明(为什么混用 GADM/OSM、为什么补缝)见
-``docs/maps/myanmar-admin.md``.
+是什么: 读取 GADM 4.1 缅甸一级行政区原始 JSON, 从 OpenStreetMap 取内比都联邦区边界,
+经过裁剪、补缝、拓扑检查后输出 ``Myanmar/data/derived/myanmar_admin1.geojson`` 供绘图
+读取. 原始数据与派生文件的位置全部来自 ``Myanmar/specs.py`` 的 ``DATASETS``; 缺失的
+原始数据用共享下载层补齐, 已就位时只做跳过、不联网.
+完整说明(为什么混用 GADM/OSM、为什么补缝)见 ``docs/maps/myanmar-admin.md``;
+数据集层见 ``docs/reference/datasets.md``.
 """
 
 from __future__ import annotations
 
 import json
-import time
-import urllib.error
 import urllib.parse
-import urllib.request
-import zipfile
-from pathlib import Path
 
 import geopandas as gpd
 from shapely.geometry import LineString, mapping, shape
 from shapely.ops import polygonize, unary_union
 from shapely.validation import make_valid
 
-ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT / "data"
-ADMIN_DIR = DATA_DIR / "gadm41_MMR"
-ADMIN_JSON = ADMIN_DIR / "gadm41_MMR_1.json"
-COUNTRY_DIR = DATA_DIR / "ne_10m_admin_0_countries"
-COUNTRY_SHP = COUNTRY_DIR / "ne_10m_admin_0_countries.shp"
-RIVER_DIR = DATA_DIR / "ne_10m_rivers_lake_centerlines"
-RIVER_SHP = RIVER_DIR / "ne_10m_rivers_lake_centerlines.shp"
-NPT_JSON = DATA_DIR / "osm_naypyidaw_union_territory.json"
-OUT_PATH = DATA_DIR / "myanmar_admin1.geojson"
+# 数据集清单与数据源登记: 路径/URL 都不在脚本里另写一份.
+import specs
+from cartopy_file.fetch import (
+    MAGIC_JSON,
+    MAGIC_ZIP,
+    download,
+    extract_zip,
+    post,
+)
+from cartopy_file.sources import gadm_url, overpass_endpoints
 
-GADM_URL = "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_MMR_1.json"
-COUNTRY_URL = (
-    "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_countries.zip"
-)
-RIVER_URL = "https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_rivers_lake_centerlines.zip"
-OVERPASS_URLS = (
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-)
-USER_AGENT = "MyanmarMap/1.0 (cartopy map project)"
+# 数据路径全部由数据集清单给出(raw/ 与 derived/ 的约定见 docs/reference/datasets.md).
+ADMIN_JSON = specs.DATASETS.path(specs.GADM_MMR_RAW)
+ADMIN_DIR = ADMIN_JSON.parent
+COUNTRY_SHP = specs.DATASETS.path(specs.NE_COUNTRIES)
+RIVER_DIR = specs.DATASETS.path(specs.NE_RIVERS)
+RIVER_SHP = RIVER_DIR / "ne_10m_rivers_lake_centerlines.shp"
+NPT_JSON = specs.DATASETS.path(specs.NAYPYIDAW_CACHE)
+OUT_PATH = specs.DATASETS.path(specs.ADMIN_GEOJSON)
 NPT_RELATION_ID = 5996482
 
 # GADM 名称 -> (键名, 中文名, 英文名, 类型, 行政中心中文, 行政中心英文, 中心经度, 中心纬度).
@@ -207,69 +202,84 @@ ADMIN_INFO: dict[str, tuple[str, str, str, str, str, str, float, float]] = {
 }
 
 
-def download(url: str, path: Path) -> None:
-    """下载到本地; 已存在时跳过, 便于断点续跑."""
-    if path.exists() and path.stat().st_size > 0:
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    print(f"下载: {url}")
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=180) as response:
-        path.write_bytes(response.read())
-
-
 def ensure_country_data() -> None:
-    """确保 Natural Earth 10m 国界解压可用."""
-    if COUNTRY_SHP.exists():
+    """确保共享缓存里的 Natural Earth 10m 国界可用(由根目录 download_data.py 预取)."""
+    if COUNTRY_SHP.is_file():
+        print(f"已存在, 跳过 Natural Earth 10m 国界: {COUNTRY_SHP}")
         return
-    archive = DATA_DIR / "ne_10m_admin_0_countries.zip"
-    download(COUNTRY_URL, archive)
-    with zipfile.ZipFile(archive) as zf:
-        zf.extractall(COUNTRY_DIR)
+    raise FileNotFoundError(
+        f"未找到 Natural Earth 10m 国界: {COUNTRY_SHP}\n"
+        "请先运行根目录的 python download_data.py 预取共享底图缓存."
+    )
 
 
 def ensure_river_data() -> None:
-    """确保 Natural Earth 10m 河流解压可用(绘图脚本需要)."""
-    if RIVER_SHP.exists():
+    """确保 Natural Earth 10m 河流(5.0.0 旧副本)可用; 已存在时绝不重下."""
+    if RIVER_SHP.is_file():
+        print(f"已存在, 跳过 Natural Earth 10m 河流: {RIVER_DIR}")
         return
-    archive = DATA_DIR / "ne_10m_rivers_lake_centerlines.zip"
-    download(RIVER_URL, archive)
-    with zipfile.ZipFile(archive) as zf:
-        zf.extractall(RIVER_DIR)
+    dataset = specs.NE_RIVERS
+    archive = RIVER_DIR.with_suffix(".zip")
+    download(
+        dataset.url,
+        archive,
+        description="Natural Earth 10m 河流压缩包",
+        magic=MAGIC_ZIP,
+    )
+    extract_zip(archive, RIVER_DIR)
+    # 这份数据钉在旧版本 5.0.0(河网几何参与成品); S3 地址不带版本号, 重下可能拿到
+    # 新版, 这里显式提示, 版本对不上时按 docs/reference/datasets.md 的流程复核.
+    found = specs.DATASETS.version_of(dataset)
+    if found and dataset.version and found != dataset.version:
+        print(
+            f"警告: 河流数据版本是 {found}, 期望 {dataset.version}; "
+            "换版会改变河网几何, 请复核产物."
+        )
+
+
+def ensure_gadm_data() -> None:
+    """确保 GADM 4.1 缅甸一级行政区 JSON 可用; 已存在时跳过."""
+    download(
+        gadm_url("MMR"),
+        ADMIN_JSON,
+        description="GADM 4.1 缅甸一级行政区",
+        magic=MAGIC_JSON,
+    )
+
+
+def ensure_npt_cache() -> None:
+    """确保 OSM 内比都联邦区 relation 的原始响应已缓存; 已存在时跳过."""
+    if NPT_JSON.is_file():
+        print(f"已存在, 跳过 OSM 内比都联邦区缓存: {NPT_JSON}")
+        return
+    query = f"[out:json][timeout:90];rel({NPT_RELATION_ID});out geom;"
+    body = urllib.parse.urlencode({"data": query}).encode()
+    # Overpass 主实例偶尔返回 502; 换镜像并重试, 避免整个数据准备流程中断.
+    last_error: Exception | None = None
+    for url in overpass_endpoints():
+        try:
+            post(
+                url,
+                body,
+                NPT_JSON,
+                description="OSM 内比都联邦区",
+                retries=2,
+                timeout=180,
+            )
+            return
+        except RuntimeError as exc:  # fetch.post 重试用尽后的统一异常
+            last_error = exc
+            print(f"  Overpass 请求失败 ({url}): {exc}")
+    raise RuntimeError(f"无法从 Overpass 获取内比都联邦区边界: {last_error}")
 
 
 def overpass_npt_geometry() -> object:
-    """取 OSM 内比都联邦区 relation, 把成员 way 拼成多边形.
+    """从缓存的 Overpass 响应拼出内比都联邦区多边形.
 
     Overpass 返回的 relation 成员是一段段不闭合的 way, 首尾共享节点.
     这里把所有 way 合并后 polygonize 成外环, 再取面积最大的多边形,
     因为边界关系中偶尔会有极小的闭合碎块(例如飞地), 不应当作主体.
     """
-    if not NPT_JSON.exists():
-        # Overpass 主实例偶尔返回 502; 换镜像并重试, 避免整个数据准备流程中断.
-        query = f"[out:json][timeout:90];rel({NPT_RELATION_ID});out geom;"
-        data = urllib.parse.urlencode({"data": query}).encode()
-        last_error: Exception | None = None
-        for url in OVERPASS_URLS:
-            for attempt in range(1, 4):
-                request = urllib.request.Request(
-                    url,
-                    data=data,
-                    headers={"User-Agent": USER_AGENT},
-                )
-                try:
-                    with urllib.request.urlopen(request, timeout=180) as response:
-                        NPT_JSON.write_bytes(response.read())
-                    break
-                except (urllib.error.URLError, TimeoutError, OSError) as exc:
-                    last_error = exc
-                    print(f"  Overpass 请求失败 ({url}, {attempt}/3): {exc}")
-                    time.sleep(3 * attempt)
-            if NPT_JSON.exists():
-                break
-        if not NPT_JSON.exists():
-            raise RuntimeError(f"无法从 Overpass 获取内比都联邦区边界: {last_error}")
-
     payload = json.loads(NPT_JSON.read_text(encoding="utf-8"))
     relation = next(el for el in payload["elements"] if el.get("type") == "relation")
     lines = [
@@ -321,7 +331,8 @@ def main() -> None:
     ADMIN_DIR.mkdir(parents=True, exist_ok=True)
     ensure_country_data()
     ensure_river_data()
-    download(GADM_URL, ADMIN_JSON)
+    ensure_gadm_data()
+    ensure_npt_cache()
 
     country_gdf = gpd.read_file(COUNTRY_SHP)
     country = make_valid(

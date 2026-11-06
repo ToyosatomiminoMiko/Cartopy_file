@@ -17,6 +17,7 @@ __all__ = [
     "prepare_matplotlib_env",
     "configure_cartopy",
     "natural_earth_paths",
+    "subproject_dirs",
 ]
 
 # 环境变量: 覆盖仓库级共享数据目录, 用于把缓存放到别的可写磁盘.
@@ -57,6 +58,16 @@ def shared_data_dir() -> Path:
     base = Path(override).expanduser() if override else project_root() / "data"
     base.mkdir(parents=True, exist_ok=True)
     return base
+
+
+def subproject_dirs() -> tuple[str, ...]:
+    """返回仓库里的子项目目录名(按名字排序), 判定标准是目录里有 ``specs.py``.
+
+    为什么用「有 specs.py」而不是硬编码列表: 名单只该在目录结构里出现一次, 新增子项目
+    只要建目录 + specs.py, 清单检查与产物枚举就自动收录, 不用再改工具.
+    """
+    root = project_root()
+    return tuple(sorted(path.parent.name for path in root.glob("*/specs.py")))
 
 
 def prepare_matplotlib_env() -> Path:

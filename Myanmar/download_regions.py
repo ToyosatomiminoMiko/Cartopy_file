@@ -3,9 +3,12 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Download and cache OSM boundaries for Shan State special regions and borders.
 
-是什么: 下载掸邦各特区/自治区域的 OpenStreetMap 行政边界关系与画框附近国界
-(admin_level=2), 拼装成多边形/折线后缓存为 GeoJSON, 供 northern_shan.py 绘图.
-完整说明(数据来源、拼装原理、ODbL 许可)见 ``docs/maps/northern-shan.md``.
+是什么: 通过公共 Overpass 接口抓取掸邦各特区/自治区域的 OpenStreetMap 行政边界关系
+与画框附近国界(admin_level=2), 拼装成多边形/折线后缓存为 GeoJSON, 供
+``northern_shan.py`` 绘图. 缓存路径与 Overpass 镜像都来自共享层: 路径取
+``Myanmar/specs.py`` 的 ``DATASETS``, 镜像取 ``cartopy_file.sources``.
+完整说明(数据来源、拼装原理、ODbL 许可)见 ``docs/maps/northern-shan.md``;
+数据集层见 ``docs/reference/datasets.md``.
 """
 
 from __future__ import annotations
@@ -13,10 +16,10 @@ from __future__ import annotations
 import argparse
 import http.client
 import json
+import tempfile
 import time
 import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 from pyproj import Geod
@@ -24,21 +27,16 @@ from shapely.geometry import LineString, MultiLineString, mapping
 from shapely.ops import polygonize, unary_union
 from shapely.validation import make_valid
 
+# 缓存路径由数据集清单给出(raw/ 的约定见 docs/reference/datasets.md).
+import specs
+from cartopy_file import fetch as fetch_lib
+from cartopy_file.sources import overpass_endpoints
 
-ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT / "data"
-REGION_DIR = DATA_DIR / "regions"
-OUT_PATH = REGION_DIR / "shan_north_boundaries.geojson"
+OUT_PATH = specs.DATASETS.path(specs.SHAN_REGIONS)
 # 国界单独存一个文件: 它没有"面"的属性(面积/上级区域), 与区域边界用途不同.
-BORDER_PATH = REGION_DIR / "osm_country_borders.geojson"
+BORDER_PATH = specs.DATASETS.path(specs.OSM_COUNTRY_BORDERS)
+REGION_DIR = OUT_PATH.parent
 
-# 公共 Overpass 实例经常满负荷(返回 502), 多个镜像轮换可以提高成功率.
-OVERPASS_URLS = [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter",
-]
-USER_AGENT = "MyanmarMap/1.0 (cartopy map project)"
 GEOD = Geod(ellps="WGS84")
 
 # OSM relation id -> (图层, 中文名, 英文名, 上级区域).
@@ -113,33 +111,42 @@ def fetch(ids: list[int], attempts: int = 6, bbox: tuple[float, ...] | None = No
 
     bbox 不为空时用 out geom(bbox) 只取该范围内的成员几何; 此时 bbox 外的
     节点在返回结果里是 null(见 relation_to_lines).
+    请求体与结果缓存都交给 ``cartopy_file.fetch.post``: 它在目标文件已存在时不再
+    请求, 并统一带 User-Agent; 这里仍按旧行为在公共镜像间轮换重试.
     """
     out = "out geom;" if bbox is None else "out geom(%s);" % ",".join(f"{v:g}" for v in bbox)
     query = f"[out:json][timeout:170];relation(id:{','.join(map(str, ids))});{out}"
-    data = urllib.parse.urlencode({"data": query}).encode()
+    body = urllib.parse.urlencode({"data": query}).encode()
+    endpoints = overpass_endpoints()
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
-        url = OVERPASS_URLS[(attempt - 1) % len(OVERPASS_URLS)]
-        request = urllib.request.Request(
-            url,
-            data=data,
-            headers={"User-Agent": USER_AGENT},
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=240) as response:
-                return json.load(response)["elements"]
-        except (
-            urllib.error.URLError,
-            TimeoutError,
-            OSError,
-            json.JSONDecodeError,
-            http.client.HTTPException,  # 公共实例负载高时会提前断开 chunked 响应
-        ) as exc:
-            # HTTPError(含 502 满负荷)是 URLError 的子类, 会被这里一并捕获.
-            print(f"  请求失败 ({attempt}/{attempts}, {url.split('/')[2]}): {exc}")
-            last_error = exc
-            if attempt < attempts:
-                time.sleep(5 * attempt)
+        url = endpoints[(attempt - 1) % len(endpoints)]
+        # 响应是实时查询结果, 只当本次请求的临时文件用; 真正的缓存是拼装后的 GeoJSON.
+        with tempfile.TemporaryDirectory(prefix="myanmar-overpass-") as tmp:
+            dest = Path(tmp) / "response.json"
+            try:
+                fetch_lib.post(
+                    url,
+                    body,
+                    dest,
+                    description=f"Overpass {url}",
+                    retries=1,
+                    timeout=240,
+                )
+                return json.loads(dest.read_text(encoding="utf-8"))["elements"]
+            except (
+                urllib.error.URLError,
+                TimeoutError,
+                OSError,
+                json.JSONDecodeError,
+                http.client.HTTPException,  # 公共实例负载高时会提前断开 chunked 响应
+                RuntimeError,  # fetch.post 在重试用尽后抛出的统一异常
+            ) as exc:
+                # HTTPError(含 502 满负荷)是 URLError 的子类, 会被这里一并捕获.
+                print(f"  请求失败 ({attempt}/{attempts}, {url.split('/')[2]}): {exc}")
+                last_error = exc
+                if attempt < attempts:
+                    time.sleep(5 * attempt)
     raise RuntimeError(f"Overpass 请求失败: {last_error}")
 
 
@@ -211,7 +218,7 @@ def geodesic_area_km2(geom) -> float:
 def download_regions(force: bool) -> None:
     """下载区域边界并写入 OUT_PATH."""
     if OUT_PATH.exists() and not force:
-        print(f"已存在: {OUT_PATH} (加 --force 重新下载)")
+        print(f"已存在, 跳过 {OUT_PATH} (加 --force 重新下载)")
         return
 
     # id -> relation 原始数据, 便于最后统一按 RELATIONS 顺序输出.
@@ -297,7 +304,7 @@ def download_borders(force: bool) -> None:
     完整多边形. 每个国家一条 MultiLineString(可能含 bbox 边界处的断口).
     """
     if BORDER_PATH.exists() and not force:
-        print(f"已存在: {BORDER_PATH} (加 --force 重新下载)")
+        print(f"已存在, 跳过 {BORDER_PATH} (加 --force 重新下载)")
         return
 
     print(f"下载 OSM 国界(admin_level=2, bbox={BORDER_BBOX}): {sorted(BORDER_RELATIONS)}")

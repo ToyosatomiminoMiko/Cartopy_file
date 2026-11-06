@@ -1,0 +1,78 @@
+# -*- coding: utf-8 -*-
+# (copyright) Kawaii Femboy Technology Co., Ltd.
+"""AmericaArmy demo subproject: one local GeoJSON and one demonstration sheet.
+
+是什么: 框架用法的最小示例——一份仓库自带的点位 GeoJSON、一个 ``Sheet``, 以及
+``main.py`` 里的一对 ``draw``/``collect`` 回调; 它走和正式图种完全相同的出图流水线
+(纯几何 SVG + 同名 geo.json), 但不在图种目录体系内.
+为什么单独留一个演示: 新增子项目时最容易漏掉的就是「specs 里写什么、回调里写什么」,
+这个目录就是可运行的最小答案, 见 ``docs/add-map.md`` 与 ``docs/reference/spec.md``.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from cartopy_file.datasets import Dataset, dataset_set
+from cartopy_file.spec import Extent, Graticule, Label, Projection, Sheet
+
+ROOT = Path(__file__).resolve().parent
+
+# 仓库自带的点位数据(不入 data/raw, 也不下载), 见 docs/data-preparation.md.
+BASES = json.loads((ROOT / "data.geojson").read_text(encoding="utf-8"))["features"]
+
+DATASETS = dataset_set(
+    "美军基地",
+    ROOT,
+    [
+        Dataset(
+            id="bases-geojson",
+            kind="local",
+            dest="data.geojson",
+            note="基地点位 GeoJSON(仓库自带)",
+        )
+    ],
+)
+
+# 世界范围; 与 110m 分辨率配套, 固定视野, 不留给 AdaptiveScaler 自动换分辨率的余地.
+WORLD = Extent(-180.0, 180.0, -90.0, 90.0)
+
+# 演示图没有高程数据, 所以 relief=None; 点位名称只登记进 geo.labels, 不画文字.
+SHEET_WORLD = Sheet(
+    id="america-army",
+    out="america_army_bases.svg",
+    extent=WORLD,
+    projection=Projection("plate_carree"),
+    figsize=(10, 7.5),
+    graticule=Graticule(
+        lon_step=30.0,
+        lat_step=30.0,
+        lon_ticks=(-180.0, -150.0, -120.0, -90.0, -60.0, -30.0, 0.0, 30.0, 60.0, 90.0, 120.0, 150.0),
+        lat_ticks=(-90.0, -60.0, -30.0, 0.0, 30.0, 60.0),
+        width_pt=0.4,
+        opacity=0.35,
+    ),
+    relief=None,
+    basemap=False,
+    dataset_ids=("bases-geojson",),
+    labels=tuple(
+        Label(
+            feature["geometry"]["coordinates"][0],
+            feature["geometry"]["coordinates"][1],
+            feature["properties"]["name"],
+            role="city",
+            # 世界图上一个点只有几像素, 字号与偏移都按屏幕可读性定, 不是地理量.
+            font_size_pt=7.0,
+            dx=3.0,
+            dy=1.0,
+            ha="left",
+        )
+        for feature in BASES
+    ),
+    title="美军基地点位演示",
+    subtitle="Natural Earth 110m 世界底图 | 等距圆柱投影(PlateCarree)",
+    notes=("演示子项目: 点位来自 AmericaArmy/data.geojson, 只用于演示框架用法.",),
+)
+
+SHEETS = (SHEET_WORLD,)

@@ -1,56 +1,43 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""AmericaArmy 基地点位演示图: 世界底图 + data.geojson 里的基地经纬度点位.
+"""AmericaArmy demo: world basemap + base markers, rendered through the shared pipeline.
 
-是什么: 早期演示脚本, 只弹窗看效果, 不落盘, 不在维护范围.
-为什么: 底图要素显式钉死 Natural Earth 110m, 与 ``download_data.py`` 的预取清单一致;
-cartopy 的 ``cfeature.*`` 默认用 AdaptiveScaler, 会按当前视野自动换成 50m/10m,
-在窗口里缩放重绘时就会联网下载(50m 不在预取清单里), 违背"出图时不联网"的约定.
-完整说明见 ``docs/data-preparation.md``(预取清单)与 ``docs/reference/data.md``(缓存定位).
+是什么: 框架用法的最小示例——``specs.py`` 里放数据清单与 Sheet, 本文件只写一对回调
+(``draw`` 画图种特有图层, ``collect`` 登记 geo 元数据), 其余(建画布、定范围、量地图框、
+保存纯几何 SVG 与同名 geo.json)由 ``cartopy_file.runner`` 统一完成.
+为什么底图要素显式钉死 Natural Earth 110m: cartopy 的 ``cfeature.*`` 默认用
+AdaptiveScaler, 会按当前视野自动换成 50m/10m, 缩放重绘时就会联网下载(50m 不在预取
+清单里), 违背「出图时不联网」的约定. 这不是需要维护的图种, 只用来演示新增子项目
+最少要写什么, 见 ``docs/add-map.md``.
 """
 
+from __future__ import annotations
+
+import os
 from pathlib import Path
 
 # 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
-from cartopy_file.data import configure_cartopy, prepare_matplotlib_env
-
-prepare_matplotlib_env()
-
-import json  # 解析 data.geojson
-
-import matplotlib.pyplot as plt
+ROOT = Path(__file__).resolve().parent
+os.environ.setdefault("MPLCONFIGDIR", str(ROOT.parent / "data" / ".mplcache"))
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
-# cartopy 底图缓存统一到仓库 data/cartopy(见 docs/reference/data.md).
-configure_cartopy()
+# 子项目配置(数据集清单 + Sheet), 见 docs/reference/spec.md.
+import specs
 
-# 脚本所在目录; 数据路径以它为准, 不依赖当前工作目录.
-ROOT = Path(__file__).resolve().parent
+# 共享图层原语与统一出图流程, 见 docs/reference/layers.md / docs/reference/runner.md.
+from cartopy_file import layers, runner
 
-# 底图分辨率: 预取清单只准备了 110m(见 docs/data-preparation.md), 显式钉死,
-# 让缩放只改变显示范围, 不改变分辨率, 也就不会触发下载.
+SHEET = specs.SHEET_WORLD
+DATASETS = specs.DATASETS
+
+# 预取清单只准备了 110m(见 docs/data-preparation.md), 这里钉死, 缩放也不换分辨率.
 SCALE = "110m"
 
 
-def main() -> None:
-    with (ROOT / "data.geojson").open("r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    # 名字,经度,纬度;GeoJSON 坐标顺序固定为 [经度, 纬度]
-    points = [
-        [feat["properties"]["name"], *feat["geometry"]["coordinates"]]
-        for feat in data["features"]
-    ]
-
-    fig = plt.figure(figsize=(10, 7.5))
-    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-    # 世界范围与 110m 分辨率配套: 固定视野, 避免任何"按范围自动选分辨率"的余地.
-    ax.set_global()
-    ax.stock_img()
-
-    # with_scale 返回一份固定 Scaler 的要素, 缩放重绘时不会再去解析视野.
+def draw(ctx: runner.RenderContext) -> None:
+    """画世界底图要素与基地点位; 底图用 cfeature 是为了演示「固定分辨率」的写法."""
     for feature, style in (
         (cfeature.LAND, {}),
         (cfeature.OCEAN, {}),
@@ -59,13 +46,31 @@ def main() -> None:
         (cfeature.LAKES, {"alpha": 0.5}),
         (cfeature.RIVERS, {}),
     ):
-        ax.add_feature(feature.with_scale(SCALE), **style)
+        # with_scale 返回一份固定 Scaler 的要素, 缩放重绘时不会再去解析视野.
+        ctx.ax.add_feature(feature.with_scale(SCALE), **style)
 
     # 经纬度符号约定: E 东经为正, W 西经为负, N 北纬为正, S 南纬为负.
-    for _, lon, lat in points:
-        ax.plot(lon, lat, "+", transform=ccrs.PlateCarree())
+    for feature in specs.BASES:
+        lon, lat = feature["geometry"]["coordinates"]
+        ctx.ax.plot(lon, lat, "+", transform=ccrs.PlateCarree())
 
-    plt.show()
+    layers.add_gridlines(ctx.ax, SHEET)
+
+
+def collect(doc, ctx: runner.RenderContext) -> None:
+    """登记 geo: 地名(基地名) + 经纬刻度 + 文案; 本图没有高程, 所以不登记色标."""
+    layers.standard_collect(doc, ctx.ax, SHEET, DATASETS)
+
+
+def main() -> None:
+    runner.run(
+        SHEET,
+        root=ROOT,
+        catalog=DATASETS,
+        draw=draw,
+        collect=collect,
+        description=__doc__,
+    )
 
 
 if __name__ == "__main__":

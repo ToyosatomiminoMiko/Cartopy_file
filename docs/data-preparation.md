@@ -53,7 +53,7 @@
 | 命令 | 产物 | 什么时候需要 |
 | --- | --- | --- |
 | `python download_data.py` | `data/cartopy/` 共用底图 | 每台机器一次 |
-| `python Myanmar/download_etopo.py` | 缅甸 ETOPO(stride=2)| 缅甸全境图 |
+| `python Myanmar/download_etopo.py` | 缅甸 ETOPO(stride=2) | 缅甸全境图 |
 | `python Myanmar/download_etopo.py --region northern_shan --stride 1` | 掸邦 15 弧秒高程 | 掸邦/特区图 |
 | `python Myanmar/download_regions.py` | OSM 特区边界与画框附近国界 | 掸邦/特区图 |
 | `python Myanmar/prepare_admin_data.py` | `Myanmar/data/derived/myanmar_admin1.geojson` 等 | 缅甸行政区图 |

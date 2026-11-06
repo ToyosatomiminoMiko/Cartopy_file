@@ -5,7 +5,10 @@
 
 是什么: 下载并加工乌克兰全图所需的全部本地数据(ETOPO/GADM/OCHA/OSM), 派生出
 1991/2014/2022 边界、德左参照面与河流水库的 GeoJSON, 供 ``ukraine.py`` 离线读取.
-完整说明: ``docs/maps/ukraine.md``(数据源选择/输出文件/运行方式).
+下载地址、下载范围与本地路径全部来自 ``Ukraine/specs.py``, 这里只负责取数与加工;
+原始文件"已存在就跳过", 派生 GeoJSON 每次重建.
+完整说明: ``docs/maps/ukraine.md``(数据源选择/输出文件/运行方式); 数据集层口径见
+``docs/reference/datasets.md``.
 """
 
 from __future__ import annotations
@@ -14,11 +17,7 @@ import argparse
 import json
 import math
 import sys
-import time
-import urllib.error
 import urllib.parse
-import urllib.request
-import zipfile
 from pathlib import Path
 
 import geopandas as gpd
@@ -27,89 +26,81 @@ from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box, mapp
 from shapely.ops import linemerge, polygonize, substring, unary_union
 from shapely.validation import make_valid
 
+# 下载层(续传/重试/魔数校验/解压), 见 docs/reference/datasets.md.
+from cartopy_file.fetch import (
+    MAGIC_JSON,
+    MAGIC_NETCDF,
+    MAGIC_ZIP,
+    download,
+    extract_zip,
+    post,
+)
+
+# Overpass 公共实例: 依次尝试, 前一个 502/超时就换下一个.
+from cartopy_file.sources import overpass_endpoints
+
+# 数据集清单与下载参数(URL/bbox/本地路径的唯一真源), 见 docs/reference/spec.md.
+import specs
+
 # ============================
 # 路径与数据源
 # ============================
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
+DATASETS = specs.DATASETS
 
-# 高程子集范围: 画框是 [21.0, 41.5]°E / [43.2, 53.4]°N, 但兰勃特等角圆锥投影
-# 的矩形画框四角会向外张开, 反算到经纬度约为 18.8~43.8°E / 42.7~53.25°N.
-# 这里四周再留 0.3° 余量, 避免画框四角露出没有高程数据的空白.
-ETOPO_REGION = {"name": "ukraine", "stride": 2, "lon": (18.5, 44.0), "lat": (42.4, 53.5)}
-ETOPO_PATH = DATA_DIR / f"ETOPO_2022_v1_15s_ukraine_stride{ETOPO_REGION['stride']}.nc"
 
-ERDDAP_BASE = "https://oceanwatch.pifsc.noaa.gov/erddap/griddap/ETOPO_2022_v1_15s.nc"
-# Natural Earth 10m 国家边界(与 Myanmar/USSR 下载的是同一份).
-NE_ADMIN0_URL = (
-    "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_countries.zip"
-)
-NE_ADMIN0_DIR = DATA_DIR / "ne_10m_admin_0_countries"
-NE_ADMIN0_ZIP = DATA_DIR / "ne_10m_admin_0_countries.zip"
-# GADM 4.1 乌克兰一级行政区(法理口径, 含克里米亚与塞瓦斯托波尔).
-GADM_DIR = DATA_DIR / "gadm41_UKR"
-GADM_JSON = GADM_DIR / "gadm41_UKR_1.json"
-GADM_URL = "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_UKR_1.json"
-# OCHA HDX: Ukraine - Affected areas (Donetska and Luhanska oblasts),
-# 2021 HNO 的 GCA/NGCA 面. 资源 id 固定, 换版本时只需改这一行.
-OCHA_DIR = DATA_DIR / "ocha_gca_ngca"
-OCHA_ZIP = DATA_DIR / "2021-hno-gca_ngca.zip"
-OCHA_URL = (
-    "https://data.humdata.org/dataset/0a24205d-084c-4ef9-9d53-9349bacbde1e/"
-    "resource/86861957-a064-4427-b93a-2277738f0caa/download/2021-hno-gca_ngca.zip"
-)
-USER_AGENT = "CartopyFile-UkraineMap/1.0 (cartopy map project)"
+def _path(dataset_id: str) -> Path:
+    """数据集在本地的主路径; raw/derived 目录口径只在 specs.py 里写一次."""
+    return DATASETS.path(dataset_id)
 
-# 派生 GeoJSON 的输出路径.
-OBLASTS_PATH = DATA_DIR / "ukraine_oblasts.geojson"
-BORDER_1991_PATH = DATA_DIR / "ukraine_1991.geojson"
-CRIMEA_LINE_PATH = DATA_DIR / "crimea_2014_line.geojson"
-OCCUPIED_2014_PATH = DATA_DIR / "occupied_2014.geojson"
-CONTACT_2014_PATH = DATA_DIR / "contact_line_2014.geojson"
-CLAIMED_2022_PATH = DATA_DIR / "claimed_2022.geojson"
-TRANSNISTRIA_PATH = DATA_DIR / "transnistria.geojson"
+
+ETOPO_PATH = _path("etopo-ukraine")
+GADM_JSON = _path("gadm41-ukr")
+# OCHA 压缩包落在 raw/ 根, 解压目录是 Dataset.dest(见 specs.py).
+OCHA_DIR = _path("ocha-gca-ngca")
+OCHA_ZIP = DATA_DIR / specs.OCHA_ARCHIVE
+
+# 派生 GeoJSON 的输出路径(文件名在 specs.py 里登记).
+OBLASTS_PATH = _path("ukraine-oblasts")
+BORDER_1991_PATH = _path("ukraine-border-1991")
+CRIMEA_LINE_PATH = _path("crimea-2014-line")
+OCCUPIED_2014_PATH = _path("occupied-2014")
+CONTACT_2014_PATH = _path("contact-2014")
+CLAIMED_2022_PATH = _path("claimed-2022")
+TRANSNISTRIA_PATH = _path("transnistria")
 
 # ---- 第聂伯河: OSM 精细水系(Overpass 原始 JSON 缓存 + 派生 GeoJSON) ----
-# 公共 Overpass 实例高峰期限流, 请求会排队/返回 502, 所以用"失败退避重试".
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
-OVERPASS_USER_AGENT = "CartopyFile-UkraineMap/1.0 (cartopy map project)"
-# 第聂伯河干流 relation(waterway=river): 189 段 main_stream 成员 way 首尾相接.
-DNIEPER_RIVER_RELATION = 2086905
-# 第聂伯梯级水库(从上游到下游): OSM 里都是 natural=water 的 multipolygon
+DNIEPER_RIVER_RELATION = specs.DNIEPER_RIVER_RELATION
+# 第聂伯河梯级水库(从上游到下游): OSM 里都是 natural=water 的 multipolygon
 # relation. 只取 outer 成员: 水库里的岛屿(inner)在 1:330 万图上不足 1 px.
-DNIEPER_RESERVOIRS: dict[int, str] = {
-    1605938: "Київське водосховище",       # 基辅水库
-    3173129: "Канівське водосховище",       # 卡尼夫水库
-    2289192: "Кременчуцьке водосховище",    # 克列缅丘格水库
-    287177: "Кам'янське водосховище",       # 卡缅斯克水库
-    21217234: "Дніпровське водосховище",    # 第聂伯水库
-}
+DNIEPER_RESERVOIRS = specs.DNIEPER_RESERVOIRS
 # 卡霍夫卡水库: 2023-06 大坝被毁后放空, OSM 已删除其水面; 本图是 2022 年口径,
 # 用 Natural Earth 10m 湖泊层里溃坝前的水库面补上.
-KAKHOVKA_NE_NAME = "Kakhovka"
+KAKHOVKA_NE_NAME = specs.KAKHOVKA_NE_NAME
 RIVER_SIMPLIFY_DEG = 0.0003   # ≈33 m, 小于图上 1 px(≈270 m), 肉眼无损
 WATER_SIMPLIFY_DEG = 0.0003
 WATER_MIN_AREA_DEG2 = 0.001   # 约 8 km², 滤掉 polygonize 留下的碎片
 # 画框 [21.0, 41.5]E / [43.2, 53.4]N 投影后四角外张, 这里比画框多留 ~1°.
 DNIEPER_CLIP = (29.0, 44.5, 38.0, 54.0)  # (min_lon, min_lat, max_lon, max_lat)
 
-DNIEPER_RIVER_CACHE = DATA_DIR / "osm_dnieper_river.json"
-DNIEPER_WATER_CACHE = DATA_DIR / "osm_dnieper_reservoirs.json"
-DNIEPER_RIVER_PATH = DATA_DIR / "dnieper_river_osm.geojson"
-DNIEPER_WATER_PATH = DATA_DIR / "dnieper_water_osm.geojson"
+DNIEPER_RIVER_CACHE = _path("osm-dnieper-river")
+DNIEPER_WATER_CACHE = _path("osm-dnieper-reservoirs")
+DNIEPER_RIVER_PATH = _path("dnieper-river")
+DNIEPER_WATER_PATH = _path("dnieper-water")
 
 # ---- 德涅斯特河(OSM) 与德左参照面 ----
 # 德涅斯特河干流 relation(waterway=river): 214 段 main_stream 成员 way.
 # NE 10m 的德涅斯特河在德左一带平均约 1 km 一个顶点, 与"沿河"的德左西缘
 # 放不到一起(数据源选择理由见 docs/maps/ukraine.md 第 7 条); 德左填色的西缘要用这条高精度线裁出来,
 # 绘制时也改用同一条线, 两者才能严格重合.
-DNIESTER_RIVER_RELATION = 2474595
-DNIESTER_RIVER_CACHE = DATA_DIR / "osm_dniester_river.json"
-DNIESTER_RIVER_PATH = DATA_DIR / "dniester_river_osm.geojson"
+DNIESTER_RIVER_RELATION = specs.DNIESTER_RIVER_RELATION
+DNIESTER_RIVER_CACHE = _path("osm-dniester-river")
+DNIESTER_RIVER_PATH = _path("dniester-river")
 # 德左(德涅斯特河沿岸摩尔达维亚共和国, PMR)边界 relation:
 # boundary=administrative / admin_level=3 / name=Нистрения / Приднестровье.
-TRANSNISTRIA_RELATION = 65335
-TRANSNISTRIA_BOUNDARY_CACHE = DATA_DIR / "osm_transnistria_boundary.json"
+TRANSNISTRIA_RELATION = specs.TRANSNISTRIA_RELATION
+TRANSNISTRIA_BOUNDARY_CACHE = _path("osm-transnistria-boundary")
 # 德左面裁切用的局部 bbox (min_lon, min_lat, max_lon, max_lat); 只在这里求
 # "河心线东侧"与"1991 国界以内", 不必把整条河/整个乌克兰都参与运算.
 TRANSNISTRIA_CLIP = (28.2, 46.3, 30.4, 48.5)
@@ -120,33 +111,14 @@ DNIESTER_BRIDGE_DEG = 0.02
 TRANSNISTRIA_MIN_AREA_KM2 = 2.0
 
 # ---- 南布格河/顿河: NE 10m 在河口前收笔, 用 OSM 补下游段 ----
-# NE 10m 缓存的收笔位置: 南布格河 (31.749, 47.259), 顿河 (39.378, 47.111).
-# 两条河在图内都向南/西南入海, 所以"下游要素"= 末端纬度最低的那条
-# (见 build_river_extension). Overpass 的 bbox 用 (south, west, north, east),
-# 只覆盖 NE 收笔点到河口的一小段; 跨出 bbox 的 way 仍带完整几何, 足够接上.
-RIVER_EXTENSIONS: tuple[dict, ...] = (
+# specs.RIVER_EXTENSIONS 是下载参数(bbox/河名/缓存 id); 这里补上本地路径.
+RIVER_EXTENSIONS: tuple[dict, ...] = tuple(
     {
-        "key": "southern_bug",
-        "ne_name": "Southern Bug",
-        # 乌克兰段在 OSM 里是乌克兰语名; 俄语/英语名一并收, 防止个别 way
-        # 用了别的语言标注而漏掉.
-        "osm_names": ("Південний Буг", "Южный Буг", "Southern Bug"),
-        "bbox": (46.85, 31.55, 47.40, 32.10),
-        "name_zh": "南布格河下游补段",
-        "cache": DATA_DIR / "osm_southern_bug_lower.json",
-        "path": DATA_DIR / "southern_bug_river_osm.geojson",
-    },
-    {
-        "key": "don",
-        "ne_name": "Don",
-        # 顿河下游在俄罗斯境内, OSM 用俄语名; 三角洲的汊道各有名字, 这里只要
-        # 主河道 "Дон" 本身(实测三角洲里同名 way 只有一条, 直通亚速海).
-        "osm_names": ("Дон",),
-        "bbox": (47.00, 39.05, 47.25, 39.60),
-        "name_zh": "顿河下游补段",
-        "cache": DATA_DIR / "osm_don_lower.json",
-        "path": DATA_DIR / "don_river_osm.geojson",
-    },
+        **extension,
+        "cache": _path(extension["cache_id"]),
+        "path": _path(extension["derived_id"]),
+    }
+    for extension in specs.RIVER_EXTENSIONS
 )
 # 接缝点选择: 在 OSM 下游链的上游段上扫描, 取"离 NE 线近 + 走向一致"的点.
 # 为什么不直接首尾相接: 两套数据对同一条河的描绘相差 0.5~2 km, 且 NE 在河口
@@ -200,105 +172,102 @@ CLAIMED_2022_UNITS = [
 
 
 # ============================
-# 下载与解压
+# 下载(URL/bbox/路径全部来自 specs.py; 已存在就跳过)
 # ============================
-def _erddap_url(stride: int, lon_range: tuple[float, float], lat_range: tuple[float, float]) -> str:
-    """拼 ETOPO 子集请求 URL; ERDDAP 的 z[lat][lon] 顺序, 经纬度用坐标值写."""
-    min_lon, max_lon = lon_range
-    min_lat, max_lat = lat_range
-    query = (
-        f"z%5B({min_lat}):{stride}:({max_lat})%5D"
-        f"%5B({min_lon}):{stride}:({max_lon})%5D"
+def _fetch(dataset_id: str, description: str, *, magic=(), force: bool = False) -> Path:
+    """按 specs 里的数据集下载单个文件; 已存在且非空时 fetch.download 会跳过."""
+    item = DATASETS.get(dataset_id)
+    return download(
+        item.url,
+        DATASETS.path(item),
+        description=description,
+        force=force,
+        magic=magic,
     )
-    return f"{ERDDAP_BASE}?{query}"
 
 
-def is_netcdf_file(path: Path) -> bool:
-    """检查文件头, 避免把 ERDDAP 的错误 HTML 当成 NetCDF 缓存下来."""
-    with open(path, "rb") as fh:
-        magic = fh.read(4)
-    return magic.startswith(b"CDF") or magic.startswith(b"\x89HDF")
+def fetch_etopo(force: bool) -> None:
+    print(f"下载 ETOPO 2022 乌克兰区域高程 (stride={specs.ETOPO_STRIDE}, 约 30 弧秒)")
+    print(f"  {DATASETS.get('etopo-ukraine').url}")
+    _fetch("etopo-ukraine", "ETOPO 高程", magic=MAGIC_NETCDF, force=force)
 
 
-def download(
-    url: str,
-    dest: Path,
-    description: str,
-    *,
-    force: bool = False,
-    expect_netcdf: bool = False,
-) -> None:
-    """带续传与失败重试的下载; 目标文件已存在且非空时直接跳过."""
-    if dest.exists() and dest.stat().st_size > 0 and not force:
-        print(f"已存在, 跳过 {description}: {dest}")
+def fetch_gadm(force: bool) -> None:
+    print("下载 GADM 4.1 乌克兰一级行政区")
+    _fetch("gadm41-ukr", "GADM 乌克兰一级行政区", magic=MAGIC_JSON, force=force)
+
+
+def fetch_ocha(force: bool) -> None:
+    print("下载 OCHA/HDX 2021 HNO 顿巴斯 GCA/NGCA 分区")
+    item = DATASETS.get("ocha-gca-ngca")
+    if DATASETS.exists(item) and not force:
+        # 解压目录已就位时连压缩包都不碰: 删掉中间 zip 不该触发重新联网.
+        print(f"已存在, 跳过 {item.note}: {DATASETS.path(item)}")
         return
+    download(
+        item.url,
+        OCHA_ZIP,
+        description="OCHA GCA/NGCA",
+        force=force,
+        magic=MAGIC_ZIP,
+    )
+    extract_zip(OCHA_ZIP, DATASETS.path(item), force=force)
 
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    part = dest.with_name(dest.name + ".part")
-    if part.exists() and not force:
-        print(f"发现未完成的下载, 续传: {part}")
-    elif part.exists():
-        part.unlink()
 
-    for attempt in range(1, 4):
-        downloaded = part.stat().st_size if part.exists() else 0
-        headers = {"User-Agent": USER_AGENT}
-        if downloaded:
-            headers["Range"] = f"bytes={downloaded}-"
-        request = urllib.request.Request(url, headers=headers)
+def ensure_shared_layers() -> int:
+    """检查共享缓存里的 Natural Earth 图层; 缺失只提示, 不在这里下载.
+
+    为什么不在子项目里下: 这些图层是全仓共用的(cartopy 的 NEShpDownloader 管理),
+    仓库根的 ``python download_data.py`` 统一预取; 子项目再下一份只会造成副本漂移.
+    """
+    missing = [
+        item
+        for item in DATASETS
+        if item.kind == "cartopy-ne" and not DATASETS.exists(item)
+    ]
+    for item in missing:
+        print(
+            f"警告: 缺少共享 Natural Earth 图层 {item.resolution}/{item.category}/{item.name}; "
+            "请先在仓库根运行: python download_data.py"
+        )
+    return len(missing)
+
+
+def _overpass(item, force: bool) -> None:
+    """执行一条 Overpass QL 查询, 把原始 JSON 缓存到 dest(已存在则跳过).
+
+    为什么不在绘图时联网: 渲染应该只读本地文件; 这里下载一次, 之后
+    build_* 每次都从这份 JSON 重建派生 GeoJSON.
+    为什么要换实例重试: 公共实例按请求排队, 高峰时会直接 502 或长时间排队;
+    fetch.post 内部已按 3 次退避重试, 这里再按 sources 登记的实例依次轮换.
+    """
+    body = urllib.parse.urlencode({"data": specs.OSM_QUERIES[item.id]}).encode()
+    dest = DATASETS.path(item)
+    last_error: Exception | None = None
+    for endpoint in overpass_endpoints():
         try:
-            with urllib.request.urlopen(request, timeout=600) as response:
-                # 服务器不支持 Range 时会返回 200 + 完整内容, 此时必须清空
-                # 已有的 .part 从头写, 否则续传会得到损坏文件.
-                if downloaded and response.status == 200:
-                    downloaded = 0
-                    part.unlink(missing_ok=True)
-                mode = "ab" if downloaded else "wb"
-                total = response.headers.get("Content-Length")
-                total = int(total) if total else None
-                last_report = time.time()
-                written = downloaded
-                with open(part, mode) as out:
-                    while True:
-                        chunk = response.read(1024 * 1024)
-                        if not chunk:
-                            break
-                        out.write(chunk)
-                        written += len(chunk)
-                        if time.time() - last_report >= 3:
-                            last_report = time.time()
-                            if total:
-                                pct = written / total * 100
-                                print(f"  {description}: {written/1048576:6.1f} / {total/1048576:6.1f} MiB ({pct:5.1f}%)")
-                            else:
-                                print(f"  {description}: {written/1048576:6.1f} MiB")
-            if expect_netcdf and not is_netcdf_file(part):
-                part.unlink(missing_ok=True)
-                raise RuntimeError(f"下载内容不是 NetCDF(可能是 ERDDAP 错误页): {url}")
-            part.replace(dest)
-            print(f"完成: {dest} ({dest.stat().st_size/1048576:.1f} MiB)")
+            post(endpoint, body, dest, description=item.note or item.id, force=force)
+            payload = json.loads(dest.read_text(encoding="utf-8"))
+            if "elements" not in payload:
+                dest.unlink(missing_ok=True)
+                raise RuntimeError(f"Overpass 返回异常(没有 elements): {endpoint}")
+            print(
+                f"完成: {dest.name} "
+                f"({dest.stat().st_size / 1048576:.1f} MiB, {len(payload['elements'])} 元素)"
+            )
             return
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            print(f"  下载失败 ({attempt}/3): {exc}")
-            if attempt == 3:
-                raise
-            time.sleep(5 * attempt)
+        except (OSError, ValueError, RuntimeError) as exc:
+            last_error = exc
+            print(f"  Overpass 失败({endpoint}): {exc}")
+    raise RuntimeError(f"Overpass 下载失败: {item.note or item.id}: {last_error}")
 
 
-def extract_zip(zip_path: Path, out_dir: Path, *, skip_if_shp: bool = True) -> Path:
-    """把 zip 解压到 out_dir; 已有 .shp 时不重复解压. 返回找到的 .shp."""
-    shapefiles = sorted(out_dir.glob("*.shp")) if out_dir.exists() else []
-    if shapefiles and skip_if_shp:
-        print(f"已存在, 跳过解压: {shapefiles[0]}")
-        return shapefiles[0]
-    out_dir.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(zip_path) as archive:
-        archive.extractall(out_dir)
-    shapefiles = sorted(out_dir.rglob("*.shp"))
-    if not shapefiles:
-        raise RuntimeError(f"压缩包中没有 shapefile: {zip_path}")
-    print(f"已解压: {shapefiles[0]}")
-    return shapefiles[0]
+def fetch_osm(force: bool) -> None:
+    """下载全部 OSM 原始 JSON 缓存(河流/水库/德左边界/下游补段)."""
+    print("下载 OpenStreetMap 河流与边界原始关系 (Overpass)")
+    for item in DATASETS:
+        if item.kind == "script" and item.source_id == "openstreetmap":
+            _overpass(item, force=force)
 
 
 # ============================
@@ -408,140 +377,6 @@ def load_gadm() -> gpd.GeoDataFrame:
     if gdf.crs is None:
         gdf = gdf.set_crs("EPSG:4326")
     return gdf.to_crs("EPSG:4326")
-
-
-# ============================
-# 1. 下载原始数据
-# ============================
-def fetch_etopo(force: bool) -> None:
-    url = _erddap_url(ETOPO_REGION["stride"], ETOPO_REGION["lon"], ETOPO_REGION["lat"])
-    print(f"下载 ETOPO 2022 乌克兰区域高程 (stride={ETOPO_REGION['stride']}, 约 30 弧秒)")
-    print(f"  {url}")
-    download(url, ETOPO_PATH, "ETOPO 高程", force=force, expect_netcdf=True)
-
-
-def fetch_admin0(force: bool) -> None:
-    print("下载 Natural Earth 10m 国家边界(邻国底色/国界)")
-    # 仓库里可能已经有解压好的 shapefile(例如从 USSR/data 复制过来的);
-    # 只要 .shp 在就跳过, 不必为了缺少 zip 再下一次 9 MB.
-    if not force and sorted(NE_ADMIN0_DIR.glob("*.shp")):
-        print(f"已存在, 跳过: {sorted(NE_ADMIN0_DIR.glob('*.shp'))[0]}")
-        return
-    download(NE_ADMIN0_URL, NE_ADMIN0_ZIP, "Natural Earth 国界", force=force)
-    extract_zip(NE_ADMIN0_ZIP, NE_ADMIN0_DIR)
-
-
-def fetch_gadm(force: bool) -> None:
-    print("下载 GADM 4.1 乌克兰一级行政区")
-    if not force and GADM_JSON.exists() and GADM_JSON.stat().st_size > 0:
-        print(f"已存在, 跳过: {GADM_JSON}")
-        return
-    download(GADM_URL, GADM_JSON, "GADM 乌克兰一级行政区", force=force)
-
-
-def fetch_dniester_osm(force: bool) -> None:
-    """下载 OSM 德涅斯特河干流与德左(PMR)边界关系(Overpass, 各一个请求).
-
-    两条数据都只取 ``out geom`` 的原始成员几何: 河流用 main_stream 成员
-    拼中心线, 边界用 outer/inner 成员 polygonize 成面; 派生在
-    ``build_dniester_river`` / ``build_transnistria`` 里做.
-    """
-    print("下载 OpenStreetMap 德涅斯特河干流与德左边界 (Overpass)")
-    overpass_query(
-        f"[out:json][timeout:300];rel({DNIESTER_RIVER_RELATION});out geom;",
-        DNIESTER_RIVER_CACHE,
-        "德涅斯特河干流",
-        force=force,
-    )
-    overpass_query(
-        f"[out:json][timeout:300];rel({TRANSNISTRIA_RELATION});out geom;",
-        TRANSNISTRIA_BOUNDARY_CACHE,
-        "德左边界",
-        force=force,
-    )
-
-
-def fetch_ocha(force: bool) -> None:
-    print("下载 OCHA/HDX 2021 HNO 顿巴斯 GCA/NGCA 分区")
-    download(OCHA_URL, OCHA_ZIP, "OCHA GCA/NGCA", force=force)
-    extract_zip(OCHA_ZIP, OCHA_DIR)
-
-
-def overpass_query(query: str, dest: Path, description: str, *, force: bool = False) -> None:
-    """执行一条 Overpass QL 查询, 把原始 JSON 缓存到 dest(已存在则跳过).
-
-    为什么不在绘图时联网: 渲染应该只读本地文件; 这里下载一次, 之后
-    build_dnieper_* 每次都从这份 JSON 重建派生 GeoJSON.
-    为什么要退避重试: 公共实例按请求排队, 高峰时会直接 502 或长时间排队;
-    同一条查询换时间重试比让整个脚本失败更省事(实测一次成功约 30~60 s).
-    """
-    if dest.exists() and dest.stat().st_size > 0 and not force:
-        print(f"已存在, 跳过 {description}: {dest.name}")
-        return
-
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    body = urllib.parse.urlencode({"data": query}).encode()
-    last_error: Exception | None = None
-    for attempt in range(1, 6):
-        request = urllib.request.Request(
-            OVERPASS_URL, data=body, headers={"User-Agent": OVERPASS_USER_AGENT}
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=600) as response:
-                payload = response.read()
-            data = json.loads(payload)
-            if "elements" not in data:
-                raise RuntimeError(f"Overpass 返回异常: {payload[:200]!r}")
-            part = dest.with_name(dest.name + ".part")
-            part.write_bytes(payload)
-            part.replace(dest)
-            print(f"完成: {dest.name} ({dest.stat().st_size/1048576:.1f} MiB, {len(data['elements'])} 元素)")
-            return
-        except (urllib.error.URLError, TimeoutError, OSError, ValueError, RuntimeError) as exc:
-            last_error = exc
-            print(f"  Overpass 失败 ({attempt}/5): {exc}")
-            time.sleep(10 * attempt)
-    raise RuntimeError(f"Overpass 下载失败: {description}: {last_error}")
-
-
-def fetch_dnieper_osm(force: bool) -> None:
-    """下载第聂伯河干流 relation 与五个梯级水库的外环 way."""
-    print("下载 OpenStreetMap 第聂伯河干流与梯级水库 (Overpass)")
-    overpass_query(
-        f"[out:json][timeout:300];rel({DNIEPER_RIVER_RELATION});out geom;",
-        DNIEPER_RIVER_CACHE,
-        "第聂伯河干流",
-        force=force,
-    )
-    # 只取 outer 成员: inner 是水库里的岛, 数量(基辅水库 520 个 inner way)
-    # 和体积都远大于 outer, 在 1:330 万图上却看不见, 没必要下载.
-    rel_ids = ",".join(str(rel_id) for rel_id in DNIEPER_RESERVOIRS)
-    overpass_query(
-        f'[out:json][timeout:300];rel(id:{rel_ids})->.rels;way(r.rels:"outer");out geom;',
-        DNIEPER_WATER_CACHE,
-        "第聂伯河梯级水库",
-        force=force,
-    )
-
-
-def fetch_river_extensions(force: bool) -> None:
-    """下载南布格河/顿河下游的 OSM waterway=river way(Overpass, 小 bbox).
-
-    只取下游一小块: 上段已经由 NE 10m 画, 这里只补 NE 提前收笔的那一段.
-    不按河名过滤(在 Python 里按 ``osm_names`` 过滤): 同一段河在 OSM 里可能
-    用不同语言/拼写标注, bbox 又很小, 整块下载只多几百 KB, 换来的鲁棒性比
-    省那点流量值.
-    """
-    print("下载 OpenStreetMap 南布格河/顿河下游 (Overpass)")
-    for spec in RIVER_EXTENSIONS:
-        south, west, north, east = spec["bbox"]
-        overpass_query(
-            f'[out:json][timeout:120];way["waterway"="river"]'
-            f"({south},{west},{north},{east});out geom;",
-            spec["cache"],
-            spec["name_zh"],
-            force=force,
-        )
 
 
 # ============================
@@ -809,17 +644,12 @@ def load_kakhovka_from_ne():
     水面; 本图表达 2022 年, 所以用 Natural Earth(2022 年前编制)的轮廓.
     缓存缺失时返回 None(调用方跳过, 不联网).
     """
-    try:
-        from cartopy_file.data import configure_cartopy, natural_earth_paths
-    except ImportError:
-        print("警告: 无法导入 cartopy_file, 卡霍夫卡水库将不画(其他四座仍画)")
-        return None
-    configure_cartopy()
-    path, _ = natural_earth_paths("10m", "physical", "lakes")
-    if path is None:
+    from cartopy_file.relief import load_ne_layer  # 延迟导入: --check 不需要 matplotlib
+
+    lakes = load_ne_layer("10m", "physical", "lakes")
+    if lakes is None:
         print("警告: 缺少 Natural Earth 10m 湖泊缓存, 卡霍夫卡水库将不画")
         return None
-    lakes = gpd.read_file(path)
     row = lakes[lakes["name_en"] == KAKHOVKA_NE_NAME]
     if row.empty:
         print(f"警告: NE 10m 湖泊里没有 {KAKHOVKA_NE_NAME}, 卡霍夫卡水库将不画")
@@ -1096,15 +926,12 @@ def build_transnistria(dniester_line: LineString, border_1991) -> None:
 # ============================
 def load_ne_rivers() -> gpd.GeoDataFrame:
     """读共享缓存里的 Natural Earth 10m 河网(只读, 不联网)."""
-    try:
-        from cartopy_file.data import configure_cartopy, natural_earth_paths
-    except ImportError as exc:
-        raise RuntimeError("无法导入 cartopy_file, 请先 `uv pip install -e .`") from exc
-    configure_cartopy()
-    path, _ = natural_earth_paths("10m", "physical", "rivers_lake_centerlines")
-    if path is None:
-        raise RuntimeError("缺少 Natural Earth 10m 河网缓存, 请先运行: python download_data.py")
-    return gpd.read_file(path)
+    from cartopy_file.relief import load_ne_layer  # 延迟导入: --check 不需要 matplotlib
+
+    rivers = load_ne_layer("10m", "physical", "rivers_lake_centerlines")
+    if rivers is None:
+        raise RuntimeError("缺少 Natural Earth 10m 河网缓存, 请先在仓库根运行: python download_data.py")
+    return rivers
 
 
 def _ne_river_features(rivers: gpd.GeoDataFrame, name: str) -> list[tuple[int, LineString]]:
@@ -1259,40 +1086,29 @@ def build_river_extension(spec: dict) -> None:
 # ============================
 # 4. 检查与主流程
 # ============================
+_STATE_LABELS = {"ok": "已存在", "missing": "缺失", "drifted": "版本漂移"}
+
+
 def check_outputs(verbose: bool = True) -> int:
-    """只检查、不联网: 返回缺失项数量(0 表示可以离线出图)."""
-    required = [
-        ETOPO_PATH,
-        NE_ADMIN0_DIR / "ne_10m_admin_0_countries.shp",
-        GADM_JSON,
-        OCHA_DIR / "2021 HNO GCA_NGCA.shp",
-        OBLASTS_PATH,
-        BORDER_1991_PATH,
-        CRIMEA_LINE_PATH,
-        OCCUPIED_2014_PATH,
-        CONTACT_2014_PATH,
-        CLAIMED_2022_PATH,
-        TRANSNISTRIA_PATH,
-        DNIEPER_RIVER_PATH,
-        DNIEPER_WATER_PATH,
-        DNIESTER_RIVER_PATH,
-        *[spec["path"] for spec in RIVER_EXTENSIONS],
-    ]
-    missing = 0
-    for path in required:
-        if path.exists():
-            if verbose:
-                print(f"  [已存在] {path.relative_to(ROOT)}")
-        else:
-            missing += 1
-            if verbose:
-                print(f"  [缺失]   {path.relative_to(ROOT)}")
+    """只检查、不联网: 返回缺失/漂移项数量(0 表示可以离线出图)."""
+    lines = DATASETS.check()
+    failed = [line for line in lines if line.failed]
     if verbose:
-        if missing:
-            print(f"\n共 {missing} 项缺失, 请运行: python Ukraine/download_data.py")
+        for line in lines:
+            print(f"  [{_STATE_LABELS[line.state]}] {line.dataset_id}: {line.detail}")
+        if failed:
+            hints = {
+                "python download_data.py"
+                if DATASETS.get(line.dataset_id).kind == "cartopy-ne"
+                else "python Ukraine/download_data.py"
+                for line in failed
+            }
+            print(f"\n共 {len(failed)} 项缺失/漂移, 请按下面命令准备(已存在的会自动跳过):")
+            for command in sorted(hints):
+                print(f"  {command}")
         else:
             print("\n全部数据已就位, 可以运行: python Ukraine/ukraine.py")
-    return missing
+    return len(failed)
 
 
 def main() -> None:
@@ -1305,12 +1121,10 @@ def main() -> None:
         sys.exit(0 if check_outputs(verbose=True) == 0 else 1)
 
     fetch_etopo(force=args.force)
-    fetch_admin0(force=args.force)
+    ensure_shared_layers()
     fetch_gadm(force=args.force)
     fetch_ocha(force=args.force)
-    fetch_dnieper_osm(force=args.force)
-    fetch_dniester_osm(force=args.force)
-    fetch_river_extensions(force=args.force)
+    fetch_osm(force=args.force)
 
     print("\n加工行政区与 1991 年边界")
     gdf, border_1991 = build_oblasts(load_gadm())
@@ -1328,9 +1142,9 @@ def main() -> None:
     build_dnieper_river()
     print("\n加工第聂伯河梯级水库水面")
     build_dnieper_water()
-    for spec in RIVER_EXTENSIONS:
-        print(f"\n加工{spec['name_zh']}")
-        build_river_extension(spec)
+    for extension in RIVER_EXTENSIONS:
+        print(f"\n加工{extension['name_zh']}")
+        build_river_extension(extension)
 
     print("\n数据自检")
     check_outputs(verbose=True)

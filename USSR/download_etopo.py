@@ -1,128 +1,27 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Download the ETOPO 2022 15-arc-second USSR subset and Natural Earth boundaries.
+"""Download the ETOPO 2022 15-arc-second USSR subset.
 
-是什么: 从 NOAA ERDDAP 一次下载苏联区域 ETOPO 高程子集(默认 stride=8, 约 45 MB)
-与 Natural Earth 10m 国界, 缓存到 ``USSR/data/`` 供 ``ussr.py`` 读取.
-完整说明: ``docs/data-preparation.md``(数据来源/下载方式/注意事项).
+是什么: 从 NOAA ERDDAP 下载苏联区域 ETOPO 高程子集(默认 stride=8, 约 45 MB); URL 与
+下载范围来自 ``cartopy_file.sources`` 与 ``USSR/specs.py``, 文件已就位时跳过、不重复下载.
+Natural Earth 国界/海岸线由根目录 ``download_data.py`` 预取到共享缓存, 这里不再下载.
+完整说明(数据来源、下载范围、断点续传与退出码)见 ``docs/maps/ussr.md`` 与
+``docs/data-preparation.md``.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
-import time
-import urllib.error
-import urllib.request
-import zipfile
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT / "data"
 
-ERDDAP_BASE = (
-    "https://oceanwatch.pifsc.noaa.gov/erddap/griddap/"
-    "ETOPO_2022_v1_15s.nc"
-)
-# 为什么用 10m 而不是 110m: ussr.py 把 15 个前苏联国家的面合并成一条外轮廓再画,
-# 该轮廓要和图上的 10m 海岸线同尺度才不折线; 旧版这里下的是 110m, 与 ussr.py
-# 实际读取的 USSR/data/ne_10m_admin_0_countries/ 对不上, 新机器上会静默丢掉红色边界.
-NE_URL = (
-    "https://naturalearth.s3.amazonaws.com/"
-    "10m_cultural/ne_10m_admin_0_countries.zip"
-)
-USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/124.0 Safari/537.36"
-)
-
-
-def erddap_url(stride: int, lon_range=(15, -165), lat_range=(20, 90)) -> str:
-    min_lon, max_lon = lon_range
-    min_lat, max_lat = lat_range
-    # ERDDAP 的经度是 0~360°; 若用户写 [15, -165],
-    # 这里把 -165 转换为 195,即从 15°E 向东到 165°W.
-    if max_lon < min_lon:
-        max_lon += 360
-    query = (
-        f"z%5B({min_lat}):{stride}:({max_lat})%5D"
-        f"%5B({min_lon}):{stride}:({max_lon})%5D"
-    )
-    return f"{ERDDAP_BASE}?{query}"
-
-
-def download(url: str, dest: Path, description: str, force: bool) -> None:
-    if dest.exists() and dest.stat().st_size > 0 and not force:
-        print(f"已存在，跳过 {description}: {dest}")
-        return
-
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    part = dest.with_name(dest.name + ".part")
-    if part.exists() and not force:
-        print(f"发现未完成的下载，续传: {part}")
-    elif part.exists():
-        part.unlink()
-
-    attempt = 0
-    max_attempts = 3
-    while attempt < max_attempts:
-        attempt += 1
-        downloaded = part.stat().st_size if part.exists() else 0
-        headers = {"User-Agent": USER_AGENT}
-        if downloaded:
-            headers["Range"] = f"bytes={downloaded}-"
-
-        request = urllib.request.Request(url, headers=headers)
-        try:
-            with urllib.request.urlopen(request, timeout=600) as response:
-                # A new server may ignore Range; reset the partial file in that case.
-                if downloaded and response.status == 200:
-                    downloaded = 0
-                    part.unlink(missing_ok=True)
-
-                mode = "ab" if downloaded else "wb"
-                total = response.headers.get("Content-Length")
-                total = int(total) if total else None
-                last_report = time.time()
-                written = downloaded
-                with open(part, mode) as out:
-                    while True:
-                        chunk = response.read(1024 * 1024)
-                        if not chunk:
-                            break
-                        out.write(chunk)
-                        written += len(chunk)
-                        now = time.time()
-                        if now - last_report >= 3:
-                            last_report = now
-                            if total:
-                                pct = written / (downloaded + total) * 100 if downloaded else written / total * 100
-                                print(f"  {description}: {written/1024/1024:6.1f} MiB / {total/1024/1024:6.1f} MiB ({pct:5.1f}%)")
-                            else:
-                                print(f"  {description}: {written/1024/1024:6.1f} MiB")
-            part.replace(dest)
-            print(f"完成: {dest} ({dest.stat().st_size/1024/1024:.1f} MiB)")
-            return
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            print(f"  下载失败 ({attempt}/{max_attempts}): {exc}")
-            if attempt < max_attempts:
-                time.sleep(5 * attempt)
-            else:
-                raise
-
-
-def extract_shapefile(zip_path: Path) -> Path:
-    out_dir = DATA_DIR / "ne_10m_admin_0_countries"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(zip_path) as archive:
-        archive.extractall(out_dir)
-    shp_files = sorted(out_dir.rglob("*.shp"))
-    if not shp_files:
-        raise RuntimeError(f"压缩包中没有 shapefile: {zip_path}")
-    print(f"Natural Earth shapefile 已解压到: {shp_files[0]}")
-    return shp_files[0]
+# 子项目配置(数据集清单 + 画框)与下载层, 见 docs/reference/datasets.md.
+import specs
+from cartopy_file import fetch
+from cartopy_file.sources import erddap_url
 
 
 def main() -> None:
@@ -143,22 +42,29 @@ def main() -> None:
     if args.stride < 1:
         parser.error("--stride 必须 >= 1")
 
-    etopo_path = DATA_DIR / f"ETOPO_2022_v1_15s_ussr_stride{args.stride}.nc"
-    ne_zip_path = DATA_DIR / "ne_10m_admin_0_countries.zip"
+    datasets = specs.DATASETS
 
-    if etopo_path.exists() and not args.force:
-        print("提示: 目标文件已存在; 若它是旧的 15~170°E 范围,请加 --force 重新下载.")
-
-    url = erddap_url(args.stride)
-    print(f"下载 ETOPO 2022 区域高程 (stride={args.stride})")
+    # ETOPO 子集: 文件名带 stride, 不同步长的文件可以共存(drawing 侧按步长挑).
+    # 下载范围来自 specs.py 的 ETOPO_BBOX_USSR, 与「这份数据覆盖多大」是同一个对象.
+    bbox = specs.ETOPO_BBOX_USSR
+    etopo_path = datasets.raw_dir / f"ETOPO_2022_v1_15s_ussr_stride{args.stride}.nc"
+    url = erddap_url(
+        "etopo-2022",
+        stride=args.stride,
+        lon_range=(bbox.lon_min, bbox.lon_max),
+        lat_range=(bbox.lat_min, bbox.lat_max),
+    )
+    print(f"下载 ETOPO 2022 苏联区域高程 (stride={args.stride})")
     print(url)
-    download(url, etopo_path, "ETOPO 高程", args.force)
+    fetch.download(
+        url,
+        etopo_path,
+        description="ETOPO 高程",
+        force=args.force,
+        magic=fetch.MAGIC_NETCDF,
+    )
 
-    print("\n下载 Natural Earth 10m 国家边界")
-    download(NE_URL, ne_zip_path, "Natural Earth 边界", args.force)
-    extract_shapefile(ne_zip_path)
-
-    print("\n完成。现在可运行: python ussr.py")
+    print("\n完成。现在可运行: python USSR/ussr.py")
 
 
 if __name__ == "__main__":

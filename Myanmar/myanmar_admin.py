@@ -3,19 +3,20 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Administrative-division map of Myanmar.
 
-是什么: 绘制缅甸省/邦级行政区划图, 七邦冷色、七省暖色、内比都联邦区中性色加
-斜线, 叠加河流与 ETOPO 2022 地形晕渲, 并画出各行政区中心点;
-国界用半透明红色、只画陆上段, 海岸线不单独绘制.
-只绘制地理要素: 文字/图例/色标/标题/刻度文字/比例尺/指北针都不画进底图,
-而是以数据形式写进同名 ``<产物>.geo.json``; 文字与版面由前端接管, 本脚本同时
-产出同名 geo.json, 字段与裁剪口径见 ``docs/reference/geo.md``. 比例尺、指北针
-属契约非目标, 本图不产出.
-完整说明(配色、投影、数据来源、运行方式)见 ``docs/maps/myanmar-admin.md``.
+是什么: 绘制缅甸省/邦级行政区划图, 七邦冷色、七省暖色、内比都联邦区中性色加斜线,
+叠加河流与 ETOPO 2022 地形晕渲, 并画出各行政区中心点; 国界用半透明红色、只画陆地
+上的国界段, 海岸线不单独绘制. 底图只画地理要素, 文字/图例/色标/标题/刻度文字都由
+同名 ``<产物>.geo.json`` 交给前端排版; 画框/投影/色带/经纬网/文案取自
+``Myanmar/specs.py``. 本图的特殊图层(行政区填色与双语图例、特区填色、河网、国界线型、
+自定义地形底纹)留在本脚本, 用共享原语画.
+完整说明(配色、投影、数据来源、运行方式)见 ``docs/maps/myanmar-admin.md``;
+出图流程见 ``docs/reference/runner.md``, 图层原语见 ``docs/reference/layers.md``.
 """
 
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 from pathlib import Path
@@ -29,60 +30,49 @@ import cartopy.crs as ccrs  # 地图投影
 import geopandas as gpd  # 读取 Natural Earth shapefile
 import matplotlib.colors as mcolors  # 颜色与色带
 import matplotlib.pyplot as plt  # 绘图
-import matplotlib.ticker as mticker  # 经纬网线位置定位
 import numpy as np  # 数组运算
 from shapely.geometry import LineString, shape  # GeoJSON -> Shapely / 取外环
 from shapely.ops import unary_union  # 合并行政区, 得到缅甸整体轮廓
 
-import map_lib  # 复用 ETOPO 读取、晕渲、海陆底色工具
+# 图种规格与数据集清单: 画框/投影/色带/经纬网/文案都从这里取, 见 docs/reference/spec.md.
+import specs
 
-# cartopy 底图缓存统一到仓库 data/cartopy, 见 docs/reference/data.md.
-from cartopy_file.data import configure_cartopy
+# 共享图层原语(底图/经纬网/城市点/geo 收集), 见 docs/reference/layers.md.
+from cartopy_file import layers
 
-configure_cartopy()
+# 统一出图流程(建画布 -> 底图 -> 本脚本图层 -> geo 保存), 见 docs/reference/runner.md.
+from cartopy_file import runner
 
-# 底图 + geo.json 出图: save_map 同时写裁到地图框的 SVG 与同名 geo.json,
-# 见 docs/reference/geo.md.
-from cartopy_file.geo import (
-    GeoDoc,
-    figure_frame,
-    relief_from_cmap,
-    save_map,
-)
-
-# 国界/海岸线吻合处只画一条线: 用共享剪枝工具, 见 docs/reference/overlap.md.
+# 国界与海岸线重合时只保留国界: 用共享剪枝工具裁掉沿海段, 见 docs/reference/overlap.md.
 from cartopy_file.overlap import cut, overlap_mask
 
-# 产物统一为 SVG, 见 docs/reference/output.md.
-from cartopy_file.output import apply_svg_output
+# ETOPO 定位与高程读取、Natural Earth 图层读取, 见 docs/reference/relief.md.
+from cartopy_file.relief import (
+    clip_to_axes,
+    find_etopo,
+    load_elevation,
+    load_ne_layer,
+    make_relief,
+)
 
-apply_svg_output()
+# 城市点标记的数据类; 样式(尺寸/颜色)在本脚本按行政区类型给出.
+from cartopy_file.spec import City
+
 # 斜线填充过密会在成品尺寸下糊成深色块, 这里保持项目里一致的细线.
 plt.rcParams["hatch.linewidth"] = 0.5
 
+SHEET = specs.SHEET_ADMIN
+DATASETS = specs.DATASETS
 
-# ============================
-# 配置
-# ============================
-ADMIN_GEOJSON = DATA_DIR / "myanmar_admin1.geojson"
-COUNTRY_DIR = DATA_DIR / "ne_10m_admin_0_countries"
-RIVER_SHP = DATA_DIR / "ne_10m_rivers_lake_centerlines" / "ne_10m_rivers_lake_centerlines.shp"
-
-# 画框: 缅甸本土约 92.17~101.17°E / 9.79~28.54°N, 四周留出邻国与海域.
-# 西侧多留一点, 让孟加拉湾和孟加拉国进入画面; 东侧留到湄公河附近.
-EXTENT = [91.0, 102.5, 8.8, 29.4]
-
-# 投影: 中央经线取国土中部 96.5°E, 标准纬线夹住南北端, 比例误差最小.
-PROJECTION = ccrs.LambertConformal(
-    central_longitude=96.5,
-    central_latitude=19.5,
-    standard_parallels=(10.0, 27.0),
+# 数据路径全部由数据集清单给出(raw/ 与 derived/ 的约定见 docs/reference/datasets.md).
+ADMIN_GEOJSON = DATASETS.path(specs.ADMIN_GEOJSON)
+RIVER_SHP = (
+    DATASETS.path(specs.NE_RIVERS) / "ne_10m_rivers_lake_centerlines.shp"
 )
 
-# 海陆底色: 海洋浅蓝, 邻国陆地米色. 缅甸本国区域随后由行政区填色覆盖.
-OCEAN_COLOR = "#d8e8f3"
-LAND_COLOR = "#f7f2e6"
-
+# ============================
+# 本图特有图层
+# ============================
 # 行政区颜色. 冷色 = 邦, 暖色 = 省; 色相分散, 保证相邻单元也能区分.
 # 透明度在绘制时统一加, 这样底纹和地形仍能透出一点, 不至于变成纯色拼图.
 STATE_COLORS = {
@@ -118,7 +108,7 @@ BORDER_WIDTH = 2.7
 # 邻国国界: 中性灰虚线, 只作定位参照, 不与红色国界争视觉层级.
 COLOR_NEIGHBOR = "#8a8a8a"
 
-# 国界剪掉沿海段的缓冲半径(度). 本图不画海岸线, 海陆界线由底色/填色分界表达;
+# 国界剪掉沿海段的缓冲半径(度). 本图不画海岸线, 海陆界线由底色/填色分界;
 # 国界面本身沿海岸闭合, 整圈画出来就等于又画了一条红色海岸线, 所以只留陆上段.
 # 0.06° 在 20°N 一带约 6 km, 覆盖两套折线的数字化偏差; 剪剩碎段按 3 km 丢掉.
 COAST_CLIP_DEG = 0.06
@@ -130,15 +120,13 @@ NEIGHBOR_GAP_DEG = 0.06
 # 省界线 —— 都等于变相画了海岸线. 0.005° 约 550 m, 远小于图上国界线半宽.
 BORDER_ZONE_DEG = 0.005
 
-# 地形底纹: 从低地米白过渡到山地浅褐; 负高程(海洋)在 alpha 通道里挖掉.
-RELIEF_CMAP = mcolors.LinearSegmentedColormap.from_list(
-    "myanmar_relief",
-    ["#fbf8f0", "#eee5d4", "#d9c8aa", "#b7a17f"],
-)
-RELIEF_VMIN, RELIEF_VMAX = 0, 4200
-RELIEF_ALPHA = 0.55
-# 色标刻度: 旧图没有数字色标(只在图例里示意晕渲), 这里取整千米, 供前端色标组件使用.
-RELIEF_TICKS = (0, 1000, 2000, 3000, 4000)
+# 地形底纹的晕渲细节. 色带/范围/来光/夸张系数都在 Sheet.relief 里; 这里只留
+# 框架 Relief 字段表达不了的两个数值: 软光混合的比例(改前成品用 1.0, 框架默认
+# 1.2)与海洋像元的透明度(海面保留纯底色, 否则负高程也会被染成米色).
+RELIEF_SHADE_FRACTION = 1.0
+# 晕渲栅格在投影后再采样到 3000 像素宽: 默认 750 对 30 弧秒数据会糊.
+RELIEF_REGRID_SHAPE = 3000
+RELIEF_INTERPOLATION = "bilinear"
 
 # ============================
 # 标注数据(只登记进 geo, 底图不画文字)
@@ -211,26 +199,6 @@ RIVER_LABELS = [
     (98.55, 20.55, "萨尔温江", "Salween River"),
 ]
 
-TITLE_ZH = "缅甸联邦共和国行政区划图"
-TITLE_EN = "ADMINISTRATIVE DIVISIONS OF THE REPUBLIC OF THE UNION OF MYANMAR"
-SUBTITLE = (
-    "七邦（冷色）· 七省（暖色）· 内比都联邦区　　"
-    "7 States (cool colours) · 7 Regions (warm colours) · Naypyidaw Union Territory"
-)
-SOURCE = (
-    "行政区划: GADM 4.1 / OpenStreetMap (ODbL)　|　"
-    "国界: 行政区合并轮廓(仅陆上段)　|　河流·海岸线剪枝: Natural Earth 10m　|　"
-    "地形: NOAA ETOPO 2022　|　投影: Lambert Conformal Conic"
-)
-
-# 经纬网样式: 与 add_gridlines 画出的线同源(实线 0.45pt / #6f6f6f / 透明度 0.38).
-GRATICULE_STYLE = {
-    "stroke": "#6f6f6f",
-    "width_pt": 0.45,
-    "dash": None,
-    "opacity": 0.38,
-}
-
 # 图例顺序按旧面板: 先 7 邦(冷色), 再 7 省(暖色), 最后联邦区; geojson 里的
 # 行政区顺序不是旧面板顺序, 所以单独列一份.
 LEGEND_STATE_KEYS = ("kachin", "kayah", "kayin", "chin", "mon", "rakhine", "shan")
@@ -244,12 +212,16 @@ LEGEND_REGION_KEYS = (
     "tanintharyi",
 )
 
-# 输出路径(脚本同目录), 见 docs/reference/output.md.
-OUT_SVG = ROOT / "myanmar_administrative_divisions_bilingual.svg"
 
-
+# ============================
+# 数据与几何
+# ============================
 def load_admin_units():
     """读取预处理后的 15 个一级行政区, 按邦/省/联邦区分组."""
+    if not ADMIN_GEOJSON.exists():
+        raise FileNotFoundError(
+            f"未找到行政区数据: {ADMIN_GEOJSON}\n请先运行: python prepare_admin_data.py"
+        )
     payload = json.loads(ADMIN_GEOJSON.read_text(encoding="utf-8"))
     units = []
     for feature in payload["features"]:
@@ -285,55 +257,64 @@ def country_exterior(myanmar_geom):
     return unary_union(rings)
 
 
-def add_relief(ax: plt.Axes, etopo_path: Path, myanmar_geom) -> None:
-    """铺海陆底色, 叠加只覆盖陆地的低透明度地形晕渲, 并画邻国国界参照.
+# ============================
+# 本图特有图层
+# ============================
+def add_land_borders(ax: plt.Axes, myanmar_geom) -> None:
+    """画邻国国界参照线(细灰虚线), 从缅甸国界走廊里剪掉.
 
     海岸线不画: 海与陆靠底色与行政区填色分界, Natural Earth 的国家面轮廓
     会把海岸线一起描出来, 所以这里不画 ``world.geometry``, 只用
-    ``admin_0_boundary_lines_land`` 画邻国国界(细灰虚线), 并从缅甸国界走廊
-    里剪掉, 免得与红色国界并行成双线.
+    ``admin_0_boundary_lines_land`` 画邻国国界, 免得与红色国界并行成双线.
     """
-    world = map_lib.load_countries(COUNTRY_DIR)
-    map_lib.add_base_map(ax, world, ocean_color=OCEAN_COLOR, land_color=LAND_COLOR)
+    land_borders = load_ne_layer("10m", "cultural", "admin_0_boundary_lines_land")
+    if land_borders is None:
+        return
+    others = unary_union(clip_to_axes(ax, list(land_borders.geometry)))
+    others = others.difference(myanmar_geom.buffer(NEIGHBOR_GAP_DEG))
+    if others.is_empty:
+        return
+    ax.add_geometries(
+        [others],
+        crs=ccrs.PlateCarree(),
+        facecolor="none",
+        edgecolor=COLOR_NEIGHBOR,
+        linewidth=0.45,
+        linestyle=(0, (5, 3)),
+        zorder=1.5,
+    )
 
-    land_borders = map_lib.load_ne_layer("10m", "cultural", "admin_0_boundary_lines_land")
-    if land_borders is not None:
-        others = unary_union(map_lib.clip_to_axes(ax, list(land_borders.geometry)))
-        others = others.difference(myanmar_geom.buffer(NEIGHBOR_GAP_DEG))
-        if not others.is_empty:
-            ax.add_geometries(
-                [others],
-                crs=ccrs.PlateCarree(),
-                facecolor="none",
-                edgecolor=COLOR_NEIGHBOR,
-                linewidth=0.45,
-                linestyle=(0, (5, 3)),
-                zorder=1.5,
-            )
 
-    lon, lat, z = map_lib.load_elevation(etopo_path)
-    relief, _, _ = map_lib.make_relief(
+def add_relief(ax: plt.Axes, etopo_path: Path) -> None:
+    """叠加只覆盖陆地的低透明度地形晕渲(海面保留底色).
+
+    色带/高程范围/来光/夸张系数从 ``Sheet.relief`` 取; 晕渲细节(软光比例、海洋像元
+    透明)见本文件顶部常量. 海岸线不画, 岸线由底图与行政区填色的分界表达.
+    """
+    lon, lat, z = load_elevation(etopo_path)
+    relief = SHEET.relief
+    rgba, _, _ = make_relief(
         z,
         lat,
         lon,
-        vmin=RELIEF_VMIN,
-        vmax=RELIEF_VMAX,
-        cmap=RELIEF_CMAP,
-        azimuth=315,  # 西北来光, 与项目内其他地形图一致
-        altitude=45,
-        vert_exag=1.35,
-        fraction=1.0,
+        vmin=relief.vmin,
+        vmax=relief.vmax,
+        cmap=layers.make_relief_cmap(relief),
+        azimuth=relief.azimuth,
+        altitude=relief.altitude,
+        vert_exag=relief.vert_exag,
+        fraction=RELIEF_SHADE_FRACTION,
     )
     # 把海洋的 alpha 置 0: 海面保留纯浅蓝, 否则负高程也会被染成米色.
-    relief[..., 3] = np.where(z >= 0, RELIEF_ALPHA, 0.0)
+    rgba[..., 3] = np.where(z >= 0, relief.alpha, 0.0)
     ax.imshow(
-        relief,
+        rgba,
         origin="lower",
         extent=[lon[0], lon[-1], lat[0], lat[-1]],
         transform=ccrs.PlateCarree(),
-        regrid_shape=3000,
-        interpolation="bilinear",
-        zorder=2,
+        regrid_shape=RELIEF_REGRID_SHAPE,
+        interpolation=RELIEF_INTERPOLATION,
+        zorder=relief.zorder,
     )
 
 
@@ -433,9 +414,9 @@ def add_country_outline(ax: plt.Axes, border) -> None:
     由底色与填色分界表达, 若红线沿整圈海岸画就会变成一条红色海岸线. 剪掉的
     岸段也不补画, 岸线只留颜色分界.
     """
-    coastline = map_lib.load_ne_layer("10m", "physical", "coastline")
+    coastline = load_ne_layer("10m", "physical", "coastline")
     if coastline is not None:
-        coast = unary_union(map_lib.clip_to_axes(ax, list(coastline.geometry)))
+        coast = unary_union(clip_to_axes(ax, list(coastline.geometry)))
         border = cut(
             border,
             overlap_mask([coast], COAST_CLIP_DEG),
@@ -458,33 +439,34 @@ def add_country_outline(ax: plt.Axes, border) -> None:
 
 def add_admin_centres(ax: plt.Axes, units) -> None:
     """画出各行政区中心: 联邦区/首都用星形, 其余用空心圆."""
+    cities = []
     for unit in units:
-        lon = unit["capital_lon"]
-        lat = unit["capital_lat"]
         if unit["kind"] == "union":
-            ax.plot(
-                lon,
-                lat,
-                marker="*",
-                markersize=15,
-                markerfacecolor="#ffd200",
-                markeredgecolor="#111111",
-                markeredgewidth=0.75,
-                transform=ccrs.PlateCarree(),
-                zorder=15,
+            cities.append(
+                City(
+                    unit["capital_lon"],
+                    unit["capital_lat"],
+                    15,
+                    "#ffd200",
+                    "#111111",
+                    0.75,
+                    capital=True,
+                    name=unit["capital_zh"],
+                )
             )
         else:
-            ax.plot(
-                lon,
-                lat,
-                marker="o",
-                markersize=5.6,
-                markerfacecolor="white",
-                markeredgecolor="#111111",
-                markeredgewidth=0.9,
-                transform=ccrs.PlateCarree(),
-                zorder=15,
+            cities.append(
+                City(
+                    unit["capital_lon"],
+                    unit["capital_lat"],
+                    5.6,
+                    "white",
+                    "#111111",
+                    0.9,
+                    name=unit["capital_zh"],
+                )
             )
+    layers.add_cities(ax, cities, zorder=15)
 
 
 # ============================
@@ -512,7 +494,7 @@ def _offset_lonlat(
 
 
 def _add_bilingual(
-    doc: GeoDoc,
+    doc,
     ax: plt.Axes,
     lon: float,
     lat: float,
@@ -560,7 +542,7 @@ def _add_bilingual(
     )
 
 
-def collect_labels(doc: GeoDoc, ax: plt.Axes, units) -> None:
+def collect_labels(doc, ax: plt.Axes, units) -> None:
     """把旧版图上的全部地名登记成 geo.labels(38 对, 中英各一条, 共 76 条; 同 role).
 
     为什么按 zorder 升序登记: 契约的 ``order`` 是原图绘制顺序(前端 scene 按它
@@ -674,34 +656,7 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, units) -> None:
         )
 
 
-def collect_graticule(doc: GeoDoc, ax: plt.Axes) -> None:
-    """登记经纬刻度(值/文字/与地图框边线的交点), 网线已由 main 画好."""
-    doc.add_graticule(
-        ax,
-        EXTENT,
-        lon_step=2.0,
-        lat_step=5.0,
-        lon_side="bottom",
-        lat_side="left",
-        style=GRATICULE_STYLE,
-    )
-
-
-def collect_relief(doc: GeoDoc) -> None:
-    """登记地形色标: 与 add_relief 的晕渲同一条色带(0~4200 m), 刻度取整千米."""
-    doc.set_relief(
-        relief_from_cmap(
-            RELIEF_CMAP,
-            title="高程",
-            unit="m",
-            vmin=RELIEF_VMIN,
-            vmax=RELIEF_VMAX,
-            ticks=RELIEF_TICKS,
-        )
-    )
-
-
-def collect_legend(doc: GeoDoc, units) -> None:
+def collect_legend(doc, units) -> None:
     """把旧版自绘的 7 邦/7 省色块面板改成 geo.legend.entries(按旧面板顺序平铺).
 
     为什么分组不单独出条目: 图例条目只能表达「一条符号」, 旧面板的「邦 / 省 /
@@ -800,43 +755,71 @@ def collect_legend(doc: GeoDoc, units) -> None:
     doc.set_legend("图例", entries)
 
 
-def collect_suggestions(doc: GeoDoc) -> None:
-    """默认文案: 旧版标题/副标题/注/来源, 只作前端预填, 不参与合成.
+def collect_suggestions(doc) -> None:
+    """默认文案: 标题/副标题/注/来源, 只作前端预填, 不参与合成.
 
+    标题/副标题/注来自 ``Sheet``; 来源由 ``DatasetSet.citation`` 按
+    ``Sheet.dataset_ids`` 自动生成(带发布页 URL), 不再手写.
     旧版图例面板里的分组标题与说明(七邦冷色/七省暖色、双语说明、7 邦·7 省·1
     联邦区)无法作为图例条目表达, 一并放进 notes 交给前端排版.
     """
+    suggestion = layers.suggestions(SHEET, DATASETS)
     doc.set_suggestions(
         {
-            "title": TITLE_ZH,
-            "subtitle": TITLE_EN,
-            "notes": [
-                SUBTITLE,
-                "地名均为中文 + English 双语（All place names are bilingual）",
-                "7 邦 · 7 省 · 1 联邦区",
-            ],
-            "source": SOURCE,
+            "title": suggestion["title"],
+            "subtitle": suggestion["subtitle"],
+            "notes": suggestion["notes"],
+            "source": suggestion["source"],
             "area_annotation": [],
             "legend_title": "图例",
-            "colorbar_title": "高程",
+            "colorbar_title": suggestion["colorbar_title"],
         }
     )
+
+
+# ============================
+# 主流程
+# ============================
+def draw(
+    ctx: runner.RenderContext,
+    *,
+    etopo_path: Path,
+    units,
+    myanmar_geom,
+    border_zone,
+    country_border,
+) -> None:
+    """按本图的叠放顺序画剩余图层: 邻国国界 -> 地形 -> 行政区 -> 河流 -> 国界 -> 中心点 -> 经纬网."""
+    ax = ctx.ax
+    add_land_borders(ax, myanmar_geom)
+    add_relief(ax, etopo_path)
+    add_admin_fills(ax, units, border_zone)
+    add_rivers(ax)
+    add_country_outline(ax, country_border)
+    add_admin_centres(ax, units)
+    layers.add_gridlines(ax, SHEET)
+    # 国界/地图边框: 线宽略粗, 让画面有明确边界.
+    ax.spines["geo"].set_linewidth(0.8)
+    ax.spines["geo"].set_edgecolor("#333333")
+
+
+def collect(doc, ctx: runner.RenderContext, *, units) -> None:
+    """登记 geo: 地名 -> 经纬刻度 -> 色标 -> 图例 -> 文案(来源由数据集清单自动生成)."""
+    collect_labels(doc, ctx.ax, units)
+    layers.collect_graticule(doc, ctx.ax, SHEET)
+    layers.collect_relief(doc, SHEET)
+    collect_legend(doc, units)
+    collect_suggestions(doc)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stride", type=int, default=None, help="ETOPO 采样步长; 缺省选分辨率最高的一个")
-    parser.add_argument(
-        "--dpi",
-        type=int,
-        default=300,
-        help="内嵌晕渲栅格的像素密度(dpi); 矢量部分与 dpi 无关, 默认 300",
-    )
-    parser.add_argument("--show", action="store_true", help="保存后弹出交互窗口(需要图形界面)")
+    runner.add_standard_arguments(parser)
     args = parser.parse_args()
 
-    etopo_path = map_lib.find_etopo(
-        DATA_DIR,
+    etopo_path = find_etopo(
+        DATA_DIR / "raw",
         "myanmar",
         args.stride,
         env_path=os.environ.get("MYANMAR_ETOPO_PATH"),
@@ -847,10 +830,6 @@ def main() -> None:
             "请先运行: python download_etopo.py"
         )
 
-    if not ADMIN_GEOJSON.exists():
-        raise FileNotFoundError(
-            f"未找到行政区数据: {ADMIN_GEOJSON}\n请先运行: python prepare_admin_data.py"
-        )
     units = load_admin_units()
     # 国界与省/邦界都以 15 个行政区合并后的外环为基准: 填色与红线同源,
     # 岸上不会出现两套边界; border_zone 用来剪掉省/邦界里与国界/海岸重合的段.
@@ -862,55 +841,23 @@ def main() -> None:
         raise ValueError("行政区并集没有外环, 无法确定国界")
     border_zone = country_border.buffer(BORDER_ZONE_DEG)
 
-    # 画布偏竖长: 投影后缅甸国土宽高比约 0.56. 地图区位置与旧版相同(右侧原来
-    # 放图例面板的那一条留白保留); save_map 只按地图框裁根标签, 留白不进底图.
-    fig = plt.figure(figsize=(13, 17), facecolor="white")
-    ax = fig.add_axes([0.075, 0.045, 0.655, 0.855], projection=PROJECTION)
-    ax.set_anchor("C")
-    ax.set_extent(EXTENT, crs=ccrs.PlateCarree())
-
-    add_relief(ax, etopo_path, myanmar_geom)
-    add_admin_fills(ax, units, border_zone)
-    add_rivers(ax)
-    add_country_outline(ax, country_border)
-    add_admin_centres(ax, units)
-
-    # 经纬网: 经度每 2°, 纬度每 5°, 位置由 locator 固定; 只画网线, 不画刻度文字
-    # (刻度数值与文字由前端按 geo.graticule 排版).
-    gl = ax.gridlines(
-        crs=ccrs.PlateCarree(),
-        draw_labels=False,
-        linewidth=0.45,
-        color="#6f6f6f",
-        alpha=0.38,
-        linestyle="-",
-        zorder=3.5,
+    # 画布/坐标区/范围/底图由 runner 按 Sheet 建好; 本图的特有图层按叠放顺序在 draw 里画.
+    runner.render(
+        SHEET,
+        root=ROOT,
+        catalog=DATASETS,
+        draw=functools.partial(
+            draw,
+            etopo_path=etopo_path,
+            units=units,
+            myanmar_geom=myanmar_geom,
+            border_zone=border_zone,
+            country_border=country_border,
+        ),
+        collect=functools.partial(collect, units=units),
+        dpi=args.dpi,
+        show=args.show,
     )
-    gl.xlocator = mticker.FixedLocator(np.arange(92, 103, 2))
-    gl.ylocator = mticker.FixedLocator(np.arange(10, 30, 5))
-
-    # 国界/地图边框: 线宽略粗, 让画面有明确边界.
-    ax.spines["geo"].set_linewidth(0.8)
-    ax.spines["geo"].set_edgecolor("#333333")
-
-    # 地图框必须在 set_extent 之后量: figure_frame 会先 apply_aspect,
-    # 否则拿到的是 aspect 修正前的矩形, 裁剪框会与地图错位.
-    frame = figure_frame(fig, ax)
-    doc = GeoDoc(frame)
-    collect_labels(doc, ax, units)
-    collect_graticule(doc, ax)
-    collect_relief(doc)
-    collect_legend(doc, units)
-    collect_suggestions(doc)
-
-    # 注意: 不能用 tight_layout/constrained_layout/bbox_inches="tight";
-    # cartopy 的 gridliner 在非矩形投影上提前绘制时会触发 GEOS 异常或裁掉画面,
-    # 与项目内 myanmar.py 的处理保持一致.
-    svg_path, geo_path = save_map(fig, OUT_SVG, doc, dpi=args.dpi)
-    print(f"底图与 geo 已保存: {svg_path} + {geo_path}")
-
-    if args.show:
-        plt.show()
 
 
 if __name__ == "__main__":

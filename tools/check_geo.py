@@ -15,18 +15,23 @@ graticule/labels/relief/legend/suggestions 的结构与枚举是否合法; 有�
 
 用法:
     python tools/check_geo.py [<产物>.svg ...]
-不给参数时检查 README 出图表里的全部产物(不存在的跳过并提示).
+不给参数时检查各子项目 specs.py 里声明的全部产物(不存在的跳过并提示).
 """
 
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from cartopy_file.data import subproject_dirs
 
 # 与 docs/reference/geo.md / 契约 §3 一致的枚举. 角色枚举的唯一真源是 miko_svg_editor
 # 的 src/config/text-style.ts 里的 MAP_LABEL_ROLES; 这里只是镜像, 顺序与它一致.
@@ -56,16 +61,23 @@ LEGEND_SHAPES = {"line", "rect", "point"}
 LEGEND_MARKERS = {"star", "square", "circle"}
 COLOR_RE = re.compile(r"#[0-9a-f]{6}\Z")
 
-# README 出图表里的产物(相对仓库根). 新增图种时同步这里, 供无参自检覆盖.
-PRODUCTS = (
-    "Myanmar/myanmar_topography_etopo2022_lambert_conformal.svg",
-    "Myanmar/myanmar_administrative_divisions_bilingual.svg",
-    "Myanmar/northern_shan_topography_etopo2022_lambert_conformal.svg",
-    "USSR/ussr_topography_etopo2022_lambert_azimuthal.svg",
-    "Ukraine/ukraine_borders_1991_2014_2022_lambert_conformal.svg",
-    "Volga/volga_basin_topography_etopo2022_lambert_conformal.svg",
-    "Volga/volga_basin_republics_topography_etopo2022_lambert_conformal.svg",
-)
+def discover_products() -> tuple[str, ...]:
+    """无参自检要覆盖的产物: 从各子项目 ``specs.py`` 的 ``SHEETS`` 派生.
+
+    新增图种只要在 specs.py 里加一个 Sheet, 这里自动收录; 不再需要手改本文件的清单.
+    """
+    products: list[str] = []
+    for name in subproject_dirs():
+        module = importlib.import_module(f"{name}.specs")
+        sheets = getattr(module, "SHEETS", ())
+        if not sheets:
+            raise SystemExit(f"{name}/specs.py 必须导出 SHEETS(产出列表)")
+        products.extend(f"{name}/{sheet.out}" for sheet in sheets)
+    return tuple(products)
+
+
+# 无参自检覆盖的产物(相对仓库根), 由 specs.py 派生(见 docs/add-map.md).
+PRODUCTS = discover_products()
 
 _ROOT_TAG_RE = re.compile(rb"<svg\b[^>]*>", re.IGNORECASE)
 _VIEWBOX_RE = re.compile(rb"""\bviewBox\s*=\s*["']([^"']*)["']""")
