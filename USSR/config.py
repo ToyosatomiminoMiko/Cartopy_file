@@ -164,6 +164,8 @@ SHEET_USSR = Sheet(
     dataset_ids=("etopo-ussr", "ne-countries-10m", "ne-coastline-110m"),
     dem_id="etopo-ussr",
     # 旧成品没有地名/城市点/图例, 这些字段保持空, 免得前端初始化出旧图没有的版面.
+    # 旧成品只有经纬网线、没有刻度文字: 交给 standard_collect 时只登记线型.
+    graticule_ticks=False,
     title="USSR (ETOPO 2022,本地 NetCDF)",
     subtitle="兰勃特等面积方位投影(平面/方位投影)|中心 90°E, 55°N",
     colorbar_title="Elevation",

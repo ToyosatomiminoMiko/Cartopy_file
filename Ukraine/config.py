@@ -3,8 +3,8 @@
 """Ukraine subproject: dataset inventory and per-sheet render config.
 
 是什么: 乌克兰子项目的唯一配置入口——数据集清单(从哪下、版本、下载范围、本地路径)与
-每张图的规格(画框、投影、色带、经纬网、地名、文案). 数据准备脚本与绘图脚本都从这里
-取参数, 下载范围和绘图范围不会再各写一份.
+每张图的规格(画框、投影、色带、经纬网、地名、图例、图面配色、文案). 数据准备脚本与绘图
+脚本都从这里取参数, 下载范围和绘图范围不会再各写一份; 图例与地图共用同一份颜色.
 完整说明: ``docs/reference/spec.md``(实例规格层)与 ``docs/reference/datasets.md``
 (数据集层); 各图种的设计取舍见 ``docs/maps/ukraine.md``.
 """
@@ -15,7 +15,16 @@ from pathlib import Path
 
 from cartopy_file.datasets import Dataset, dataset_set
 from cartopy_file.sources import erddap_url, gadm_url
-from cartopy_file.spec import City, Extent, Graticule, Label, Projection, Relief, Sheet
+from cartopy_file.spec import (
+    City,
+    Extent,
+    Graticule,
+    Label,
+    LegendEntry,
+    Projection,
+    Relief,
+    Sheet,
+)
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -373,117 +382,166 @@ GRATICULE_5X5 = Graticule(
 )
 
 # ============================
+# 图面配色
+# ============================
+# 绘图与图例共用这一份颜色, 不允许两边各写一遍: 改色时图例必须跟着变.
+COLOR_1991 = "#c62828"       # 1991 国际承认边界: 红
+COLOR_1991_ALPHA = 0.62      # 1991 国界线半透明度: 让地形与下层边界透出来
+COLOR_2014 = "#1565c0"       # 2014 实际控制线: 蓝
+COLOR_2014_FILL = "#42a5f5"  # 2014 实际控制区填充
+COLOR_KHARKIV = "#ef6c00"    # 2014 宣布的哈尔科夫人民共和国(未控制): 橙
+COLOR_2022 = "#7b1fa2"       # 2022 俄方宣称边界: 紫
+COLOR_OBLAST = "#5f6b73"     # 州界(背景参考线)
+COLOR_RIVER = "#3f7fb5"      # 一般河流(Natural Earth 10m)
+COLOR_RIVER_MAIN = "#2d6ea6"  # 第聂伯河/顿河等干流及其河名: 比一般河流深一档
+COLOR_WATER = "#b3d2ea"      # 梯级水库水面填充
+COLOR_WATER_EDGE = "#4a7fb0"  # 水面轮廓
+COLOR_NEIGHBOR = "#8a8a8a"   # 邻国国界
+# 地名样式(颜色/斜体/描边/字重/行高等)由前端 role 表统一决定, 生成端只登记 role;
+# 这里只保留境外参照点与填色的几何颜色.
+COLOR_REFERENCE = "#555555"  # 境外参照(德左/罗斯托夫): 中性灰, 不参与主题配色
+# 境外参照区(德左)填色透明度: 比 2014 控制区(0.22~0.24)略深, 因为它没有
+# 控制线/边界线可依靠, 只有这一层填色; 但也不能更深 —— 灰色压过地形会让人
+# 以为这是本图的主题图层. 0.30 在黄色低地上是明显的灰绿色, 地形晕渲仍可辨.
+COLOR_REFERENCE_FILL_ALPHA = 0.30
+
+# 图例: 五种边界口径各一条. 多行标签的兼容写法与旧图一致: label 是单行串,
+# 完整分行放 label_lines(前端不识别时忽略); 2022 旧图是点划线(6, 2.0, 1.6, 2.0),
+# legend.dash 只有 [实, 虚] 两项, 这里简化成 [6, 2](点划的"点"留给前端样式表).
+LEGEND_TITLE = "图 例"
+LEGEND = (
+    LegendEntry(
+        "1991 年国际承认边界（含克里米亚，仅陆上段）",
+        "line", stroke=COLOR_1991, width_pt=2.7, opacity=COLOR_1991_ALPHA,
+    ),
+    LegendEntry(
+        "2014 年实际控制线（克里米亚 · 顿巴斯接触线）",
+        "line", stroke=COLOR_2014, width_pt=2.1,
+    ),
+    # 旧图是 Patch(edgecolor="none"): 只填色、不描边.
+    LegendEntry(
+        "2014 年俄方实际控制区（示意填色）",
+        "rect", fill=COLOR_2014_FILL, width_pt=0.0, opacity=0.24,
+    ),
+    LegendEntry(
+        "2014 年宣布的「哈尔科夫人民共和国」（未实际控制）",
+        "line", stroke=COLOR_KHARKIV, width_pt=2.0, dash=(6.0, 3.0),
+        label_lines=("2014 年宣布的「哈尔科夫人民共和国」", "（未实际控制）"),
+    ),
+    LegendEntry(
+        "2022 年俄方宣称四州全境边界（单方面宣称，非控制线）",
+        "line", stroke=COLOR_2022, width_pt=2.1, dash=(6.0, 2.0),
+        label_lines=("2022 年俄方宣称四州全境边界", "（单方面宣称，非控制线）"),
+    ),
+)
+
+# ============================
 # 地名/城市/文案
 # ============================
+# 地名表统一写成 (经度, 纬度, 显示文案, id slug): slug 是小写 ASCII, 只进 id;
+# 显示文案(中文/换行)只进 text, 两者不混用(见 docs/reference/spec.md 的 Label).
 # 国家标注: 放在画面中离边界线/城市较远的位置.
 COUNTRY_LABELS = (
-    (37.0, 52.55, "俄罗斯"),
-    (27.6, 52.9, "白俄罗斯"),
-    (22.2, 51.9, "波兰"),
-    (21.6, 48.8, "斯洛伐克"),
-    (21.6, 47.95, "匈牙利"),
-    (24.7, 45.5, "罗马尼亚"),
-    (28.3, 47.6, "摩尔多瓦"),
+    (37.0, 52.55, "俄罗斯", "russia"),
+    (27.6, 52.9, "白俄罗斯", "belarus"),
+    (22.2, 51.9, "波兰", "poland"),
+    (21.6, 48.8, "斯洛伐克", "slovakia"),
+    (21.6, 47.95, "匈牙利", "hungary"),
+    (24.7, 45.5, "罗马尼亚", "romania"),
+    (28.3, 47.6, "摩尔多瓦", "moldova"),
 )
-SEA_LABELS = ((34.2, 44.25, "黑海"), (36.7, 46.35, "亚速海"))
+SEA_LABELS = ((34.2, 44.25, "黑海", "black-sea"), (36.7, 46.35, "亚速海", "azov-sea"))
 # 山系标注: 位置压在乔尔诺霍拉山体上 / 图幅右下角(索契以东); 旋转由前端处理.
 MOUNTAIN_LABELS = (
-    (24.32, 48.42, "喀尔巴阡山"),
-    (40.42, 43.86, "高加索山"),
+    (24.32, 48.42, "喀尔巴阡山", "carpathians"),
+    (40.42, 43.86, "高加索山", "caucasus"),
 )
 # 河名: 位置都放在河岸陆地上而不是水面上 —— 这张图要表达第聂伯河"河宽沿程变化",
 # 河名压在水面上会用描边遮掉一段水面.
-RIVER_LABELS = ((33.30, 49.60, "第聂伯河"), (40.15, 47.42, "顿河"))
+RIVER_LABELS = (
+    (33.30, 49.60, "第聂伯河", "dnieper"),
+    (40.15, 47.42, "顿河", "don"),
+)
 
-# 城市: (经度, 纬度, 名称, 是否首都, 名称经度偏移, 纬度偏移, 对齐方式).
+# 城市: (经度, 纬度, 显示名, id slug, 是否首都, 名称经度偏移, 纬度偏移, 对齐方式).
 # 偏移都在 0.1~0.3°(约 10~25 km)量级, 只用于让文字离开边界线与其它标注.
 CITIES = (
-    (30.523, 50.450, "基辅", True, 0.20, 0.12, "left"),
-    (36.230, 49.993, "哈尔科夫", False, 0.16, 0.12, "left"),
-    (30.732, 46.482, "敖德萨", False, 0.16, -0.12, "left"),
-    (35.046, 48.464, "第聂伯罗", False, 0.16, 0.12, "left"),
+    (30.523, 50.450, "基辅", "kyiv", True, 0.20, 0.12, "left"),
+    (36.230, 49.993, "哈尔科夫", "kharkiv", False, 0.16, 0.12, "left"),
+    (30.732, 46.482, "敖德萨", "odesa", False, 0.16, -0.12, "left"),
+    (35.046, 48.464, "第聂伯罗", "dnipro", False, 0.16, 0.12, "left"),
     # 顿涅茨克: 城点东南侧的 NGCA 空处, 文字整体在接触线以东, 不与线相交.
-    (37.802, 48.015, "顿涅茨克", False, 0.10, -0.16, "left"),
+    (37.802, 48.015, "顿涅茨克", "donetsk", False, 0.10, -0.16, "left"),
     # 卢甘斯克: 城点正南, 避开北面的共和国名称与更北的 2014 接触线.
-    (39.307, 48.574, "卢甘斯克", False, 0.00, -0.19, "center"),
-    (35.139, 47.838, "扎波罗热", False, 0.16, 0.14, "left"),
-    (32.617, 46.640, "赫尔松", False, 0.16, -0.10, "left"),
-    (37.556, 47.096, "马里乌波尔", False, -0.16, -0.06, "right"),
-    (34.102, 44.952, "辛菲罗波尔", False, 0.16, 0.12, "left"),
-    (33.522, 44.606, "塞瓦斯托波尔", False, -0.16, 0.10, "right"),
-    (24.031, 49.842, "利沃夫", False, 0.16, 0.12, "left"),
+    (39.307, 48.574, "卢甘斯克", "luhansk", False, 0.00, -0.19, "center"),
+    (35.139, 47.838, "扎波罗热", "zaporizhzhia", False, 0.16, 0.14, "left"),
+    (32.617, 46.640, "赫尔松", "kherson", False, 0.16, -0.10, "left"),
+    (37.556, 47.096, "马里乌波尔", "mariupol", False, -0.16, -0.06, "right"),
+    (34.102, 44.952, "辛菲罗波尔", "simferopol", False, 0.16, 0.12, "left"),
+    (33.522, 44.606, "塞瓦斯托波尔", "sevastopol", False, -0.16, 0.10, "right"),
+    (24.031, 49.842, "利沃夫", "lviv", False, 0.16, 0.12, "left"),
 )
 # 境外参照城市: 灰圈白心 + 灰字, 与乌克兰境内城市区分; 不并进 CITIES,
 # 否则会被读成乌克兰城市.
-REFERENCE_CITIES = ((39.72, 47.23, "顿河畔罗斯托夫", 0.06, -0.13),)
+REFERENCE_CITIES = ((39.72, 47.23, "顿河畔罗斯托夫", "rostov-on-don", 0.06, -0.13),)
 # 境外参照区域: 德左名称分两行放在地带东侧敖德萨州的空地上.
-# (文字经度, 纬度, 文字, 字号); 旧图的指引线契约 v2 没有 leader 字段, 暂不画.
-REFERENCE_REGIONS = ((30.30, 47.14, "德涅斯特河沿岸\n摩尔达维亚共和国", 7.0),)
+# (文字经度, 纬度, 显示文案, id slug, 字号); 旧图的指引线契约 v2 没有 leader 字段, 暂不画.
+REFERENCE_REGIONS = ((30.30, 47.14, "德涅斯特河沿岸\n摩尔达维亚共和国", "transnistria", 7.0),)
 
-
-def _label(lon: float, lat: float, text: str, role: str, size: float, **kwargs) -> Label:
-    """写 Label 的短辅助函数; 顺序即前端叠放顺序."""
-    return Label(lon, lat, text, role=role, font_size_pt=size, **kwargs)
+def _label(lon: float, lat: float, text: str, slug: str, role: str, size: float, **kwargs) -> Label:
+    """写 Label 的短辅助函数; 顺序即前端叠放顺序, slug 是 id 的 ASCII 段."""
+    return Label(lon, lat, text, role=role, font_size_pt=size, name=slug, **kwargs)
 
 
 # 地名顺序按旧图 zorder 升序: 国名/海名 -> 山系 -> 河名 -> 主题区域名/境外参照 -> 城市.
 UKRAINE_LABELS = (
-    *(_label(lon, lat, text, "country", 12.5) for lon, lat, text in COUNTRY_LABELS),
-    *(_label(lon, lat, text, "sea", 11.5) for lon, lat, text in SEA_LABELS),
-    *(_label(lon, lat, text, "highland", 11.0) for lon, lat, text in MOUNTAIN_LABELS),
-    *(
-        _label(lon, lat, text, "river", 10.5, name=text)
-        for lon, lat, text in RIVER_LABELS
-    ),
+    *(_label(lon, lat, text, slug, "country", 12.5) for lon, lat, text, slug in COUNTRY_LABELS),
+    *(_label(lon, lat, text, slug, "sea", 11.5) for lon, lat, text, slug in SEA_LABELS),
+    *(_label(lon, lat, text, slug, "highland", 11.0) for lon, lat, text, slug in MOUNTAIN_LABELS),
+    *(_label(lon, lat, text, slug, "river", 10.5) for lon, lat, text, slug in RIVER_LABELS),
     # 2014 年宣布的"人民共和国": 卢甘斯克/顿涅茨克是实际控制区(蓝), 哈尔科夫只有
     # 宣称(橙), 强调色由 role 区分. 落点按"宣称全境"取中心, 不挤在 2014 控制区里.
     _label(
-        39.03, 49.02, "卢甘斯克\n人民共和国", "area-accent-3", 8.8,
-        id_kind="republic", name="卢甘斯克人民共和国",
+        39.03, 49.02, "卢甘斯克\n人民共和国", "luhansk-people-republic",
+        "area-accent-3", 8.8, id_kind="republic",
     ),
     _label(
-        37.70, 48.65, "顿涅茨克\n人民共和国", "area-accent-3", 8.8,
-        id_kind="republic", name="顿涅茨克人民共和国",
+        37.70, 48.65, "顿涅茨克\n人民共和国", "donetsk-people-republic",
+        "area-accent-3", 8.8, id_kind="republic",
     ),
     # 哈尔科夫: 纬度比州界折角高一截, 第二行描边让开 2022 宣称边界的折角.
     _label(
-        36.80, 49.50, "哈尔科夫人民共和国", "area-accent-4", 9.4,
-        id_kind="republic", name="哈尔科夫人民共和国",
+        36.80, 49.50, "哈尔科夫人民共和国", "kharkiv-people-republic",
+        "area-accent-4", 9.4, id_kind="republic",
     ),
     # 2022 年俄方宣称的两个州(顿/卢两州由上面的"人民共和国"标注覆盖): 放在远离
     # 第聂伯河/水库水面的州内陆地, 避免文字压住河宽变化的重点区域.
     _label(
-        34.11, 46.52, "赫尔松州\n（俄宣称全境）", "area-accent-1", 9.4,
-        id_kind="region", name="赫尔松州",
+        34.11, 46.52, "赫尔松州\n（俄宣称全境）", "kherson-oblast",
+        "area-accent-1", 9.4, id_kind="region",
     ),
     _label(
-        35.65, 47.08, "扎波罗热州\n（俄宣称全境）", "area-accent-1", 9.4,
-        id_kind="region", name="扎波罗热州",
+        35.65, 47.08, "扎波罗热州\n（俄宣称全境）", "zaporizhzhia-oblast",
+        "area-accent-1", 9.4, id_kind="region",
     ),
     _label(
-        34.55, 45.40, "克里米亚\n（2014年俄实际控制）", "area-accent-3", 9.6,
-        id_kind="region", name="克里米亚",
+        34.55, 45.40, "克里米亚\n（2014年俄实际控制）", "crimea",
+        "area-accent-3", 9.6, id_kind="region",
     ),
     # 境外参照城市: 字号比境内城市(9.0)小一档, 只作定位参照.
     *(
-        _label(
-            lon + dx, lat + dy, name, "city-reference", 8.4,
-            name=name, ha="left",
-        )
-        for lon, lat, name, dx, dy in REFERENCE_CITIES
+        _label(lon + dx, lat + dy, name, slug, "city-reference", 8.4, ha="left")
+        for lon, lat, name, slug, dx, dy in REFERENCE_CITIES
     ),
     # 境外狭长区域名: 只登记名字, 样式由 role=area-muted 决定.
     *(
-        _label(
-            lon, lat, text, "area-muted", size,
-            id_kind="region", name="".join(text.split()),
-        )
-        for lon, lat, text, size in REFERENCE_REGIONS
+        _label(lon, lat, text, slug, "area-muted", size, id_kind="region")
+        for lon, lat, text, slug, size in REFERENCE_REGIONS
     ),
     # 城市: 文字跟着点位偏移; 首都与一般城市同字号, 只靠符号区分.
     *(
-        _label(lon + dx, lat + dy, name, "city", 9.0, name=name, ha=align)
-        for lon, lat, name, _capital, dx, dy, align in CITIES
+        _label(lon + dx, lat + dy, name, slug, "city", 9.0, ha=align)
+        for lon, lat, name, slug, _capital, dx, dy, align in CITIES
     ),
 )
 
@@ -493,12 +551,12 @@ UKRAINE_CITIES = (
         City(
             lon, lat, 15 if capital else 4.5,
             "#ffd200" if capital else "white", "black", 0.8 if capital else 0.9,
-            capital=capital, name=name,
+            capital=capital, name=slug,
         )
-        for lon, lat, name, capital, _dx, _dy, _align in CITIES
+        for lon, lat, _name, slug, capital, _dx, _dy, _align in CITIES
     ),
-    *(City(lon, lat, 3.6, "white", "#555555", 1.0, name=name)
-      for lon, lat, name, _dx, _dy in REFERENCE_CITIES),
+    *(City(lon, lat, 3.6, "white", "#555555", 1.0, name=slug)
+      for lon, lat, _name, slug, _dx, _dy in REFERENCE_CITIES),
 )
 
 TITLE = "乌克兰全图：1991 / 2014 / 2022 年边界"
@@ -559,6 +617,8 @@ SHEET_UKRAINE = Sheet(
     dem_id="etopo-ukraine",
     labels=UKRAINE_LABELS,
     cities=UKRAINE_CITIES,
+    legend=LEGEND,
+    legend_title=LEGEND_TITLE,
     title=TITLE,
     subtitle=SUBTITLE,
     notes=NOTES,

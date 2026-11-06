@@ -41,165 +41,9 @@ RAW_INPUTS = (
     (NPT_JSON, "OSM 内比都联邦区缓存", "python Myanmar/main.py download"),
 )
 
-# GADM 名称 -> (键名, 中文名, 英文名, 类型, 行政中心中文, 行政中心英文, 中心经度, 中心纬度).
-# 行政中心坐标来自 Natural Earth 10m populated places, 实皆省的行政中心
-# 按现行建制改用蒙育瓦(Monywa), 不用 Natural Earth 里过时的实皆(Sagaing).
-# 类型: state=邦, region=省, union=联邦区.
-ADMIN_INFO: dict[str, tuple[str, str, str, str, str, str, float, float]] = {
-    "Kachin": (
-        "kachin",
-        "克钦邦",
-        "Kachin State",
-        "state",
-        "密支那",
-        "Myitkyina",
-        97.392753,
-        25.359627,
-    ),
-    "Kayah": (
-        "kayah",
-        "克耶邦",
-        "Kayah State",
-        "state",
-        "垒固",
-        "Loikaw",
-        97.206004,
-        19.665000,
-    ),
-    "Kayin": (
-        "kayin",
-        "克伦邦",
-        "Kayin State",
-        "state",
-        "帕安",
-        "Hpa-an",
-        97.616701,
-        16.849998,
-    ),
-    "Chin": (
-        "chin",
-        "钦邦",
-        "Chin State",
-        "state",
-        "哈卡",
-        "Hakha",
-        93.616705,
-        22.650003,
-    ),
-    "Mon": (
-        "mon",
-        "孟邦",
-        "Mon State",
-        "state",
-        "毛淡棉",
-        "Mawlamyine",
-        97.670048,
-        16.500426,
-    ),
-    "Rakhine": (
-        "rakhine",
-        "若开邦",
-        "Rakhine State",
-        "state",
-        "实兑",
-        "Sittwe",
-        92.880005,
-        20.139997,
-    ),
-    "Shan": (
-        "shan",
-        "掸邦",
-        "Shan State",
-        "state",
-        "东枝",
-        "Taunggyi",
-        97.038001,
-        20.781999,
-    ),
-    "Ayeyarwady": (
-        "ayeyarwady",
-        "伊洛瓦底省",
-        "Ayeyarwady Region",
-        "region",
-        "勃生",
-        "Pathein",
-        94.749968,
-        16.770409,
-    ),
-    "Bago": (
-        "bago",
-        "勃固省",
-        "Bago Region",
-        "region",
-        "勃固",
-        "Bago",
-        96.514977,
-        17.320014,
-    ),
-    "Magway": (
-        "magway",
-        "马圭省",
-        "Magway Region",
-        "region",
-        "马圭",
-        "Magway",
-        94.919570,
-        20.144544,
-    ),
-    "Mandalay": (
-        "mandalay",
-        "曼德勒省",
-        "Mandalay Region",
-        "region",
-        "曼德勒",
-        "Mandalay",
-        96.083083,
-        21.971934,
-    ),
-    "Sagaing": (
-        "sagaing",
-        "实皆省",
-        "Sagaing Region",
-        "region",
-        "蒙育瓦",
-        "Monywa",
-        95.149996,
-        22.104993,
-    ),
-    "Tanintharyi": (
-        "tanintharyi",
-        "德林达依省",
-        "Tanintharyi Region",
-        "region",
-        "土瓦",
-        "Dawei",
-        98.194978,
-        14.097963,
-    ),
-    "Yangon": (
-        "yangon",
-        "仰光省",
-        "Yangon Region",
-        "region",
-        "仰光",
-        "Yangon",
-        96.164732,
-        16.785300,
-    ),
-    # 键名里的 npt 是 Naypyitaw/Naypyidaw 的缩写; 联邦区不是邦也不是省,
-    # 绘图时单独使用中性色, 避免被误读为暖色的省.
-    "Naypyitaw": (
-        "npt",
-        "内比都联邦区",
-        "Naypyidaw Union Territory",
-        "union",
-        "内比都",
-        "Naypyidaw",
-        96.116673,
-        19.768503,
-    ),
-}
-
+# GADM 名称 -> (键名, 中文名, 英文名, 类型, 行政中心中文, 行政中心英文, 中心经度, 中心纬度)
+# 的属性表在 ``config.ADMIN_INFO``: 派生脚本只负责几何, 名称/中心点那份事实与绘图模块
+# (图例、双语标注)共用同一份, 避免两处各写一遍.
 
 def require_raw_data() -> None:
     """检查派生所需的原始数据是否就位; 有缺失就报错并指出准备命令.
@@ -296,7 +140,7 @@ def run() -> int:
     units: dict[str, object] = {}
     for _, row in gadm.iterrows():
         name = row["NAME_1"]
-        if name not in ADMIN_INFO:
+        if name not in config.ADMIN_INFO:
             print(f"跳过未配置的 GADM 单元: {name}")
             continue
         # GADM 的内比都小块不可用, 这里跳过; 联邦区由上面的 OSM 关系提供.
@@ -326,7 +170,7 @@ def run() -> int:
         cap_en,
         lon,
         lat,
-    ) in ADMIN_INFO.items():
+    ) in config.ADMIN_INFO.items():
         if gadm_name not in units:
             raise RuntimeError(f"缺少 GADM 单元: {gadm_name}")
         features.append(

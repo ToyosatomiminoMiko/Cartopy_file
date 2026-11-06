@@ -73,29 +73,8 @@ RIVER_EXTENSION_PATHS = (
 )
 
 # ============================
-# 图面配色与几何参数
+# 几何参数(配色在 config.py, 与图例共用一份)
 # ============================
-# 图面配色: 每种边界一个固定颜色, 避免读图歧义.
-COLOR_1991 = "#c62828"       # 1991 国际承认边界: 红
-COLOR_1991_ALPHA = 0.62      # 1991 国界线半透明度: 让地形与下层边界透出来
-COLOR_2014 = "#1565c0"       # 2014 实际控制线: 蓝
-COLOR_2014_FILL = "#42a5f5"  # 2014 实际控制区填充
-COLOR_KHARKIV = "#ef6c00"    # 2014 宣布的哈尔科夫人民共和国(未控制): 橙
-COLOR_2022 = "#7b1fa2"       # 2022 俄方宣称边界: 紫
-COLOR_OBLAST = "#5f6b73"     # 州界(背景参考线)
-COLOR_RIVER = "#3f7fb5"      # 一般河流(Natural Earth 10m)
-COLOR_RIVER_MAIN = "#2d6ea6"  # 第聂伯河/顿河等干流及其河名: 比一般河流深一档
-COLOR_WATER = "#b3d2ea"      # 梯级水库水面填充
-COLOR_WATER_EDGE = "#4a7fb0"  # 水面轮廓
-COLOR_NEIGHBOR = "#8a8a8a"   # 邻国国界
-# 地名样式(颜色/斜体/描边/字重/行高等)由前端 role 表统一决定, 生成端只登记 role;
-# 这里只保留境外参照点与填色的几何颜色.
-COLOR_REFERENCE = "#555555"  # 境外参照(德左/罗斯托夫): 中性灰, 不参与主题配色
-# 境外参照区(德左)填色透明度: 比 2014 控制区(0.22~0.24)略深, 因为它没有
-# 控制线/边界线可依靠, 只有这一层填色; 但也不能更深 —— 灰色压过地形会让人
-# 以为这是本图的主题图层. 0.30 在黄色低地上是明显的灰绿色, 地形晕渲仍可辨.
-COLOR_REFERENCE_FILL_ALPHA = 0.30
-
 # 1991 国界剪掉沿海段的缓冲半径(度). GADM 的国家面边界沿岸线与 Natural
 # Earth 海岸线是两套数据, 偏差中位约 0.5 km、个别沙嘴可达 8 km; 0.06° 在
 # 48°N 处约纬向 6.7 km / 经向 4.5 km, 覆盖绝大多数岸段. 缓冲是经纬度下的
@@ -277,7 +256,7 @@ def draw_reference_region(ax: plt.Axes, region) -> None:
         与 1991 国界要压在填色之上, 否则河流线/红线会被灰色蒙住一截.
     """
     add_fill_layer(
-        ax, [region], color=COLOR_REFERENCE, alpha=COLOR_REFERENCE_FILL_ALPHA, zorder=2.15
+        ax, [region], color=config.COLOR_REFERENCE, alpha=config.COLOR_REFERENCE_FILL_ALPHA, zorder=2.15
     )
 
 
@@ -427,7 +406,7 @@ def draw_basemap_layers(
             [outer_borders],
             crs=ccrs.PlateCarree(),
             facecolor="none",
-            edgecolor=COLOR_NEIGHBOR,
+            edgecolor=config.COLOR_NEIGHBOR,
             linewidth=0.7,
             linestyle=(0, (5, 3)),
             zorder=3,
@@ -440,7 +419,7 @@ def draw_basemap_layers(
             oblast_lines,
             crs=ccrs.PlateCarree(),
             facecolor="none",
-            edgecolor=COLOR_OBLAST,
+            edgecolor=config.COLOR_OBLAST,
             linewidth=0.45,
             alpha=0.55,
             zorder=3.1,
@@ -458,7 +437,7 @@ def draw_basemap_layers(
             river_geoms,
             crs=ccrs.PlateCarree(),
             facecolor="none",
-            edgecolor=COLOR_RIVER,
+            edgecolor=config.COLOR_RIVER,
             linewidth=0.5,
             alpha=0.7,
             zorder=2.2,
@@ -469,7 +448,7 @@ def draw_basemap_layers(
             [dnieper_river],
             crs=ccrs.PlateCarree(),
             facecolor="none",
-            edgecolor=COLOR_RIVER_MAIN,
+            edgecolor=config.COLOR_RIVER_MAIN,
             linewidth=0.9,
             zorder=2.3,
         )
@@ -478,8 +457,8 @@ def draw_basemap_layers(
         ax.add_geometries(
             [dnieper_water],
             crs=ccrs.PlateCarree(),
-            facecolor=COLOR_WATER,
-            edgecolor=COLOR_WATER_EDGE,
+            facecolor=config.COLOR_WATER,
+            edgecolor=config.COLOR_WATER_EDGE,
             linewidth=0.45,
             zorder=2.35,
         )
@@ -519,8 +498,8 @@ def draw_borders(
     # --- 2014 年实际控制区(克里米亚 + 顿巴斯 NGCA): 浅蓝填充 ---
     crimea_units = oblasts[oblasts["name"].isin(["Crimea", "Sevastopol'"])]
     ngca_units = occupied[occupied["name"].str.startswith("NGCA,", na=False)]
-    add_fill_layer(ax, list(crimea_units.geometry), color=COLOR_2014_FILL, alpha=0.22, zorder=2.2)
-    add_fill_layer(ax, list(ngca_units.geometry), color=COLOR_2014_FILL, alpha=0.24, zorder=2.2)
+    add_fill_layer(ax, list(crimea_units.geometry), color=config.COLOR_2014_FILL, alpha=0.22, zorder=2.2)
+    add_fill_layer(ax, list(ngca_units.geometry), color=config.COLOR_2014_FILL, alpha=0.24, zorder=2.2)
 
     # --- 2014 年宣布的哈尔科夫人民共和国: 只有宣称、没有实际控制, 用橙色虚线 ---
     # 哈尔科夫州界的南段/东北段分别与 2022 宣称边界、1991 国界重合, 只画优先级更高的
@@ -538,7 +517,7 @@ def draw_borders(
             add_line_layer(
                 ax,
                 [kharkiv_only],
-                color=COLOR_KHARKIV,
+                color=config.COLOR_KHARKIV,
                 linewidth=2.0,
                 linestyle=(0, (6, 3)),
                 zorder=5.0,
@@ -556,7 +535,7 @@ def draw_borders(
         add_line_layer(
             ax,
             [claimed_only],
-            color=COLOR_2022,
+            color=config.COLOR_2022,
             linewidth=2.1,
             linestyle=(0, (6, 2.0, 1.6, 2.0)),
             zorder=5.5,
@@ -569,11 +548,11 @@ def draw_borders(
         add_line_layer(
             ax,
             [border_land],
-            color=COLOR_1991,
+            color=config.COLOR_1991,
             linewidth=2.7,
             linestyle="-",
             zorder=6.0,
-            alpha=COLOR_1991_ALPHA,
+            alpha=config.COLOR_1991_ALPHA,
             casing=False,
         )
 
@@ -581,7 +560,7 @@ def draw_borders(
     add_line_layer(
         ax,
         [crimea_line.geometry.iloc[0], contact.geometry.iloc[0]],
-        color=COLOR_2014,
+        color=config.COLOR_2014,
         linewidth=2.1,
         linestyle="-",
         zorder=7.0,
@@ -737,81 +716,6 @@ def draw(ctx: runner.RenderContext) -> None:
     layers.add_gridlines(ax, SHEET)
 
 
-def collect_legend(doc) -> None:
-    """图例数据: 5 条, 文案与线型/填色沿用旧图.
-
-    多行标签的兼容写法: 图例条目的 label 约定是单行字符串, 这里把第二行直接并在
-    label 末尾(括号串), 完整分行数组放 label_lines(图例条目的扩展字段, 前端不
-    识别时忽略), 第二行不丢.
-    2022 边界旧图是点划线(6, 2.0, 1.6, 2.0), legend.dash 只有 [实, 虚] 两项,
-    这里简化成 [6, 2](点划的"点"留给前端样式表).
-    """
-    entries = [
-        {
-            "label": "1991 年国际承认边界（含克里米亚，仅陆上段）",
-            "shape": "line",
-            "stroke": COLOR_1991,
-            "width_pt": 2.7,
-            "opacity": COLOR_1991_ALPHA,
-        },
-        {
-            "label": "2014 年实际控制线（克里米亚 · 顿巴斯接触线）",
-            "shape": "line",
-            "stroke": COLOR_2014,
-            "width_pt": 2.1,
-        },
-        {
-            # 旧图是 Patch(edgecolor="none"): 只填色、不描边.
-            "label": "2014 年俄方实际控制区（示意填色）",
-            "shape": "rect",
-            "stroke": None,
-            "width_pt": 0.0,
-            "fill": COLOR_2014_FILL,
-            "opacity": 0.24,
-        },
-        {
-            "label": "2014 年宣布的「哈尔科夫人民共和国」（未实际控制）",
-            "label_lines": ["2014 年宣布的「哈尔科夫人民共和国」", "（未实际控制）"],
-            "shape": "line",
-            "stroke": COLOR_KHARKIV,
-            "width_pt": 2.0,
-            "dash": [6.0, 3.0],
-        },
-        {
-            "label": "2022 年俄方宣称四州全境边界（单方面宣称，非控制线）",
-            "label_lines": ["2022 年俄方宣称四州全境边界", "（单方面宣称，非控制线）"],
-            "shape": "line",
-            "stroke": COLOR_2022,
-            "width_pt": 2.1,
-            "dash": [6.0, 2.0],
-        },
-    ]
-    doc.set_legend("图 例", entries)
-
-
-def collect(doc, ctx: runner.RenderContext) -> None:
-    """登记 geo: 地名 -> 经纬刻度 -> 色标 -> 图例 -> 文案.
-
-    文案沿用旧图 title/subtitle/notes/legend_title/colorbar_title; 只有 source
-    改由 ``DatasetSet.citation`` 按 ``SHEET.dataset_ids`` 自动生成(带发布页 URL,
-    每个来源只出现一次), 不再手写.
-    """
-    layers.collect_labels(doc, ctx.ax, SHEET.labels)
-    layers.collect_graticule(doc, ctx.ax, SHEET)
-    layers.collect_relief(doc, SHEET)
-    collect_legend(doc)
-    doc.set_suggestions(
-        {
-            "title": SHEET.title,
-            "subtitle": SHEET.subtitle,
-            "notes": list(SHEET.notes),
-            "source": DATASETS.citation(SHEET.dataset_ids),
-            "legend_title": "图 例",
-            "colorbar_title": SHEET.colorbar_title,
-        }
-    )
-
-
 def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False) -> int:
     """渲染乌克兰全图并写出同名 geo.json; 返回 0=成功, 1=数据缺失."""
     try:
@@ -826,7 +730,6 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
             root=ROOT,
             catalog=DATASETS,
             draw=draw,
-            collect=collect,
             dem_path=etopo_path,
             dpi=dpi,
             show=show,

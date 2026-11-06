@@ -11,7 +11,8 @@
 全境地形图, 叠加 Natural Earth 10m 国界(仅陆上段, 半透明红色)与邻国国界(灰色虚线), 并画出主要
 城市点(首都用星形标记、其余用空心圆, 不写名称). 海岸线不单独绘制, 海陆界线由地形配色在 0 m 处
 的跳变表达. 地名(邻国/海域/国名/城名)不以文字画进底图, 只把 `role`/位置/字号/锚点登记进
-`geo.labels`, 颜色与斜体等样式由前端 role 表统一决定.
+`geo.labels`, 颜色与斜体等样式由前端 role 表统一决定. 标注 id 全是小写 ASCII slug
+(如 `label-country-china`、`label-sea-andaman-sea`), 中文只出现在 `labels[].text`.
 
 ## 设计要点
 
@@ -39,7 +40,17 @@
 (`COAST_CLIP_DEG`), 再以红色半透明实线(`#c62828`, alpha 0.62)画出; 邻国国界用灰色虚线,
 并从缅甸国界走廊里剪掉, 免得与红线并行成双线. 红线在海岸收笔, 岸线交给 0 m 色界; 安达曼海
 岛屿的边界整圈贴着海岸线, 会被一并剪掉, 岛上只剩地形色斑. 剪枝工具见
-[`reference/overlap.md`](../reference/overlap.md).
+[`reference/overlap.md`](../reference/overlap.md). 国界/邻国国界的颜色与线型是三个缅甸图种
+共用的固定值, 写在 `Myanmar/config.py` 的 `COLOR_BORDER` / `BORDER_ALPHA` / `BORDER_WIDTH` /
+`COLOR_NEIGHBOR`, 绘图模块只引用不再各写一份.
+
+### 4. 地名与文案的归属
+
+地名表 `MYANMAR_LABELS` 声明在 `Myanmar/config.py`: 每条 `Label` 的 `name` 是 id 的 ASCII
+slug, `text` 才是图上显示的文案(中文), 两者分开是为了让前端按 id 引用的键不随文案漂移.
+渲染模块只画陆地国界/邻国国界/城市点三层, `geo.json` 由 `runner` 缺省的
+`layers.standard_collect` 按 `Sheet` 收集(地名 -> 经纬刻度 -> 色标 -> 文案), 模块里不再写
+`collect` 回调, 地名/文案也不再手拼.
 
 ## 数据
 
@@ -66,7 +77,7 @@ python Myanmar/main.py render --sheet myanmar      # 出图, 地图进 Myanmar/m
 ```
 
 画框、投影、色带、经纬网、地名与文案都在 [`Myanmar/config.py`](../../Myanmar/config.py);
-渲染模块只画特有条图层(陆上国界、邻国国界、城市点)并按同一份 spec 收集 geo.
+渲染模块只画本图特有条图层(陆上国界、邻国国界、城市点), `geo.json` 由框架按 `Sheet` 收集.
 
 `download` 的选项:
 
@@ -92,4 +103,6 @@ python Myanmar/main.py render --sheet myanmar      # 出图, 地图进 Myanmar/m
 - 海岸线不画, 岸线就是 0 m 处的水/陆色界; 国界也只画陆上段, 海岸与岛屿边缘不出现红线;
 - `--stride 1` 的全分辨率高程约 135 MB, 只在需要放大细节时下载, 全境图用默认 `stride=2`
   足够;
+- 标注 id 是稳定的 ASCII slug, 前端/旧布局文件按 id 引用; 改显示文案只动 `text`,
+  改 id 才算破坏兼容;
 - 同一份数据重复运行得到内容相同的 SVG(理由见 [`reference/output.md`](../reference/output.md)).

@@ -62,7 +62,7 @@ class VolgaData:
 
     runner 每张图只给一个 ``RenderContext``, 而两张图必须用同一份 ETOPO 与同一份
     修正后高程(见 docs/maps/volga.md 设计要点 4), 所以数据在主流程里载入一次,
-    放进模块级 ``_DATA`` 由 draw/collect 取用.
+    放进模块级 ``_DATA`` 由 draw 取用.
     """
 
     subjects: gpd.GeoDataFrame
@@ -175,14 +175,6 @@ def polygon_parts(geom, *, min_area_deg2: float = 1e-4):
     for child in getattr(geom, "geoms", []):
         parts.extend(polygon_parts(child, min_area_deg2=min_area_deg2))
     return parts
-
-
-def in_extent(lon: float, lat: float, extent, *, pad: float = 0.0) -> bool:
-    """点是否落在画框内; 用来跳过画框外的城市点, 避免符号画到地图区之外."""
-    return (
-        extent.lon_min - pad <= lon <= extent.lon_max + pad
-        and extent.lat_min - pad <= lat <= extent.lat_max + pad
-    )
 
 
 # ============================
@@ -487,8 +479,8 @@ def add_city_markers(ax: plt.Axes, extent) -> None:
     只画地理符号: 国名/海名/丘陵名/河名/城名与面积注记都属于排版文字, 不在本脚本绘制.
     画框外跳过: 与改前一致, 窄画框(共和国图)不画框外的城市.
     """
-    for lon, lat, _name, kind, _dx, _dy, _align in config.CITIES:
-        if not in_extent(lon, lat, extent):
+    for lon, lat, _name, _slug, kind, _dx, _dy, _align in config.CITIES:
+        if not extent.contains_point(lon, lat):
             continue
         if kind == "capital":
             ax.plot(
@@ -529,192 +521,6 @@ def add_city_markers(ax: plt.Axes, extent) -> None:
 
 
 # ============================
-# 经纬网
-# ============================
-
-# ============================
-# geo.json 收集
-# ============================
-LEGEND_TITLE = "图例"
-
-
-def collect_labels(doc, ax, sheet: config.Sheet, area_km2: float) -> None:
-    """把旧成品上的地名整理成 geo.labels(role/位置/字号/锚点), 不画文字、不存样式.
-
-    顺序按旧图的 zorder 升序登记(前端 scene 按 order 叠放): 国名/海名/地貌(9.0)、
-    图内流域名(9.2)、共和国名(9.3)、河名(9.4)、城市(10.1). 画框外的候选跳过,
-    与改前用 in_extent 过滤文字的行为一致; 颜色/斜体/描边/旋转由前端 role 表决定.
-    """
-    extent = sheet.extent
-    theme = config.THEMES[sheet.id]
-
-    # 邻国名称.
-    for lon, lat, text in config.COUNTRY_LABELS:
-        if not in_extent(lon, lat, extent):
-            continue
-        doc.add_label(ax, lon, lat, text, role="country", font_size_pt=12.0)
-
-    # 海域名称.
-    for lon, lat, text in config.SEA_LABELS:
-        if not in_extent(lon, lat, extent):
-            continue
-        doc.add_label(ax, lon, lat, text, role="sea", font_size_pt=11.0)
-
-    # 地貌名.
-    for lon, lat, text in config.HIGHLAND_LABELS:
-        if not in_extent(lon, lat, extent):
-            continue
-        doc.add_label(ax, lon, lat, text, role="highland", font_size_pt=10.0)
-
-    # 图内流域名: 只有共和国图在图上写「伏尔加河流域 / 面积」; 流域图的同一块
-    # 文字在旧版是图外面板, 现在由 geo.suggestions.area_annotation 带给前端.
-    if theme.area_label_in_map and in_extent(42.55, 51.95, extent):
-        doc.add_label(
-            ax, 42.55, 51.95,
-            f"伏尔加河流域\n约 {area_km2 / 1e4:.0f} 万 km²",
-            role="area-basin", name="流域", font_size_pt=15.0,
-        )
-
-    # 共和国名: 字号按共和国轮廓大小分两档(小共和国 10.5, 大共和国 12.5);
-    # id 前缀保留旧的 label-republic-*.
-    for name in theme.republics:
-        lon, lat, text = config.REPUBLIC_LABELS[name]
-        if not in_extent(lon, lat, extent):
-            continue
-        size = 10.5 if name in config.SMALL_REPUBLICS else 12.5
-        doc.add_label(
-            ax, lon, lat, text,
-            role="area-accent-1", id_kind="republic", name=name, font_size_pt=size,
-        )
-
-    # 河名: 同一条河标两段时 id 加 1 起算序号; 旋转由前端处理.
-    river_counts: dict[str, int] = {}
-    for _, _, text in config.RIVER_LABELS:
-        river_counts[text] = river_counts.get(text, 0) + 1
-    river_seen: dict[str, int] = {}
-    for lon, lat, text in config.RIVER_LABELS:
-        river_seen[text] = river_seen.get(text, 0) + 1
-        if not in_extent(lon, lat, extent):
-            continue
-        doc.add_label(
-            ax, lon, lat, text,
-            role="river", name=text,
-            index=river_seen[text] if river_counts[text] > 1 else None,
-            font_size_pt=9.8,
-        )
-
-    # 城市: 文字跟着点位偏移; 字号按城市等级分三档.
-    sizes = {"capital": 10.8, "rep": 9.3, "city": 8.8}
-    for lon, lat, name, kind, dx, dy, align in config.CITIES:
-        if not in_extent(lon, lat, extent):
-            continue
-        doc.add_label(
-            ax, lon + dx, lat + dy, name,
-            role="city", name=name, font_size_pt=sizes[kind], ha=align,
-        )
-
-
-def collect_legend(doc, sheet: config.Sheet) -> None:
-    """图例数据: 只列该图实际画了的线型/面, 流域图没有行政区两项(与改前图例一致)."""
-    theme = config.THEMES[sheet.id]
-    entries: list[dict] = [
-        {
-            "label": "伏尔加河流域",
-            "shape": "rect",
-            "stroke": config.COLOR_BASIN_EDGE,
-            "width_pt": 2.0,
-            "fill": config.COLOR_BASIN_FILL,
-            "opacity": 0.45,
-        }
-    ]
-    if theme.draw_admin:
-        entries.extend(
-            [
-                {
-                    "label": "周边联邦主体共和国",
-                    "shape": "rect",
-                    "stroke": config.COLOR_REPUBLIC_EDGE,
-                    "width_pt": 1.8,
-                    "fill": config.COLOR_REPUBLIC_FILL,
-                    "opacity": 0.45,
-                },
-                {
-                    "label": "其他联邦主体界",
-                    "shape": "line",
-                    "stroke": config.COLOR_SUBJECT,
-                    "width_pt": 0.9,
-                    "dash": [5.0, 3.0],
-                    "opacity": 0.8,
-                },
-            ]
-        )
-    entries.extend(
-        [
-            {"label": "国界", "shape": "line", "stroke": config.COLOR_BORDER, "width_pt": 1.4},
-            {"label": "干流(伏尔加河等)", "shape": "line", "stroke": config.COLOR_RIVER_TRUNK, "width_pt": 1.8},
-            {"label": "支流", "shape": "line", "stroke": config.COLOR_RIVER, "width_pt": 0.8},
-            {
-                "label": "湖泊 / 水库水面",
-                "shape": "rect",
-                "stroke": config.COLOR_WATER_EDGE,
-                "width_pt": 0.6,
-                "fill": config.COLOR_WATER,
-            },
-            {
-                "label": "首都",
-                "shape": "point",
-                "stroke": "#000000",
-                "width_pt": 1.5,
-                "fill": "#ffd200",
-                "marker": "star",
-            },
-            {
-                "label": "共和国首府",
-                "shape": "point",
-                "stroke": "#000000",
-                "width_pt": 1.5,
-                "fill": "#ffffff",
-                "marker": "square",
-            },
-            {
-                "label": "城市",
-                "shape": "point",
-                "stroke": "#000000",
-                "width_pt": 1.5,
-                "fill": "#ffffff",
-                "marker": "circle",
-            },
-        ]
-    )
-    doc.set_legend(LEGEND_TITLE, entries)
-
-
-def collect_suggestions(doc, sheet: config.Sheet, area_km2: float) -> None:
-    """默认文案: 标题/副标题/右栏注/来源/图外面积注记, 只给前端预填, 不参与合成.
-
-    数据来源由 ``layers.suggestions`` 按 ``sheet.dataset_ids`` 从 DatasetSet 的署名
-    自动生成(每条带发布页 URL); 面积注记与图例标题是图种特有字段, 在这里补进 dict,
-    并保持改前 geo.json 的键顺序(title -> colorbar_title -> notes -> source ->
-    area_annotation -> legend_title).
-    """
-    area_wan = area_km2 / 1e4
-    suggestion = layers.suggestions(sheet, config.DATASETS)
-    theme = config.THEMES[sheet.id]
-    ordered = {
-        "title": suggestion["title"],
-        "subtitle": suggestion["subtitle"],
-        "notes": [line.format(area_wan=area_wan) for line in sheet.notes],
-        "source": suggestion.get("source", ""),
-        "area_annotation": []
-        if theme.area_label_in_map
-        else ["伏尔加河流域", f"约 {area_wan:.0f} 万 km²"],
-        "legend_title": LEGEND_TITLE,
-        "colorbar_title": suggestion["colorbar_title"],
-    }
-    doc.set_suggestions(ordered)
-
-
-# ============================
 # 出图回调
 # ============================
 def draw(ctx: runner.RenderContext) -> None:
@@ -742,20 +548,6 @@ def draw(ctx: runner.RenderContext) -> None:
     layers.add_gridlines(ax, sheet)
 
 
-def collect(doc, ctx: runner.RenderContext) -> None:
-    """登记 geo: 地名 -> 经纬刻度 -> 色标 -> 图例 -> 文案(来源由数据集清单自动生成).
-
-    顺序与改前一致; 地名/图例/文案是图种特有的动态数据, 所以不用 standard_collect.
-    """
-    data = _data()
-    sheet = ctx.sheet
-    collect_labels(doc, ctx.ax, sheet, data.basin_area_km2)
-    layers.collect_graticule(doc, ctx.ax, sheet)
-    layers.collect_relief(doc, sheet)
-    collect_legend(doc, sheet)
-    collect_suggestions(doc, sheet, data.basin_area_km2)
-
-
 # ============================
 # 主流程
 # ============================
@@ -775,6 +567,9 @@ def run(
     )
     _require(etopo_path)
     load_data(etopo_path)
+    # 地名与图注里的面积占位符出图时才知道: 从派生流域面重算后统一交给 runner 填.
+    data = _data()
+    label_vars = {"area_wan": data.basin_area_km2 / 1e4}
 
     # 晕渲栅格密度按地图区宽度与 dpi 算(与原实现一致); dpi 只影响这张内嵌栅格.
     regrid_dpi = dpi or config.SHEET_BASIN.dpi
@@ -785,15 +580,22 @@ def run(
     for sheet in selected:
         layout = config.LAYOUTS[sheet.id]
         sheet = replace(sheet, regrid_shape=max(1200, int(layout.map_width_in * regrid_dpi)))
+        # 图外面积注记只给流域图; 共和国图把同一块文字画在图内, 传空元组让 geo 里
+        # 保留 "area_annotation": [](与改前产物一致, 缺键和空数组对下游是两种情况).
+        area_annotation = (
+            () if config.THEMES[sheet.id].area_label_in_map else config.AREA_ANNOTATION
+        )
         # 注意: 不用 tight_layout / bbox_inches="tight";
         # cartopy 在非矩形投影上绘制经纬网时会触发 gridliner 用未闭合顶点构造
         # 多边形的 GEOSException, 且 tight bbox 会裁掉地图边缘(项目已踩过).
+        # 地名/图例/文案都声明在 Sheet 里, 不传 collect: 由 layers.standard_collect 写 geo.
         runner.render(
             sheet,
             root=ROOT,
             catalog=config.DATASETS,
             draw=draw,
-            collect=collect,
+            label_vars=label_vars,
+            area_annotation=area_annotation,
             dpi=dpi,
             show=False,
             close=not show,

@@ -9,7 +9,8 @@
 文字与版面由前端接管, 本脚本同时产出同名的 geo.json: 底图只画地理要素, 地名/
 色标/标题/来源只以 ``GeoDoc`` 数据形式登记, 不再画任何文字; 字段与口径见
 ``docs/reference/geo.md``. 本文件是模块, 只导出 ``run()``, 由统一入口
-``python Myanmar/main.py render`` 调用. 画框/色带/地名/文案全部来自 ``Myanmar/config.py``;
+``python Myanmar/main.py render`` 调用. 画框/色带/地名/文案与国界配色全部来自
+``Myanmar/config.py``; geo.json 由 runner 缺省的 ``layers.standard_collect`` 按 Sheet 收集.
 完整说明(投影选择、数据来源、运行方式)见 ``docs/maps/myanmar.md``.
 """
 
@@ -52,12 +53,8 @@ DATASETS = config.DATASETS
 # Natural Earth 里缅甸的英文国名, 用于筛选边界.
 MYANMAR_NAMES = ("Myanmar", "Burma")
 
-# 国界配色(与 Ukraine 图一致): 红色半透明, 让地形与下层要素透出来.
-COLOR_BORDER = "#c62828"
-BORDER_ALPHA = 0.62
-BORDER_WIDTH = 2.7
-# 邻国国界: 中性灰虚线, 只作定位参照, 不与红色国界争视觉层级.
-COLOR_NEIGHBOR = "#8a8a8a"
+# 国界/邻国国界的颜色与线型用 config.py 里三个图种共享的那一份
+# (COLOR_BORDER/BORDER_ALPHA/BORDER_WIDTH/COLOR_NEIGHBOR).
 
 # 国界剪掉沿海段的缓冲半径(度). Natural Earth 的国界面沿海岸闭合, 整圈画出来
 # 会在若开/德林达依海岸与安达曼海岛屿上多出一条红色海岸线; 本图不画海岸线,
@@ -114,9 +111,9 @@ def draw_borders(ax, world) -> None:
             [border],
             crs=ccrs.PlateCarree(),
             facecolor="none",
-            edgecolor=COLOR_BORDER,
-            linewidth=BORDER_WIDTH,
-            alpha=BORDER_ALPHA,
+            edgecolor=config.COLOR_BORDER,
+            linewidth=config.BORDER_WIDTH,
+            alpha=config.BORDER_ALPHA,
             zorder=6,
         )
 
@@ -131,7 +128,7 @@ def draw_borders(ax, world) -> None:
                 [others],
                 crs=ccrs.PlateCarree(),
                 facecolor="none",
-                edgecolor=COLOR_NEIGHBOR,
+                edgecolor=config.COLOR_NEIGHBOR,
                 linewidth=0.7,
                 linestyle=(0, (5, 3)),
                 zorder=3,
@@ -145,11 +142,6 @@ def draw(ctx: runner.RenderContext) -> None:
     draw_borders(ctx.ax, ctx.world)
     layers.add_cities(ctx.ax, SHEET.cities)
     layers.add_gridlines(ctx.ax, SHEET)
-
-
-def collect(doc, ctx: runner.RenderContext) -> None:
-    """登记 geo: 地名 -> 经纬刻度 -> 色标 -> 文案(来源由数据集清单自动生成)."""
-    layers.standard_collect(doc, ctx.ax, SHEET, DATASETS)
 
 
 def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False) -> int:
@@ -171,7 +163,6 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
             root=ROOT,
             catalog=DATASETS,
             draw=draw,
-            collect=collect,
             dem_path=etopo_path,
             dpi=dpi,
             show=show,

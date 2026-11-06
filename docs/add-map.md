@@ -2,7 +2,7 @@
 
 照着这个清单做, 新图种就能接进数据清单、文档和出图约定. 想看最小可运行例子, 读
 [`AmericaArmy/`](../AmericaArmy): `config.py`(数据与规格) + `main.py`(唯一入口) +
-`america_army.py`(一对 draw/collect 回调), 没有历史包袱.
+`america_army.py`(draw 回调 + config 里声明的标签), 没有历史包袱.
 
 ## 新增图种
 
@@ -107,12 +107,14 @@ def draw(ctx):          # 图种特有的图层, 顺序与改前成品一致
     layers.add_cities(ctx.ax, SHEET.cities)
     layers.add_gridlines(ctx.ax, SHEET)
 
-def collect(doc, ctx):  # 登记 geo
+# 图例/文案都声明在 Sheet 里(legend/legend_title/title/notes), 没有动态数据时
+# 不用写 collect: runner.render(collect=None) 缺省会调 standard_collect.
+def collect(doc, ctx):  # 只有在有出图时才知道的数据时才写
     layers.standard_collect(doc, ctx.ax, SHEET, DATASETS)
 
 def run(*, stride=None, dpi=None, show=False) -> int:
     etopo = find_etopo(ROOT / "data" / "raw", "<region>", stride)
-    runner.render(SHEET, root=ROOT, catalog=DATASETS, draw=draw, collect=collect,
+    runner.render(SHEET, root=ROOT, catalog=DATASETS, draw=draw,
                   dem_path=etopo, dpi=dpi, show=show)
     return 0
 

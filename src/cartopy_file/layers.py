@@ -3,7 +3,7 @@
 """Layer primitives shared by every map script: figure, basemap, relief, graticule, labels.
 
 是什么: 把各图种脚本里重复的图层代码收敛成一组函数——建画布与坐标区、铺海陆底色、
-画 ETOPO 晕渲、经纬网、城市点、地名收集、色标与文案收集. 图种特有的图层(国界、行政区、
+画 ETOPO 晕渲、经纬网、城市点, 以及按 ``Sheet`` 把地名/刻度/色标/图例/文案登记进 geo. 图种特有的图层(国界、行政区、
 河流、流域)仍留在各自脚本里, 只是改用这里提供的原语和 spec 里的数据.
 完整说明(哪些进了框架、哪些故意不进、像素级一致怎么保证)见 ``docs/reference/layers.md``.
 """
@@ -224,14 +224,19 @@ def add_cities(ax: plt.Axes, cities, *, zorder: float = 8) -> None:
         )
 
 
-def collect_labels(doc: GeoDoc, ax: plt.Axes, labels) -> None:
-    """把地名候选按给定顺序登记进 geo.labels(顺序即前端的叠放 order)."""
+def collect_labels(doc: GeoDoc, ax: plt.Axes, labels, *, label_vars: dict | None = None) -> None:
+    """把地名候选按给定顺序登记进 geo.labels(顺序即前端的叠放 order).
+
+    label_vars: text 里的 ``{area_wan:.0f}`` 占位符取值(如流域面积在出图时才知道);
+    不给就按原样登记. 占位符只在 text 里, id 用的是 name 字段, 不受影响.
+    """
     for label in labels:
+        text = label.text.format(**label_vars) if label_vars else label.text
         doc.add_label(
             ax,
             label.lon + label.dx,
             label.lat + label.dy,
-            label.text,
+            text,
             role=label.role,
             name=label.name,
             id_kind=label.id_kind,
@@ -270,17 +275,26 @@ def collect_relief(doc: GeoDoc, sheet: Sheet) -> None:
     )
 
 
-def suggestions(sheet: Sheet, catalog) -> dict:
+def suggestions(
+    sheet: Sheet,
+    catalog,
+    *,
+    area_annotation: tuple[str, ...] | None = None,
+    label_vars: dict | None = None,
+) -> dict:
     """拼 geo.suggestions: 文案来自 spec, 数据来源由数据集登记自动生成.
 
     为什么来源不手写: 手写的「数据源」句子里混着投影参数和废话, 换一张图就要重抄一遍,
     还会漏掉许可要求的署名. 这里按 ``sheet.dataset_ids`` 查 ``DatasetSet`` 的署名,
     每个数据源只出现一次, 且一定带发布页 URL.
+    ``area_annotation`` 是图外的面积注记(伏尔加流域图用), 数值出图时才算得出来.
     """
     suggestion: dict = {
         "title": sheet.title,
         "subtitle": sheet.subtitle,
     }
+    if sheet.legend:
+        suggestion["legend_title"] = sheet.legend_title
     # 没有高程色标的图不写 colorbar_title: 写了会让前端初始化出一块并不存在的版面.
     if sheet.relief is not None:
         suggestion["colorbar_title"] = sheet.colorbar_title
@@ -290,14 +304,48 @@ def suggestions(sheet: Sheet, catalog) -> dict:
     if source_line:
         suggestion["source"] = source_line
     if sheet.notes:
-        suggestion["notes"] = list(sheet.notes)
+        # notes 与地名同用一套占位符(如流域面积出图时才算得出).
+        suggestion["notes"] = [
+            line.format(**label_vars) if label_vars else line for line in sheet.notes
+        ]
+    if area_annotation is not None:
+        suggestion["area_annotation"] = [
+            line.format(**label_vars) if label_vars else line for line in area_annotation
+        ]
     return suggestion
 
 
-def standard_collect(doc: GeoDoc, ax: plt.Axes, sheet: Sheet, catalog) -> None:
-    """默认的 geo 收集顺序: 地名 -> 经纬刻度 -> 色标 -> 文案(图种可只调其中几步)."""
-    collect_labels(doc, ax, sheet.labels)
-    collect_graticule(doc, ax, sheet)
+def standard_collect(
+    doc: GeoDoc,
+    ax: plt.Axes,
+    sheet: Sheet,
+    catalog,
+    *,
+    label_vars: dict | None = None,
+    area_annotation: tuple[str, ...] | None = None,
+) -> None:
+    """默认的 geo 收集顺序: 地名 -> 经纬刻度 -> 色标 -> 图例 -> 文案.
+
+    图例与文案的静态部分都来自 ``Sheet``(legend/legend_title/title/notes/…), 这里只
+    负责把它们写进 geo; 图种有动态数据(面积注记、带占位符的地名)时通过参数传入,
+    不用再在自己文件里手拼 geo 字段.
+    """
+    collect_labels(doc, ax, sheet.labels, label_vars=label_vars)
+    if sheet.graticule_ticks:
+        collect_graticule(doc, ax, sheet)
+    else:
+        # 只登记线型, 不登记刻度文字: 改前成品没有刻度文字, 补出来会多一圈字.
+        graticule = sheet.graticule
+        doc.set_graticule_style(
+            stroke=graticule.stroke,
+            width_pt=graticule.width_pt,
+            dash=graticule.dash,
+            opacity=graticule.opacity,
+        )
     if sheet.relief is not None:
         collect_relief(doc, sheet)
-    doc.set_suggestions(suggestions(sheet, catalog))
+    if sheet.legend:
+        doc.set_legend(sheet.legend_title, [entry.as_geo() for entry in sheet.legend])
+    doc.set_suggestions(
+        suggestions(sheet, catalog, area_annotation=area_annotation, label_vars=label_vars)
+    )

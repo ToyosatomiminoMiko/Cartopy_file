@@ -30,6 +30,10 @@
 `area-accent-1`, 境外参照用 `city-reference`/`area-muted`)决定, 颜色/斜体/描边等样式由前端
 role 表统一决定.
 
+地名、图例、配色、标题/注全部声明在 [`Ukraine/config.py`](../../Ukraine/config.py): 每条地名
+同时给显示文案 `text`(中文/换行随图面走)与标识符 `name`(小写 ASCII slug, 拼成
+`label-country-belarus` 这类 id); 绘图模块只画几何, 不拼 geo 字段.
+
 ## 设计要点
 
 ### 1. 投影
@@ -216,5 +220,10 @@ python Ukraine/main.py all          # 依次 download -> prepare -> render
   补上;
 - 海岸线不画, 岸线就是地形配色在 0 m 处的色界; 德左的灰色填色与顿河畔罗斯托夫的灰圈只作
   位置参照;
+- 图例条目、五种边界颜色、标题与右栏注都在 `config.py` 里声明(图例走 `Sheet.legend`/
+  `legend_title`, 文案走 `Sheet.title`/`subtitle`/`notes`), 改图例只改 config; 模块里不写
+  `set_legend`/`set_suggestions`;
+- label id 是 ASCII slug(`label-country-belarus`), 中文只进 `labels[].text`; 改显示文案
+  不改变 id, 改 id 等于改产物, 需要重新出图并由前端重新对齐布局;
 - 数据许可: OSM 数据为贡献者 ODbL 1.0, 其余来源见
   [`data-preparation.md`](../data-preparation.md).

@@ -2,8 +2,8 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Per-sheet rendering spec: pure data, importable without matplotlib or cartopy.
 
-是什么: 一张图的全部可配置事实——画框、投影、画布、色带、经纬网、地名、点标记与文案,
-以及子项目下的产物目录布局(地图进 ``map/``、文字信息进 ``text/``).
+是什么: 一张图的全部可配置事实——画框、投影、画布、色带、经纬网、地名、点标记、图例与
+文案, 以及子项目下的产物目录布局(地图进 ``map/``、文字信息进 ``text/``).
 这里只有 dataclass 与校验, 不 import matplotlib/cartopy, 所以 ``tools/`` 里的检查脚本
 可以不画图就把所有实例的产物路径与数据依赖列出来.
 完整说明(为什么用数据类、字段口径、与 runner/layers 的分工)见 ``docs/reference/spec.md``.
@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
@@ -21,11 +22,13 @@ __all__ = [
     "Extent",
     "Graticule",
     "Label",
+    "LegendEntry",
     "MAP_DIR",
     "Projection",
     "Relief",
     "Sheet",
     "TEXT_DIR",
+    "check_slug",
     "geo_path_for",
     "map_path",
     "text_path",
@@ -86,6 +89,23 @@ def _color(name: str, value: str) -> str:
     return text
 
 
+# 标识符段(name / id_kind)的写法: 小写 ASCII, 单词之间用 - _ . 连接.
+# 为什么不允许中文: geo.json 的 id 是要被前端当键用、被旧布局文件当标识符引用的,
+# 显示用的中文名一律放在 labels[].text / legend.entries[].label 里.
+_SLUG_RE = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*\Z")
+
+
+def check_slug(name: str, value: str) -> str:
+    """校验一个标识符段是小写 ASCII slug; 不合格时抛 ValueError(带人话提示)."""
+    text = str(value)
+    if not _SLUG_RE.fullmatch(text):
+        raise ValueError(
+            f"{name} 必须是小写 ASCII slug(字母/数字, 用 - _ . 连接, 如 belarus、"
+            f"black-sea), 得到 {text!r}; 中文只放在 text/label 里"
+        )
+    return text
+
+
 @dataclass(frozen=True)
 class Extent:
     """地图范围, 每一端都用显式字段名, 不再靠位置猜顺序.
@@ -139,6 +159,13 @@ class Extent:
             and other.lon_max <= self.lon_max + tol
             and self.lat_min - tol <= other.lat_min
             and other.lat_max <= self.lat_max + tol
+        )
+
+    def contains_point(self, lon: float, lat: float, *, pad: float = 0.0) -> bool:
+        """点是否落在范围内(可给 pad 度外扩); 用来跳过画框外的地名/城市点."""
+        return (
+            self.lon_min - pad <= lon <= self.lon_max + pad
+            and self.lat_min - pad <= lat <= self.lat_max + pad
         )
 
 
@@ -267,6 +294,8 @@ class Label:
     """一条地名候选: 只描述语义与落点, 样式由前端 role 表决定.
 
     dx/dy 是相对锚点经纬度的偏移(度), 用于「城名贴在城点旁边」这类旧图排版.
+    ``name`` 是 id 的标识符段(小写 ASCII slug), ``text`` 才是图上显示的文案:
+    id 会被前端和旧布局文件当键用, 不能随显示文案(中文/换行/双语后缀)一起漂移.
     """
 
     lon: float
@@ -274,10 +303,10 @@ class Label:
     text: str
     role: str
     font_size_pt: float
+    name: str
     dx: float = 0.0
     dy: float = 0.0
     ha: str = "center"
-    name: str | None = None
     id_kind: str | None = None
 
     def __post_init__(self) -> None:
@@ -285,6 +314,71 @@ class Label:
             raise ValueError(f"Label.font_size_pt 必须 > 0, 得到 {self.font_size_pt!r}")
         if self.ha not in ("left", "center", "right"):
             raise ValueError(f"Label.ha 必须是 left|center|right, 得到 {self.ha!r}")
+        check_slug("Label.name", self.name)
+        if self.id_kind is not None:
+            check_slug("Label.id_kind", self.id_kind)
+
+
+@dataclass(frozen=True)
+class LegendEntry:
+    """一条图例: 只描述「一个符号」, 文案与顺序是数据, 排版由前端决定.
+
+    字段与 ``geo.legend.entries`` 一一对应(见 docs/reference/geo.md);
+    ``_legend_entry`` 还会再规整一遍, 这里在 import 期就报错, 免得画完图才发现.
+    """
+
+    label: str
+    shape: str
+    stroke: str | None = None
+    fill: str | None = None
+    width_pt: float = 1.0
+    opacity: float = 1.0
+    dash: tuple[float, float] | None = None
+    marker: str | None = None
+    hatch: str | None = None
+    label_lines: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.label, str) or not self.label:
+            raise ValueError(f"LegendEntry.label 必须是非空字符串, 得到 {self.label!r}")
+        if self.shape not in ("line", "rect", "point"):
+            raise ValueError(f"LegendEntry.shape 必须是 line|rect|point, 得到 {self.shape!r}")
+        if self.shape != "point" and self.marker is not None:
+            raise ValueError(f"非 point 图例条目的 marker 必须为 None, 得到 {self.marker!r}")
+        if self.marker is not None and self.marker not in ("star", "square", "circle"):
+            raise ValueError(f"LegendEntry.marker 必须是 star|square|circle, 得到 {self.marker!r}")
+        for field_name in ("stroke", "fill"):
+            color = getattr(self, field_name)
+            if color is not None:
+                _color(f"LegendEntry.{field_name}", color)
+        if not 0.0 <= float(self.opacity) <= 1.0:
+            raise ValueError(f"LegendEntry.opacity 必须在 [0, 1], 得到 {self.opacity!r}")
+        if self.dash is not None and len(self.dash) != 2:
+            raise ValueError(f"LegendEntry.dash 必须是 None 或 (on, off), 得到 {self.dash!r}")
+        if self.label_lines and not all(
+            isinstance(item, str) and item for item in self.label_lines
+        ):
+            raise ValueError(
+                f"LegendEntry.label_lines 必须是非空字符串元组, 得到 {self.label_lines!r}"
+            )
+
+    def as_geo(self) -> dict[str, Any]:
+        """转成 ``GeoDoc.set_legend`` 要的 dict(缺省字段不写, 由 geo 侧补默认值)."""
+        entry: dict[str, Any] = {
+            "label": self.label,
+            "shape": self.shape,
+            "stroke": self.stroke,
+            "width_pt": self.width_pt,
+            "dash": self.dash,
+            "fill": self.fill,
+            "opacity": self.opacity,
+            "marker": self.marker,
+        }
+        if self.label_lines:
+            entry["label_lines"] = list(self.label_lines)
+        if self.hatch is not None:
+            entry["hatch"] = self.hatch
+        return entry
 
 
 @dataclass(frozen=True)
@@ -329,6 +423,12 @@ class Sheet:
     dem_id: str | None = None
     labels: tuple[Label, ...] = ()
     cities: tuple[City, ...] = ()
+    # 图例整块声明在这里: 条目是数据, geo.json 的 legend 由 standard_collect 写.
+    # 空元组表示这张图没有图例(此时 legend_title 必须为空).
+    legend: tuple[LegendEntry, ...] = ()
+    legend_title: str = ""
+    # 经纬刻度文字: False 表示只登记网线线型、不输出刻度文字(苏联图的历史口径).
+    graticule_ticks: bool = True
     title: str = ""
     subtitle: str = ""
     notes: tuple[str, ...] = ()
@@ -351,6 +451,10 @@ class Sheet:
             raise ValueError(
                 f"Sheet.dem_id={self.dem_id!r} 必须在 dataset_ids={self.dataset_ids!r} 里"
             )
+        if self.legend and not self.legend_title:
+            raise ValueError(f"Sheet({self.id}) 有 legend 却没有 legend_title")
+        if self.legend_title and not self.legend:
+            raise ValueError(f"Sheet({self.id}) 有 legend_title 却没有 legend 条目")
 
 
 def sheets_of(sheets) -> tuple[Sheet, ...]:

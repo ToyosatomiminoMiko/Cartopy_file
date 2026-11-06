@@ -11,7 +11,9 @@
 第四特区(NDAA)及周边直到曼德勒/克耶邦的地形图, 在第一特区内画出其前身"原果敢自治区"的
 范围, 并画出特区首府、区域中心城市与普通城镇的点位(均不写名称). 地名(邻国/省邦、特区/
 区域、河名、城名)不以文字画进底图, 只把语义 `role`/位置/字号登记进 `geo.labels`, 强调色由
-role(如 `area-accent-1` ~ `area-accent-4`)决定, 样式由前端 role 表统一决定.
+role(如 `area-accent-1` ~ `area-accent-4`)决定, 样式由前端 role 表统一决定. 标注 id 全是
+小写 ASCII slug(如 `label-region-special-region-1`、`label-city-laukkai`), 中文只在
+`labels[].text`; 图例与区域配色声明在 `Myanmar/config.py`, 渲染模块只画图.
 
 ## 设计要点
 
@@ -63,6 +65,20 @@ Ukraine 图一致: 下面的地形与区域填色透出来, 与它重合的区�
 选出再画, 河线才不会在 20.95°N 的分段点断开. 数据仍取自共享的 cartopy Natural Earth
 缓存, 不需要额外准备.
 
+### 6. 图例与标注口径
+
+图例是数据不是代码: 10 个条目(4 个区域色块、原果敢自治区、MNDAA 斜线、国界、省/邦界、
+河流、特区首府)按旧面板顺序声明在 `Myanmar/config.py` 的 `NORTHERN_SHAN_LEGEND`, 标题是
+`NORTHERN_SHAN_LEGEND_TITLE`; `geo.legend` 由 `layers.standard_collect` 写入, 模块不再手拼
+`set_legend`. 区域填充/边界色、国界线型、河流与首府符号色也一并从模块搬到 config, 图例与
+地图共用同一份(`REGION_STYLES`、`KOKANG_SAZ_FILL`、`MNDAA_HATCH_COLOR`、`COLOR_BORDER` 等),
+改色时两边一起变.
+
+地名表同样声明在 config, 顺序就是前端叠放顺序(邻国/省邦 -> 特区/区域名 -> 河名 -> 城名);
+id 前缀沿用旧版(area/region/river/city), 由 `id_kind`/`role` 决定, `name` 是 ASCII slug.
+旧产物的 `suggestions.area_annotation` 是空数组, `standard_collect` 缺省不写这个键, 所以
+`run()` 显式传 `area_annotation=()` 保持产物不变(本图没有图外的面积注记).
+
 ## 数据
 
 | 文件 | 内容 | 生成方式 |
@@ -96,4 +112,6 @@ GADM/NE 河流/OSM 内比都原始数据(文件已就位时只跳过、不联网
 - 下载都是"文件已存在就跳过", 刷新加 `--force`;
 - Overpass 公共实例常满负荷(502): 脚本分批请求(佤邦整体单独一组, 否则与 5 个县关系合在一
   起容易 504), 并在多个镜像间轮换重试;
-- 国界线与区域边界必须同源(都来自 OSM), 换成 NE 国界会重新出现双线问题.
+- 国界线与区域边界必须同源(都来自 OSM), 换成 NE 国界会重新出现双线问题;
+- 标注 id 是稳定的 ASCII slug, 前端按 id 引用; 改显示文案只动 `text`;
+- 图例/区域配色改动只改 `Myanmar/config.py`, 不要回渲染模块里找颜色常量.

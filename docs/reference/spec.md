@@ -29,8 +29,15 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
   `np.arange(...)`). 取值必须逐条写死: 起点差一格就会在 SVG 里多出一条被裁剪的路径,
   产物就不再是同一份图. `color` 原样传给 `ax.gridlines`(允许 `"gray"`), `stroke` 是给
   geo.json 的 `#rrggbb` 副本;
-- `Label`: `lon/lat/text/role/font_size_pt` 必填, `dx/dy`(度)是相对锚点的偏移,
-  `ha` 是水平对齐, `name`/`id_kind` 用于拼稳定的 label id;
+- `Label`: `lon/lat/text/role/font_size_pt/name` 必填, `dx/dy`(度)是相对锚点的偏移,
+  `ha` 是水平对齐. `text` 只放图上显示的文案(中文/换行都行), `name` 是 id 的标识符段,
+  必须是小写 ASCII slug(`check_slug`: 字母数字, 用 `-` `_` `.` 连接, 如 `belarus`、
+  `black-sea`). 为什么分开: id 会被前端和旧布局文件当键引用, 不能随显示文案漂移,
+  也不允许中文(旧产物的 `label-country-白俄罗斯` 就是在 text 兜底进 id 时产生的);
+  `id_kind` 覆盖 id 的角色家族(如共和国名要 `republic`), 同样是 slug;
+- `LegendEntry`: 一条图例, `label`/`shape(line|rect|point)` 必填, 其余 `stroke`/`fill`
+  (`#rrggbb`)、`width_pt`、`opacity`、`dash`、`marker`(point 专用)、`hatch`、
+  `label_lines`(多行图例的分行文案)可选; 字段与 geo 的 `legend.entries` 一一对应;
 - `City`: 点标记的尺寸/填充/描边/边宽与是否首都(形状由 `layers.add_cities` 固定);
 - `Sheet`: 一张图. `out` 只是地图文件名(不带目录), 地图渲染到 `<子项目>/map/`, 文字信息
   写到 `<子项目>/text/<stem>.geo.json`, 目录由 `map_path`/`text_path` 决定; `axes=None`
@@ -38,6 +45,12 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
   (图种自己画); `tight_layout=True` 表示量地图框前先 `plt.tight_layout()`(苏联图);
   `dataset_ids` 是数据来源的署名依据, `dem_id` 指向其中的高程数据集; `relief=None`
   表示这张图不铺高程;
+- `Sheet.legend` / `legend_title`: 图例整块声明在 config 里, `standard_collect` 写进
+  `geo.legend`; 没有图例时两者都为缺省(空), 有 `legend` 必须有 `legend_title`;
+- `Sheet.graticule_ticks`: 缺省 True(输出经纬刻度文字); False 表示只登记网线线型
+  (苏联图的历史口径: 旧成品只有网线没有刻度文字);
+- `Extent.contains_point(lon, lat, pad=0)`: 点是否在画框内, config 用它过滤画框外的地名
+  (代替各脚本里各写一份 `in_extent`);
 - 产物目录: `MAP_DIR = "map"` 与 `TEXT_DIR = "text"` 是子项目下的两个产物目录,
   `map_path(root, out)` / `text_path(root, out)` 按 `Sheet.out` 拼路径, `geo_path_for(svg_path)`
   由地图路径反推文字信息路径; 布局只有一种, 地图不在 `map/` 下时 `geo_path_for` 直接报错.
@@ -45,7 +58,9 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
 ## 用法
 
 ```python
-from cartopy_file.spec import City, Extent, Graticule, Label, Projection, Relief, Sheet
+from cartopy_file.spec import (
+    City, Extent, Graticule, Label, LegendEntry, Projection, Relief, Sheet,
+)
 
 PROJECTION = Projection("lambert_conformal", {
     "central_longitude": 96.5, "central_latitude": 19.5,
@@ -66,7 +81,9 @@ SHEET = Sheet(
     dataset_ids=("etopo-myanmar", "ne-countries-10m"),
     dem_id="etopo-myanmar",
     cities=(City(96.10, 19.75, 13, "#ffd200", "black", 0.8, capital=True, name="内比都"),),
-    labels=(Label(95.6, 23.5, "缅甸", role="country-name", font_size_pt=22.0),),
+    labels=(Label(95.6, 23.5, "缅甸", name="myanmar", role="country-name", font_size_pt=22.0),),
+    legend=(LegendEntry("国界", "line", stroke="#4a4a4a", width_pt=1.4),),
+    legend_title="图例",
     title="缅甸联邦共和国全境地形图",
     subtitle="…",
 )

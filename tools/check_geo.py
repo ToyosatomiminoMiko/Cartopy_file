@@ -32,7 +32,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from cartopy_file.data import subproject_dirs
-from cartopy_file.spec import geo_path_for, map_path, text_path
+from cartopy_file.spec import check_slug, geo_path_for, map_path, text_path
 
 # 与 docs/reference/geo.md / 契约 §3 一致的枚举. 角色枚举的唯一真源是 miko_svg_editor
 # 的 src/config/text-style.ts 里的 MAP_LABEL_ROLES; 这里只是镜像, 顺序与它一致.
@@ -82,8 +82,6 @@ def discover_products() -> tuple[tuple[str, str], ...]:
     return tuple(products)
 
 
-# 无参自检覆盖的产物(地图/文字信息相对路径), 由 config.py 派生(见 docs/add-map.md).
-PRODUCTS = discover_products()
 
 _ROOT_TAG_RE = re.compile(rb"<svg\b[^>]*>", re.IGNORECASE)
 _VIEWBOX_RE = re.compile(rb"""\bviewBox\s*=\s*["']([^"']*)["']""")
@@ -208,10 +206,16 @@ def check_product(svg_path: Path, geo_path: Path) -> list[str]:
                     errors.append(f"{path}.{key} 是 v1 字段, v2 已删除(产物需重新生成)")
             if not isinstance(label.get("id"), str) or not label.get("id"):
                 errors.append(f"{path}.id 必须是非空字符串")
-            elif label["id"] in seen:
-                errors.append(f"{path}.id 重复: {label['id']}")
             else:
-                seen.add(label["id"])
+                # id 是前端/布局文件引用的键: 必须是小写 ASCII slug, 中文只进 text.
+                try:
+                    check_slug("id", label["id"])
+                except ValueError as exc:
+                    errors.append(f"{path}.{exc}")
+                if label["id"] in seen:
+                    errors.append(f"{path}.id 重复: {label['id']}")
+                else:
+                    seen.add(label["id"])
             if label.get("role") not in LABEL_ROLE_SET:
                 errors.append(f"{path}.role 必须是 {'|'.join(LABEL_ROLES)} 之一")
             if not isinstance(label.get("text"), str):
@@ -275,9 +279,10 @@ def check_product(svg_path: Path, geo_path: Path) -> list[str]:
 
 def main(argv: list[str]) -> int:
     """检查命令行给出的产物; 不给参数时检查 PRODUCTS 里的全部产物."""
-    targets: list[tuple[Path, Path | None]] = [
-        (Path(arg), None) for arg in argv[1:]
-    ] or [(ROOT / svg, ROOT / geo) for svg, geo in PRODUCTS]
+    # 只给显式路径时不 import 任何 config: 单独校验一份产物不必等全仓都能导入.
+    targets: list[tuple[Path, Path | None]] = [(Path(arg), None) for arg in argv[1:]]
+    if not targets:
+        targets = [(ROOT / svg, ROOT / geo) for svg, geo in discover_products()]
     failed = 0
     checked = 0
     for svg_path, geo_path in targets:

@@ -61,6 +61,9 @@ SHEET_WORLD = Sheet(
             feature["geometry"]["coordinates"][0],
             feature["geometry"]["coordinates"][1],
             feature["properties"]["name"],
+            # id 用数据里的行号(基地名是中文, properties.id 在各州内会重复, 不能当 id);
+            # 显示名仍在 text.
+            name=f"base-{index}",
             role="city",
             # 世界图上一个点只有几像素, 字号与偏移都按屏幕可读性定, 不是地理量.
             font_size_pt=7.0,
@@ -68,7 +71,7 @@ SHEET_WORLD = Sheet(
             dy=1.0,
             ha="left",
         )
-        for feature in BASES
+        for index, feature in enumerate(BASES, start=1)
     ),
     title="美军基地点位演示",
     subtitle="Natural Earth 110m 世界底图 | 等距圆柱投影(PlateCarree)",

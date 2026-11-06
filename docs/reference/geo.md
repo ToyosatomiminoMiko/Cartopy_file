@@ -40,10 +40,13 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
    area-accent-4  area-basin
    ```
 
-6. **id 规则沿用旧 labels.json**: `label-<role 家族>-<name>[-<index>]`; 角色家族由
-   `_ID_PREFIX` 决定(`country-name → country`, `city-reference → city`,
-   `area* → area`, 其余 role 同名), 需要保留旧前缀时用 `id_kind=`
-   (如 `label-republic-Tatarstan`), 方便旧布局迁移到 scene.
+6. **id 规则**: `label-<role 家族>-<name>[-<index>]`; 角色家族由 `_ID_PREFIX` 决定
+   (`country-name → country`, `city-reference → city`, `area* → area`, 其余 role 同名),
+   `id_kind=` 可覆盖家族(如 `label-republic-tatarstan`). `<name>` **必须是小写 ASCII slug**
+   (`spec.check_slug`): 字母数字, 用 `-` `_` `.` 连接, 例如 `label-country-belarus`;
+   中文/换行/双语后缀只放在 `labels[].text` 里. 为什么: id 是前端与布局文件引用的键,
+   带中文时既是非法标识符, 也会随显示文案一起漂移; `tools/check_geo.py` 会拒绝不合规的
+   id, 所以改名等于改产物, 必须重新出图.
 7. **经纬刻度只登记落在画框内的整倍数**, 坐标取网格线与地图框边线的交点: 沿边线反查
    经纬度再插值, 不对投影做任何直线假设; `side` 由脚本决定(现有图都只标底边/左边).
 8. **色标 stops 从 colormap 等距采样 21 个**(与旧成品抽出的口径一致), 不导出
@@ -62,7 +65,7 @@ doc = GeoDoc(frame)
 
 # role 决定前端样式; 这里只给语义 + 位置 + 字号 + 锚点.
 doc.add_label(ax, 50.30, 54.85, "鞑靼斯坦\n共和国",
-              role="area-accent-1", id_kind="republic", name="Tatarstan",
+              role="area-accent-1", id_kind="republic", name="tatarstan",
               font_size_pt=12.5, ha="center")
 doc.add_graticule(ax, extent, lon_step=5, lat_step=2,
                   style={"stroke": "#808080", "width_pt": 0.5,

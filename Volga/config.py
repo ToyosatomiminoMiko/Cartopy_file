@@ -18,7 +18,15 @@ from pathlib import Path
 
 from cartopy_file.datasets import Dataset, dataset_set
 from cartopy_file.sources import erddap_url, gadm_url, hydrobasins_url
-from cartopy_file.spec import Extent, Graticule, Projection, Relief, Sheet
+from cartopy_file.spec import (
+    Extent,
+    Graticule,
+    Label,
+    LegendEntry,
+    Projection,
+    Relief,
+    Sheet,
+)
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -341,6 +349,7 @@ SMALL_REPUBLICS = frozenset({"Chuvash", "Mariy-El", "Mordovia", "Kalmyk"})
 
 # 共和国名称: GADM NAME_1 -> (经度, 纬度, 文字). 放在各共和国境内的空旷处,
 # 避开首府城点与主要河湖; 小共和国用两行文字, 字号见 SMALL_REPUBLICS.
+# id 的 slug 用 key 的小写形式(如 tatarstan、mariy-el), 与 GADM 的 NAME_1 一一对应.
 REPUBLIC_LABELS: dict[str, tuple[float, float, str]] = {
     "Tatarstan": (50.30, 54.85, "鞑靼斯坦\n共和国"),
     "Bashkortostan": (56.60, 53.35, "巴什科尔托斯坦\n共和国"),
@@ -352,65 +361,67 @@ REPUBLIC_LABELS: dict[str, tuple[float, float, str]] = {
     "Komi": (54.50, 61.00, "科米\n共和国"),
 }
 
-# 城市: (经度, 纬度, 名称, 类型, 文字偏移经度, 文字偏移纬度, 水平对齐).
+# 城市: (经度, 纬度, 名称, id slug, 类型, 文字偏移经度, 文字偏移纬度, 水平对齐).
 # 类型: capital=首都(星形), rep=共和国首府(方块), city=一般城市(圆点).
 # 偏移与对齐是改前成品的文字落点, 现在只用来产出 geo.labels 的锚点, 不再画文字.
+# slug 是小写 ASCII, 只进 id(见 docs/reference/spec.md 的 Label); 显示名只进 text.
 CITIES = [
-    (37.617, 55.755, "莫斯科", "capital", 0.12, 0.14, "left"),
-    (35.900, 56.858, "特维尔", "city", 0.10, 0.10, "left"),
-    (39.873, 57.626, "雅罗斯拉夫尔", "city", -0.12, 0.16, "right"),
-    (40.926, 57.768, "科斯特罗马", "city", 0.12, -0.16, "left"),
-    (44.002, 56.326, "下诺夫哥罗德", "city", 0.10, 0.10, "left"),
-    (49.660, 58.603, "基洛夫", "city", 0.10, 0.10, "left"),
-    (56.248, 58.010, "彼尔姆", "city", 0.10, 0.10, "left"),
-    (53.204, 56.852, "伊热夫斯克", "rep", 0.10, 0.10, "left"),
-    (49.122, 55.788, "喀山", "rep", 0.10, 0.10, "left"),
-    (55.972, 54.738, "乌法", "rep", 0.10, 0.10, "left"),
-    (50.150, 53.195, "萨马拉", "city", 0.10, 0.10, "left"),
-    (48.403, 54.317, "乌里扬诺夫斯克", "city", 0.10, 0.10, "left"),
-    (46.034, 51.533, "萨拉托夫", "city", 0.10, 0.10, "left"),
-    (44.501, 48.708, "伏尔加格勒", "city", 0.10, 0.10, "left"),
-    (48.034, 46.349, "阿斯特拉罕", "city", 0.10, 0.10, "left"),
-    (47.251, 56.132, "切博克萨雷", "rep", -0.10, -0.12, "right"),
-    (47.890, 56.638, "约什卡尔奥拉", "rep", 0.10, -0.12, "left"),
-    (45.184, 54.183, "萨兰斯克", "rep", 0.10, -0.10, "left"),
-    (45.000, 53.195, "奔萨", "city", 0.10, -0.10, "left"),
-    (39.741, 54.626, "梁赞", "city", 0.10, 0.10, "left"),
-    (55.097, 51.768, "奥伦堡", "city", 0.10, 0.10, "left"),
-    (44.256, 46.307, "埃利斯塔", "rep", -0.12, -0.12, "right"),
-    (50.836, 61.668, "瑟克特夫卡尔", "rep", 0.10, 0.10, "left"),
+    (37.617, 55.755, "莫斯科", "moscow", "capital", 0.12, 0.14, "left"),
+    (35.900, 56.858, "特维尔", "tver", "city", 0.10, 0.10, "left"),
+    (39.873, 57.626, "雅罗斯拉夫尔", "yaroslavl", "city", -0.12, 0.16, "right"),
+    (40.926, 57.768, "科斯特罗马", "kostroma", "city", 0.12, -0.16, "left"),
+    (44.002, 56.326, "下诺夫哥罗德", "nizhny-novgorod", "city", 0.10, 0.10, "left"),
+    (49.660, 58.603, "基洛夫", "kirov", "city", 0.10, 0.10, "left"),
+    (56.248, 58.010, "彼尔姆", "perm", "city", 0.10, 0.10, "left"),
+    (53.204, 56.852, "伊热夫斯克", "izhevsk", "rep", 0.10, 0.10, "left"),
+    (49.122, 55.788, "喀山", "kazan", "rep", 0.10, 0.10, "left"),
+    (55.972, 54.738, "乌法", "ufa", "rep", 0.10, 0.10, "left"),
+    (50.150, 53.195, "萨马拉", "samara", "city", 0.10, 0.10, "left"),
+    (48.403, 54.317, "乌里扬诺夫斯克", "ulyanovsk", "city", 0.10, 0.10, "left"),
+    (46.034, 51.533, "萨拉托夫", "saratov", "city", 0.10, 0.10, "left"),
+    (44.501, 48.708, "伏尔加格勒", "volgograd", "city", 0.10, 0.10, "left"),
+    (48.034, 46.349, "阿斯特拉罕", "astrakhan", "city", 0.10, 0.10, "left"),
+    (47.251, 56.132, "切博克萨雷", "cheboksary", "rep", -0.10, -0.12, "right"),
+    (47.890, 56.638, "约什卡尔奥拉", "yoshkar-ola", "rep", 0.10, -0.12, "left"),
+    (45.184, 54.183, "萨兰斯克", "saransk", "rep", 0.10, -0.10, "left"),
+    (45.000, 53.195, "奔萨", "penza", "city", 0.10, -0.10, "left"),
+    (39.741, 54.626, "梁赞", "ryazan", "city", 0.10, 0.10, "left"),
+    (55.097, 51.768, "奥伦堡", "orenburg", "city", 0.10, 0.10, "left"),
+    (44.256, 46.307, "埃利斯塔", "elista", "rep", -0.12, -0.12, "right"),
+    (50.836, 61.668, "瑟克特夫卡尔", "syktyvkar", "rep", 0.10, 0.10, "left"),
 ]
 
-# 河名: (经度, 纬度, 文字). 文字放在河道旁的陆地上; 旋转由前端处理.
+# 河名: (经度, 纬度, 文字, id slug). 文字放在河道旁的陆地上; 旋转由前端处理.
+# 同一条河标两段时 slug 相同, 由建表函数按河名表顺序加 -1/-2 序号(见 _river_labels).
 RIVER_LABELS = [
-    (43.05, 56.10, "伏尔加河"),
-    (45.35, 49.90, "伏尔加河"),
-    (53.40, 55.35, "卡马河"),
-    (41.55, 54.85, "奥卡河"),
-    (56.30, 54.15, "别拉亚河"),
-    (50.20, 57.45, "维亚特卡河"),
+    (43.05, 56.10, "伏尔加河", "volga"),
+    (45.35, 49.90, "伏尔加河", "volga"),
+    (53.40, 55.35, "卡马河", "kama"),
+    (41.55, 54.85, "奥卡河", "oka"),
+    (56.30, 54.15, "别拉亚河", "belaya"),
+    (50.20, 57.45, "维亚特卡河", "vyatka"),
 ]
 
-# 邻国名称: 只标画框内可见的三个邻国.
+# 邻国名称: 只标画框内可见的三个邻国: (经度, 纬度, 文字, id slug).
 COUNTRY_LABELS = [
-    (55.10, 47.60, "哈萨克斯坦"),
-    (30.95, 53.45, "白俄罗斯"),
-    (33.10, 48.75, "乌克兰"),
+    (55.10, 47.60, "哈萨克斯坦", "kazakhstan"),
+    (30.95, 53.45, "白俄罗斯", "belarus"),
+    (33.10, 48.75, "乌克兰", "ukraine"),
 ]
 
-# 海域名称.
+# 海域名称: (经度, 纬度, 文字, id slug).
 SEA_LABELS = [
-    (50.60, 45.35, "里海"),
-    (31.20, 45.05, "黑海"),
-    (36.80, 46.05, "亚速海"),
+    (50.60, 45.35, "里海", "caspian-sea"),
+    (31.20, 45.05, "黑海", "black-sea"),
+    (36.80, 46.05, "亚速海", "azov-sea"),
 ]
 
-# 地貌名称: (经度, 纬度, 文字). 乌拉尔山的走向旋转由前端处理.
+# 地貌名称: (经度, 纬度, 文字, id slug). 乌拉尔山的走向旋转由前端处理.
 HIGHLAND_LABELS = [
-    (33.10, 57.55, "瓦尔代丘陵"),
-    (46.90, 52.20, "伏尔加高地"),
-    (47.40, 48.60, "里海低地"),
-    (59.30, 56.80, "乌拉尔山"),
+    (33.10, 57.55, "瓦尔代丘陵", "valdai-hills"),
+    (46.90, 52.20, "伏尔加高地", "volga-upland"),
+    (47.40, 48.60, "里海低地", "caspian-lowland"),
+    (59.30, 56.80, "乌拉尔山", "urals"),
 ]
 
 # 河网分级: Natural Earth 10m 河流的 scalerank(数值越小越主要)分三档.
@@ -443,6 +454,70 @@ NOTES_REPUBLICS = (
     "中央经线 46°E，标准纬线 47°N / 57°N。",
 )
 
+# 图内流域面积注记: 只有共和国图把这块文字画在图内; 面积出图时才算得出来,
+# 所以 text 里留 {area_wan:.0f} 占位符, 由 runner.render(label_vars=...) 在出图时填充.
+BASIN_AREA_LABEL = (42.55, 51.95, "伏尔加河流域\n约 {area_wan:.0f} 万 km²", "volga-basin")
+# 图外面积注记(geo.suggestions.area_annotation): 只有流域图用; 共和国图把同一块文字
+# 画在图内, 不再给图外面板重复一份. 数值同样是出图时才知道的.
+AREA_ANNOTATION = ("伏尔加河流域", "约 {area_wan:.0f} 万 km²")
+
+# 图例: 只列该图实际画了的线型/面. 两张图共用流域/国界/水系/点位条目, 共和国图
+# 在流域条目后多两条行政区条目(与 Theme.draw_admin 的开关一致).
+# 条目顺序就是 geo.legend.entries 的顺序, 也是前端的排版顺序.
+LEGEND_TITLE = "图例"
+_LEGEND_BASIN_AREA = LegendEntry(
+    "伏尔加河流域",
+    "rect",
+    stroke=COLOR_BASIN_EDGE,
+    width_pt=2.0,
+    fill=COLOR_BASIN_FILL,
+    opacity=0.45,
+)
+# 共和国图独有的行政区条目.
+_LEGEND_ADMIN = (
+    LegendEntry(
+        "周边联邦主体共和国",
+        "rect",
+        stroke=COLOR_REPUBLIC_EDGE,
+        width_pt=1.8,
+        fill=COLOR_REPUBLIC_FILL,
+        opacity=0.45,
+    ),
+    LegendEntry(
+        "其他联邦主体界",
+        "line",
+        stroke=COLOR_SUBJECT,
+        width_pt=0.9,
+        dash=(5.0, 3.0),
+        opacity=0.8,
+    ),
+)
+# 两张图共用的条目: 国界 -> 水系 -> 城市点位.
+_LEGEND_COMMON = (
+    LegendEntry("国界", "line", stroke=COLOR_BORDER, width_pt=1.4),
+    LegendEntry("干流(伏尔加河等)", "line", stroke=COLOR_RIVER_TRUNK, width_pt=1.8),
+    LegendEntry("支流", "line", stroke=COLOR_RIVER, width_pt=0.8),
+    LegendEntry(
+        "湖泊 / 水库水面",
+        "rect",
+        stroke=COLOR_WATER_EDGE,
+        width_pt=0.6,
+        fill=COLOR_WATER,
+    ),
+    LegendEntry(
+        "首都", "point", stroke="#000000", width_pt=1.5, fill="#ffd200", marker="star",
+    ),
+    LegendEntry(
+        "共和国首府", "point", stroke="#000000", width_pt=1.5,
+        fill="#ffffff", marker="square",
+    ),
+    LegendEntry(
+        "城市", "point", stroke="#000000", width_pt=1.5, fill="#ffffff", marker="circle",
+    ),
+)
+LEGEND_BASIN = (_LEGEND_BASIN_AREA, *_LEGEND_COMMON)
+LEGEND_REPUBLICS = (_LEGEND_BASIN_AREA, *_LEGEND_ADMIN, *_LEGEND_COMMON)
+
 
 @dataclass(frozen=True)
 class Theme:
@@ -468,6 +543,85 @@ THEMES = {
         hidden_subjects=REPUBLICS_HIDDEN,
     ),
 }
+
+# ============================
+# 地名表(按画框过滤后写进各自的 Sheet.labels)
+# ============================
+def _label(lon, lat, text, slug, role, size, **kwargs) -> Label:
+    """写 Label 的短辅助函数; 顺序即前端叠放顺序, slug 是 id 的 ASCII 段."""
+    return Label(lon, lat, text, role=role, font_size_pt=size, name=slug, **kwargs)
+
+
+def _river_labels(extent: Extent) -> tuple[Label, ...]:
+    """河名: 同一条河标多段时 id 加 1 起算序号; 序号按河名表顺序计, 与改前一致."""
+    counts: dict[str, int] = {}
+    for _, _, _, slug in RIVER_LABELS:
+        counts[slug] = counts.get(slug, 0) + 1
+    seen: dict[str, int] = {}
+    labels: list[Label] = []
+    for lon, lat, text, slug in RIVER_LABELS:
+        seen[slug] = seen.get(slug, 0) + 1
+        if not extent.contains_point(lon, lat):
+            continue
+        # 重复河名把序号并进 slug(与改前 add_label 的 index 产出同名 id, 如 volga-1).
+        name = f"{slug}-{seen[slug]}" if counts[slug] > 1 else slug
+        labels.append(_label(lon, lat, text, name, "river", 9.8))
+    return tuple(labels)
+
+
+def _labels_for(extent: Extent, theme: Theme) -> tuple[Label, ...]:
+    """按画框与主题生成一张图的完整地名表.
+
+    顺序按旧图 zorder 升序登记(前端 scene 按 order 叠放): 国名/海名/地貌(9.0)、
+    图内流域名(9.2)、共和国名(9.3)、河名(9.4)、城市(10.1). 画框外的候选跳过,
+    与改前按画框过滤文字的行为一致.
+    """
+    labels: list[Label] = []
+    labels += [
+        _label(lon, lat, text, slug, "country", 12.0)
+        for lon, lat, text, slug in COUNTRY_LABELS
+        if extent.contains_point(lon, lat)
+    ]
+    labels += [
+        _label(lon, lat, text, slug, "sea", 11.0)
+        for lon, lat, text, slug in SEA_LABELS
+        if extent.contains_point(lon, lat)
+    ]
+    labels += [
+        _label(lon, lat, text, slug, "highland", 10.0)
+        for lon, lat, text, slug in HIGHLAND_LABELS
+        if extent.contains_point(lon, lat)
+    ]
+    # 图内流域名: 只有共和国图在图上写「伏尔加河流域 / 面积」; 流域图的同一块
+    # 文字走 AREA_ANNOTATION 带给前端(图外面板).
+    if theme.area_label_in_map and extent.contains_point(*BASIN_AREA_LABEL[:2]):
+        lon, lat, text, slug = BASIN_AREA_LABEL
+        labels.append(_label(lon, lat, text, slug, "area-basin", 15.0))
+    # 共和国名: 字号按共和国轮廓大小分两档(小共和国 10.5, 大共和国 12.5);
+    # id_kind=republic 保留旧的 label-republic-* 前缀.
+    for key in theme.republics:
+        lon, lat, text = REPUBLIC_LABELS[key]
+        if not extent.contains_point(lon, lat):
+            continue
+        size = 10.5 if key in SMALL_REPUBLICS else 12.5
+        labels.append(
+            _label(lon, lat, text, key.lower(), "area-accent-1", size, id_kind="republic")
+        )
+    labels += _river_labels(extent)
+    # 城市: 文字跟着点位偏移; 字号按城市等级分三档.
+    sizes = {"capital": 10.8, "rep": 9.3, "city": 8.8}
+    labels += [
+        _label(lon + dx, lat + dy, text, slug, "city", sizes[kind], ha=align)
+        for lon, lat, text, slug, kind, dx, dy, align in CITIES
+        if extent.contains_point(lon, lat)
+    ]
+    return tuple(labels)
+
+
+# 两张图的画框不同, 过滤后的地名表各建一份: 流域图没有行政区与图内面积注记,
+# 共和国图没有画框外的邻国/海名/地貌与城市.
+LABELS_BASIN = _labels_for(EXTENT_BASIN, THEMES["basin"])
+LABELS_REPUBLICS = _labels_for(EXTENT_REPUBLICS, THEMES["republics"])
 
 # ============================
 # 图规格
@@ -498,6 +652,9 @@ SHEET_BASIN = Sheet(
     ),
     title="伏尔加河流域地形图",
     subtitle="ETOPO 2022 | 流域: HydroSHEDS | 国界: GADM 4.1 | 兰勃特等角圆锥投影",
+    labels=LABELS_BASIN,
+    legend=LEGEND_BASIN,
+    legend_title=LEGEND_TITLE,
     notes=NOTES_BASIN,
     colorbar_title="高程 / 水深",
 )
@@ -526,6 +683,9 @@ SHEET_REPUBLICS = Sheet(
     ),
     title="伏尔加河流域与周边联邦主体共和国地形图",
     subtitle="ETOPO 2022 | 流域: HydroSHEDS | 行政区: GADM 4.1 | 兰勃特等角圆锥投影",
+    labels=LABELS_REPUBLICS,
+    legend=LEGEND_REPUBLICS,
+    legend_title=LEGEND_TITLE,
     notes=NOTES_REPUBLICS,
     colorbar_title="高程 / 水深",
 )

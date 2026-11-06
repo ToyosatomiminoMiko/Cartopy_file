@@ -82,6 +82,8 @@ python USSR/main.py all                   # 两步合一: 先 download, 再 rend
 
 ## 注意事项
 
+- 旧成品只有经纬**网线**, 没有刻度文字: 这一点由 `Sheet.graticule_ticks=False` 声明,
+  `standard_collect` 会退化成只登记网线线型; 改成 True 会多出一圈旧图没有的刻度文字;
 - 高程文件不存在时 `load_elevation` 抛 `FileNotFoundError`(不带命令提示), 先跑
   `python USSR/main.py download` 补齐;
 - 投影实际参数是 `central_longitude=105`, 不是 90°E(原始代码如此), 引用投影参数时以代码为准;

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Mapping
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -49,6 +49,8 @@ class RenderContext:
     lat: np.ndarray | None = None
     z: np.ndarray | None = None
     covered: Extent | None = None
+    # 地名 text 里的占位符取值(如流域面积); 有自定义 collect 时也能从 ctx 取.
+    label_vars: Mapping[str, Any] | None = None
 
 
 def _warn_coverage(sheet: Sheet, dataset, covered: Extent) -> None:
@@ -75,14 +77,18 @@ def render(
     root: Path,
     catalog: DatasetSet,
     draw: DrawHook,
-    collect: CollectHook,
+    collect: CollectHook | None = None,
     dem_path: Path | None = None,
+    label_vars: Mapping[str, Any] | None = None,
+    area_annotation: tuple[str, ...] | None = None,
     dpi: int | None = None,
     show: bool = False,
     close: bool = True,
 ) -> tuple[Path, Path]:
     """按 sheet 出一张图, 返回 (svg 路径, geo.json 路径).
 
+    ``collect=None`` 表示用默认收集(``layers.standard_collect``): 地名/经纬刻度/色标/
+    图例/文案全部来自 ``Sheet``, 图种没有额外动态数据时就不用写 collect 回调.
     回调顺序是固定的: 底图 -> 晕渲 -> ``draw`` -> 版面 -> 量地图框 -> ``collect`` -> 保存.
     为什么量地图框在最后: figure_frame 要 apply_aspect, 在版面(tight_layout)与所有
     图层都画完之后量才等于最终裁剪框; 提前量会与产物错位.
@@ -96,7 +102,14 @@ def render(
         layers.add_base_map(ax, sheet, world)
 
     ctx = RenderContext(
-        sheet=sheet, catalog=catalog, root=root, fig=fig, ax=ax, world=world, covered=covered
+        sheet=sheet,
+        catalog=catalog,
+        root=root,
+        fig=fig,
+        ax=ax,
+        world=world,
+        covered=covered,
+        label_vars=label_vars,
     )
 
     if sheet.dem_id is not None:
@@ -117,7 +130,12 @@ def render(
         plt.tight_layout()
 
     doc = GeoDoc(figure_frame(fig, ax))
-    collect(doc, ctx)
+    if collect is None:
+        layers.standard_collect(
+            doc, ax, sheet, catalog, label_vars=label_vars, area_annotation=area_annotation
+        )
+    else:
+        collect(doc, ctx)
     svg_path, geo_path = save_map(
         fig,
         map_path(root, sheet.out),

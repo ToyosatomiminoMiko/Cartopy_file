@@ -29,6 +29,12 @@ Natural Earth 10m 河网与湖泊水面, 一次生成两张自包含 SVG:
 
 共和国图另有: 六国(半透明蓝紫填色 + 深紫描边)、其余联邦主体(灰色虚线界线).
 
+地名、图例、配色、标题/注全部声明在 [`Volga/config.py`](../../Volga/config.py): 每条地名
+同时给显示文案 `text`(中文/换行随图面走)与标识符 `name`(小写 ASCII slug, 拼成
+`label-country-kazakhstan` 这类 id), 两张图各按自己的画框过滤成一份 `Sheet.labels`;
+图例是 `Sheet.legend`/`legend_title`, 文案是 `Sheet.title`/`subtitle`/`notes`. 绘图模块
+只画几何, 不拼 geo 字段.
+
 ## 设计要点
 
 ### 1. 投影与两张画框
@@ -42,7 +48,8 @@ Natural Earth 10m 河网与湖泊水面, 一次生成两张自包含 SVG:
 随之为约 17.6 × 12.2 英寸(流域图)或 14.5 × 12.2 英寸(共和国图). 这样两种宽高比都能让
 地图正好填满左侧地图区, 不靠留白对齐; 右侧面板宽度固定 4.23 英寸. 底图不再画文字但版面未重排,
 右侧仍按原图例/色标/注的占位预留留白, 等前端排版接管; 地名只以 `role`/位置/字号写进同 stem
-的 `.geo.json`(样式由前端 role 表统一决定), 图例与色标也以数据形式给出.
+的 `.geo.json`(样式由前端 role 表统一决定). 图例条目、标题与右栏注是纯数据, 由
+`layers.standard_collect` 从 `Sheet` 写进 geo.json, 绘图模块里没有手拼 geo 字段的代码.
 
 ### 2. 流域口径
 
@@ -184,7 +191,19 @@ python Volga/main.py all        # 依次执行 download → prepare → render
 - 里海低地的负高程陆地靠 Natural Earth 海洋/湖泊面判识, 依赖仓库 `data/cartopy/` 的 10m
   ocean 层; 缺这一层时脚本会退回"z<0 全部按水面"并在终端告警.
 - 湖泊填色用 Natural Earth 10m 面, 与 ETOPO 岸线有几百米级偏差; 图面 1:770 万下不可见.
-- 新增第三张图时只加一个 `Sheet` 到 `Volga/config.py` 的 `SHEETS`, 并登记 `THEMES` 与
-  `LAYOUTS`; 画框外的城市点会自动过滤, 画布宽度按投影宽高比自动算;
+- 新增第三张图时只加一个 `Sheet` 到 `Volga/config.py` 的 `SHEETS`, 并登记 `THEMES`、
+  `LAYOUTS`, 再按画框过滤生成一份地名表; 画框外的城市点仍由模块自动跳过, 画布宽度按投影
+  宽高比自动算;
+- 图例条目、配色、标题与右栏注都在 `config.py` 里声明(图例走 `Sheet.legend`/
+  `legend_title`, 文案走 `Sheet.title`/`subtitle`/`notes`), 改图例只改 config; `volga.py`
+  没有 `collect` 回调, geo.json 由 `layers.standard_collect` 统一写;
+- 流域面积是出图时才知道的值: 地名/图注里的 `{area_wan:.0f}` 占位符由
+  `runner.render(label_vars={"area_wan": ...})` 填充, config 不读数据; 图外面板的面积注记
+  (`geo.suggestions.area_annotation`)只给流域图; 共和国图把同一块文字画在图内, 传空元组
+  以保留空的 `area_annotation: []`(缺键与空数组对下游是两种情况);
+- label id 是 ASCII slug(`label-country-kazakhstan`、`label-river-volga-1`), 中文只进
+  `labels[].text`; 同一条河标两段时序号并进 slug(volga-1 / volga-2), 共和国名用 GADM
+  NAME_1 的小写形式(tatarstan、mariy-el); 改显示文案不改变 id, 改 id 等于改产物, 需要重新
+  出图并由前端重新对齐布局;
 - 不用 `tight_layout` / `bbox_inches="tight"`: cartopy 0.25 在非矩形投影上绘制经纬网时,
   提前绘制会触发 gridliner 的 GEOSException, tight bbox 还会把地图边缘裁掉(项目已踩过).

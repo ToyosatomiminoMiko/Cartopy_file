@@ -23,10 +23,15 @@
 - `add_gridlines(ax, sheet)`: 网线位置取 `Graticule.lon_ticks/lat_ticks`, 为空时按
   `Sheet.extent` 与步长取整倍数;
 - `add_cities(ax, cities)`: 首都星形、其余空心圆, 只画点不画字;
-- `collect_labels/collect_graticule/collect_relief`: 往 `GeoDoc` 登记地名、经纬刻度、色标;
-  `suggestions(sheet, catalog)`: 文案 + 由 `DatasetSet.citation` 自动生成的「数据来源」;
-- `standard_collect(doc, ax, sheet, catalog)`: 上面几步的默认顺序(地名 -> 刻度 -> 色标 ->
-  文案); 图种需要动态标签/图例时自己按同样顺序调用, 不要复制实现;
+- `collect_labels(doc, ax, labels, label_vars=None)`: 往 `GeoDoc` 登记地名, `label_vars`
+  格式化 `text` 里的 `{name:.0f}` 占位符(出图时才有的数, 如流域面积);
+  `collect_graticule`/`collect_relief`: 经纬刻度、色标;
+- `suggestions(sheet, catalog, area_annotation=None, label_vars=None)`: 文案 + 图例标题 +
+  由 `DatasetSet.citation` 自动生成的「数据来源」; `notes` 里的占位符同样按 `label_vars` 填;
+- `standard_collect(doc, ax, sheet, catalog, label_vars=None, area_annotation=None)`:
+  默认顺序(地名 -> 刻度 -> 色标 -> 图例 -> 文案). 图例来自 `Sheet.legend`/`legend_title`,
+  `Sheet.graticule_ticks=False` 时只登记网线线型不登记刻度文字; 图种只在有动态数据时
+  自己按同样顺序调用, 不要复制实现;
 - `make_relief_cmap(relief)`: 按锚点造 0 m 处断开的双色带; `ne_dir()`/`countries_frame()`:
   共享缓存里 Natural Earth 图层的目录/图层; `build_projection(projection)`: 纯数据投影 ->
   cartopy 对象.
@@ -42,15 +47,17 @@ def draw(ctx):
     layers.add_cities(ctx.ax, ctx.sheet.cities)
     layers.add_gridlines(ctx.ax, ctx.sheet)
 
+# 没有动态数据: 不写 collect, runner 缺省会调 standard_collect.
+# 有动态数据(如流域面积)时:
 def collect(doc, ctx):
-    layers.collect_labels(doc, ctx.ax, ctx.sheet.labels)
-    layers.collect_graticule(doc, ctx.ax, ctx.sheet)
-    layers.collect_relief(doc, ctx.sheet)
-    doc.set_suggestions(layers.suggestions(ctx.sheet, ctx.catalog))
+    layers.standard_collect(doc, ctx.ax, ctx.sheet, ctx.catalog,
+                            label_vars={"area_wan": 140.0})
 ```
 
 ## 注意事项
 
+- 图例/文案是**声明**不是代码: 颜色、条目顺序、多行文案都写进 `config.py` 的 `Sheet`,
+  渲染模块只画图; 改图例时不要再回模块里找 `set_legend`;
 - `add_gridlines` 的位置必须与改前产物的 locator 取值逐条一致: 多一条网线就会在 SVG 里多
   一条被裁剪的路径, 产物字节就变了;
 - `countries_frame()` 读的是**具体图层**(`admin_0_countries`), 不要把共享缓存的类别目录

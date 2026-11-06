@@ -4,9 +4,9 @@
 """AmericaArmy subproject entry point: render the demonstration map.
 
 是什么: 框架演示子项目的唯一可执行入口, 只有 ``render`` 一个子命令; ``--dpi`` 控制内嵌
-栅格的像素密度, ``--show`` 保存后弹出交互窗口. 图规格在 ``config.py``、draw/collect 回调
-在 ``america_army.py``; 本文件只解析命令行并懒导入渲染模块——演示子项目没有数据准备步骤,
-所以没有 download/prepare 子命令.
+栅格的像素密度, ``--show`` 保存后弹出交互窗口. 图规格(含地名/图例/文案)在 ``config.py``、
+draw 回调在 ``america_army.py``(没有动态 geo 数据, 所以不用写 collect); 本文件只解析命令行
+并懒导入渲染模块——演示子项目没有数据准备步骤, 所以没有 download/prepare 子命令.
 完整说明(最小子项目要写什么、回调契约)见 ``docs/add-map.md``.
 """
 

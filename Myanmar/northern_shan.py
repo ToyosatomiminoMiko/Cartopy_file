@@ -6,8 +6,9 @@
 是什么: 以掸邦为中心绘制缅甸联邦第一特区、德昂邦、佤邦、掸邦东部第四特区及
 周边的地形图, 并在第一特区内标出其前身"原果敢自治区"的范围; 只绘制地理要素,
 文字/图例/色标/标题/刻度文字都以数据形式写进同名 ``<产物>.geo.json``, 由前端排版.
-画框/投影/色带/经纬网/地名/文案取自 ``Myanmar/config.py``; 本图的特殊图层
-(特区填色与斜线、原果敢自治区、干流强调、OSM 国界)留在本脚本, 用共享原语画.
+画框/投影/色带/经纬网/地名/文案/图例/配色全部声明在 ``Myanmar/config.py``;
+本图的特殊图层(特区填色与斜线、原果敢自治区、干流强调、OSM 国界)留在本脚本,
+用共享原语画; geo.json 由 runner 缺省的 ``layers.standard_collect`` 按 Sheet 收集.
 本文件是模块, 只导出 ``run()``, 由统一入口 ``python Myanmar/main.py render`` 调用.
 完整说明(范围、南界取值理由、投影、果敢关系、国界处理)见
 ``docs/maps/northern-shan.md``; 出图流程见 ``docs/reference/runner.md``,
@@ -61,56 +62,11 @@ BORDER_GEOJSON = DATASETS.path(config.OSM_COUNTRY_BORDERS)
 # ============================
 # 本图特有图层
 # ============================
-# 区域配色: 填充色 + 边界色. 透明度让下方地形仍可读.
-# 德昂邦用绿色: 第一特区(紫)、佤邦(蓝)、四特(橙)已占三色, 绿色是
-# 与三者色相距离最大、且不与环境色(山体晕渲)冲突的选择.
-REGION_STYLES = {
-    "sr1": {
-        "fill": "#8c6bb1",
-        "edge": "#4a1486",
-        "alpha": 0.24,
-        "linewidth": 2.2,
-    },
-    "taang": {
-        "fill": "#2ca25f",
-        "edge": "#005a32",
-        "alpha": 0.26,
-        "linewidth": 1.9,
-    },
-    "wa": {
-        "fill": "#2b8cbe",
-        "edge": "#045a8d",
-        "alpha": 0.22,
-        "linewidth": 1.9,
-    },
-    "sr4": {
-        "fill": "#f16913",
-        "edge": "#a63603",
-        "alpha": 0.22,
-        "linewidth": 1.9,
-    },
-}
-# 区域内部县/特区界: 白色虚线, 在填充与地形上都看得清.
-INTERNAL_EDGE_COLOR = "#ffffff"
-# MNDAA 实控区斜线: 与第一特区同范围, 用斜线表示"实控", 填充色表示"辖区".
-MNDAA_HATCH = "///"
-MNDAA_HATCH_COLOR = "#4a1486"
-
-# 国界: 用 OSM admin_level=2 数据(精度与区域边界一致), 红色半透明实线.
-# 半透明与 Ukraine 图一致: 让下面的地形与区域填色透出来, 国界不至于压死
-# 与它重合的区域边界; 图例里的线段也带同样的 alpha.
-BORDER_COLOR = "#c62828"
-BORDER_ALPHA = 0.62
-BORDER_WIDTH = 2.7
+# 图面配色(区域填充/边界色、国界、果敢自治区、图例共用色)全部在 config.py,
+# 图例与地图共用同一份, 改色时两边一起变; 这里只留几何参数.
 # 区域边界描边在国界两侧各裁掉这么宽(度)的走廊, 让重合段只由国界线表示.
 # 0.001° 约 110 m, 远小于 300 dpi 下 2.7 pt 线宽对应的大约 1.9 km, 肉眼不可见.
 BORDER_ZONE_DEG = 0.001
-
-# 原果敢自治区(第一特区前身): 与第一特区同色系、明显加深的填充, 用嵌套色块
-# 表示"含于第一特区辖区". 只填色、不描内边界, 以免粗线压住区内的河流;
-# 不加第二种底纹的原因见 docs/maps/northern-shan.md.
-KOKANG_SAZ_FILL = "#54278f"
-KOKANG_SAZ_ALPHA = 0.32
 
 # 两条大江的强调线所对应的 Natural Earth name_en.
 # Natural Earth 10m 把两条江拆成多段(Salween 上游 Nu + 下游 Salween,
@@ -194,22 +150,22 @@ def add_context(ax: plt.Axes, border_line) -> None:
         [border_line],
         crs=ccrs.PlateCarree(),
         facecolor="none",
-        edgecolor=BORDER_COLOR,
-        linewidth=BORDER_WIDTH,
-        alpha=BORDER_ALPHA,
+        edgecolor=config.COLOR_BORDER,
+        linewidth=config.BORDER_WIDTH,
+        alpha=config.BORDER_ALPHA,
         zorder=6.2,
     )
     # 河流/湖泊放在区域填充之上, 避免半透明色块把水系盖住.
     ax.add_feature(
         cfeature.RIVERS.with_scale("10m"),
-        edgecolor="#1f78b4",
+        edgecolor=config.RIVER_COLOR,
         linewidth=0.7,
         zorder=4,
     )
     ax.add_feature(
         cfeature.LAKES.with_scale("10m"),
         facecolor="#a6cee3",
-        edgecolor="#1f78b4",
+        edgecolor=config.RIVER_COLOR,
         linewidth=0.4,
         zorder=4,
     )
@@ -261,7 +217,7 @@ def add_admin_context(ax: plt.Axes, regions: dict[str, list], border_zone) -> No
             [edge],
             crs=ccrs.PlateCarree(),
             facecolor="none",
-            edgecolor="#7f7f7f",
+            edgecolor=config.PROVINCE_EDGE_COLOR,
             linewidth=1.0,
             linestyle=(0, (6, 3)),
             zorder=5.5,
@@ -279,7 +235,7 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> 
     # 四个区域里第一特区最后画, 压在佤邦/四特/德昂邦之上.
     draw_order = ["wa", "sr4", "taang", "sr1"]
     for layer in draw_order:
-        style = REGION_STYLES[layer]
+        style = config.REGION_STYLES[layer]
         geom = unary_union([g for _, g in regions[layer]])
         ax.add_geometries(
             [geom],
@@ -309,9 +265,9 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> 
         ax.add_geometries(
             [geom],
             crs=ccrs.PlateCarree(),
-            facecolor=KOKANG_SAZ_FILL,
+            facecolor=config.KOKANG_SAZ_FILL,
             edgecolor="none",
-            alpha=KOKANG_SAZ_ALPHA,
+            alpha=config.KOKANG_SAZ_ALPHA,
             linewidth=0,
             zorder=2.7,
         )
@@ -324,8 +280,8 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> 
         [sr1_geom],
         crs=ccrs.PlateCarree(),
         facecolor="none",
-        edgecolor=MNDAA_HATCH_COLOR,
-        hatch=MNDAA_HATCH,
+        edgecolor=config.MNDAA_HATCH_COLOR,
+        hatch=config.MNDAA_HATCH,
         alpha=0.35,
         linewidth=0,
         zorder=3.0,
@@ -342,7 +298,7 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> 
                 [edge],
                 crs=ccrs.PlateCarree(),
                 facecolor="none",
-                edgecolor=INTERNAL_EDGE_COLOR,
+                edgecolor=config.INTERNAL_EDGE_COLOR,
                 linewidth=0.65,
                 linestyle="--",
                 alpha=0.85,
@@ -376,133 +332,6 @@ def add_city_markers(ax: plt.Axes) -> None:
 
 
 # ============================
-# geo.json 收集
-# ============================
-def collect_legend(doc) -> None:
-    """把旧图手工构造的图例整理成 geo.legend(不画图例框).
-
-    条目字段与旧图例的句柄一一对应: 区域/自治区为 rect(填充+描边)、线要素为
-    line、首府为 point. label_lines 与 hatch 是契约 v2 的预留字段: 这里把旧图
-    的图例文字按行给出, hatch 条目给出斜线图案, 前端将来升 v2 时不用再改数据.
-    """
-    entries = [
-        {
-            "label": "缅甸联邦第一特区(辖区)",
-            "label_lines": ["缅甸联邦第一特区(辖区)"],
-            "shape": "rect",
-            "stroke": REGION_STYLES["sr1"]["edge"],
-            "width_pt": 1.5,
-            "fill": REGION_STYLES["sr1"]["fill"],
-            "opacity": 0.6,
-        },
-        {
-            "label": "原果敢自治区(2010–2023)",
-            "label_lines": ["原果敢自治区(2010–2023)"],
-            "shape": "rect",
-            "stroke": None,
-            "width_pt": 0.0,
-            "fill": KOKANG_SAZ_FILL,
-            "opacity": 0.8,
-        },
-        {
-            "label": "MNDAA 实控区(大致)",
-            "label_lines": ["MNDAA 实控区(大致)"],
-            "shape": "rect",
-            "stroke": MNDAA_HATCH_COLOR,
-            "width_pt": 0.0,
-            "fill": None,
-            "opacity": 1.0,
-            # 图例色块只有约 20 pt 宽, 图上 "///" 在这个尺寸下几乎看不出斜线,
-            # 所以图例用更密的 "////"; 颜色仍与图上斜线同色.
-            "hatch": "////",
-        },
-        {
-            "label": "德昂邦(TNLA 控制)",
-            "label_lines": ["德昂邦(TNLA 控制)"],
-            "shape": "rect",
-            "stroke": REGION_STYLES["taang"]["edge"],
-            "width_pt": 1.5,
-            "fill": REGION_STYLES["taang"]["fill"],
-            "opacity": 0.6,
-        },
-        {
-            "label": "佤邦",
-            "label_lines": ["佤邦"],
-            "shape": "rect",
-            "stroke": REGION_STYLES["wa"]["edge"],
-            "width_pt": 1.5,
-            "fill": REGION_STYLES["wa"]["fill"],
-            "opacity": 0.6,
-        },
-        {
-            "label": "掸邦东部第四特区",
-            "label_lines": ["掸邦东部第四特区"],
-            "shape": "rect",
-            "stroke": REGION_STYLES["sr4"]["edge"],
-            "width_pt": 1.5,
-            "fill": REGION_STYLES["sr4"]["fill"],
-            "opacity": 0.6,
-        },
-        {
-            "label": "国界",
-            "label_lines": ["国界"],
-            "shape": "line",
-            "stroke": BORDER_COLOR,
-            "width_pt": BORDER_WIDTH,
-            "opacity": BORDER_ALPHA,
-        },
-        {
-            "label": "省/邦界",
-            "label_lines": ["省/邦界"],
-            "shape": "line",
-            "stroke": "#7f7f7f",
-            "width_pt": 1.0,
-            "dash": [6.0, 3.0],
-        },
-        {
-            "label": "河流",
-            "label_lines": ["河流"],
-            "shape": "line",
-            "stroke": "#1f78b4",
-            "width_pt": 0.9,
-        },
-        {
-            "label": "特区首府",
-            "label_lines": ["特区首府"],
-            "shape": "point",
-            "stroke": "#000000",
-            "width_pt": 1.0,
-            "fill": "#ffd200",
-            "marker": "star",
-        },
-    ]
-    doc.set_legend("图例", entries)
-
-
-def collect_suggestions(doc) -> None:
-    """默认文案: 标题/副标题/注/来源只给前端预填, 不参与底图合成.
-
-    标题/副标题/注来自 ``Sheet``; 来源由 ``DatasetSet.citation`` 按
-    ``Sheet.dataset_ids`` 自动生成(带发布页 URL), 缩写表由 ``Sheet.extra_source``
-    追加. 本图 7 条区域注记都在画框内(已进 geo.labels), 没有图外面积注记, 因此
-    area_annotation 为空; legend_title/colorbar_title 与 collect_legend /
-    collect_relief 的标题保持同一口径.
-    """
-    suggestion = layers.suggestions(SHEET, DATASETS)
-    doc.set_suggestions(
-        {
-            "title": suggestion["title"],
-            "subtitle": suggestion["subtitle"],
-            "notes": suggestion["notes"],
-            "source": suggestion["source"],
-            "area_annotation": [],
-            "legend_title": "图例",
-            "colorbar_title": suggestion["colorbar_title"],
-        }
-    )
-
-
-# ============================
 # 主流程
 # ============================
 def draw(
@@ -523,15 +352,6 @@ def draw(
     add_special_regions(ax, regions, border_zone)
     add_city_markers(ax)
     layers.add_gridlines(ax, SHEET)
-
-
-def collect(doc, ctx: runner.RenderContext) -> None:
-    """登记 geo: 地名 -> 经纬刻度 -> 色标 -> 图例 -> 文案(来源由数据集清单自动生成)."""
-    layers.collect_labels(doc, ctx.ax, SHEET.labels)
-    layers.collect_graticule(doc, ctx.ax, SHEET)
-    layers.collect_relief(doc, SHEET)
-    collect_legend(doc)
-    collect_suggestions(doc)
 
 
 def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False) -> int:
@@ -559,7 +379,9 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
                 border_line=border_line,
                 border_zone=border_zone,
             ),
-            collect=collect,
+            # 没有动态数据也要显式给 area_annotation=(): 旧产物有 "area_annotation": [],
+            # standard_collect 缺省不写这个键, 显式传空元组才与改前 geo.json 一致.
+            area_annotation=(),
             dpi=dpi,
             show=show,
         )

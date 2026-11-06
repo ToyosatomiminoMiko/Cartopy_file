@@ -130,24 +130,6 @@ def draw(ctx: runner.RenderContext) -> None:
     layers.add_gridlines(ctx.ax, SHEET)
 
 
-def collect(doc, ctx: runner.RenderContext) -> None:
-    """登记 geo: 经纬网线型 -> 色标 -> 文案(来源由数据集清单自动生成).
-
-    为什么不调 ``layers.standard_collect``: 改前成品没有经纬刻度文字, 旧脚本只用
-    ``set_graticule_style`` 写线型、把 lon/lat 留空; 换成 ``collect_graticule`` 会
-    给前端补出一圈旧图没有的刻度文字.
-    """
-    graticule = SHEET.graticule
-    doc.set_graticule_style(
-        stroke=graticule.stroke,
-        width_pt=graticule.width_pt,
-        dash=graticule.dash,
-        opacity=graticule.opacity,
-    )
-    layers.collect_relief(doc, SHEET)
-    doc.set_suggestions(layers.suggestions(SHEET, DATASETS))
-
-
 def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False) -> int:
     """出图并写出地图与同名 geo.json; 返回 0. 由 ``USSR/main.py render`` 调用.
 
@@ -166,7 +148,6 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
         root=ROOT,
         catalog=DATASETS,
         draw=draw,
-        collect=collect,
         dem_path=etopo_path,
         dpi=dpi,
         show=show,

@@ -26,8 +26,9 @@ locator、文字 artist 的锚点、legend handles、colorbar 的 norm/cmap), �
 - ``labels[].x`` 是文字块的水平锚点(``anchor`` 为 start 时指左端, middle 指中心,
   end 指右端); ``labels[].y`` 是**文字块垂直中心**(底图坐标), 前端按固定行高把多行
   文字排好后换算回第一行基线;
-- id 规则沿用旧 ``labels.py`` 的 ``label-<role 家族>-<name>[-<index>]``: 角色家族见
-  ``_ID_PREFIX``(如 ``country-name`` 归到 ``country``), 便于旧布局文件迁移.
+- id 规则是 ``label-<role 家族>-<name>[-<index>]``: 角色家族见 ``_ID_PREFIX``(如
+  ``country-name`` 归到 ``country``); ``<name>`` 必须是小写 ASCII slug(见
+  ``spec.check_slug``), 中文显示名只进 ``text``——id 要当键用, 不能带中文
 
 依赖: ``cartopy_file.output.save_svg``(唯一 SVG 出口); 坐标换算走 cartopy 的
 PlateCarree->display 变换(与 ``GeoAxes.text`` 同一套, 实测与旧成品抽出的 geo 逐条
@@ -47,6 +48,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from .output import save_svg
+from .spec import check_slug
 
 __all__ = [
     "FORMAT",
@@ -146,13 +148,13 @@ def _format_pt(value: float) -> str:
 def label_id(kind: str, name: str, index: int | None = None) -> str:
     """拼一个跨版本稳定的标签 id: ``label-<kind>-<name>[-<index>]``.
 
-    kind 是「角色家族」(见 ``_ID_PREFIX``), 不是 role 本身; 与旧 ``labels.py`` 的规则
-    一致, 手工布局文件迁移到 scene 时靠 id 对齐. name 只去掉首尾空白, 不替换空格:
-    旧布局文件里的键就是这种写法, 改了反而对不上.
+    kind 是「角色家族」(见 ``_ID_PREFIX``), 不是 role 本身. name 是**标识符**,
+    必须是小写 ASCII slug(``spec.check_slug``): id 会被前端和旧布局文件当键引用,
+    中文、换行、双语后缀都只应出现在 ``labels[].text`` 里, 不进 id.
     """
-    if not kind or not name.strip():
+    if not kind or not str(name).strip():
         raise ValueError(f"label_id 需要非空的 kind/name: {kind!r} {name!r}")
-    base = f"{LABEL_PREFIX}{kind}-{name.strip()}"
+    base = f"{LABEL_PREFIX}{check_slug('label_id kind', kind)}-{check_slug('label_id name', name)}"
     if index is None:
         return base
     return f"{base}-{int(index)}"
@@ -473,7 +475,7 @@ class GeoDoc:
         text: str,
         *,
         role: str,
-        name: str | None = None,
+        name: str,
         index: int | None = None,
         id_kind: str | None = None,
         font_size_pt: float,
@@ -483,6 +485,8 @@ class GeoDoc:
 
         text 里的换行原样保留(前端自己 split); x/y 是文字块的水平锚点与垂直中心,
         不再换算基线. role 决定前端样式, 生成端只按 _ID_PREFIX 把它折成 id 前缀.
+        name 是 id 的标识符段(ASCII slug), 与 text 分开: text 可以随便改中文/换行,
+        id 不变.
         """
         if role not in LABEL_ROLE_SET:
             raise ValueError(f"label role 必须是 {LABEL_ROLES} 之一, 得到 {role!r}")
@@ -495,7 +499,7 @@ class GeoDoc:
             _Label(
                 id=label_id(
                     id_kind or _ID_PREFIX.get(role, role),
-                    name if name is not None else text,
+                    name,
                     index,
                 ),
                 role=role,
