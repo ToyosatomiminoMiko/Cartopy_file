@@ -58,9 +58,9 @@ GADM 与 Natural Earth 10m 国界来自不同测绘成果, 直接按国界裁剪
 | 文件 | 内容 | 生成方式 |
 | --- | --- | --- |
 | `Myanmar/data/derived/myanmar_admin1.geojson` | 15 个一级行政区(含名称/中心点属性) | `python Myanmar/main.py prepare` |
-| `Myanmar/data/raw/gadm41_MMR/gadm41_MMR_1.json` | GADM 4.1 原始 JSON | 同上(按需下载) |
-| `Myanmar/data/raw/osm_naypyidaw_union_territory.json` | OSM 内比都联邦区 relation 原始响应 | 同上(按需抓取) |
-| `Myanmar/data/raw/ne_10m_rivers_lake_centerlines/` | Natural Earth 10m 河流(钉在 5.0.0 旧副本) | 同上 |
+| `Myanmar/data/raw/gadm41_MMR/gadm41_MMR_1.json` | GADM 4.1 原始 JSON | `python Myanmar/main.py download` |
+| `Myanmar/data/raw/osm_naypyidaw_union_territory.json` | OSM 内比都联邦区 relation 原始响应 | `python Myanmar/main.py download` |
+| `Myanmar/data/raw/ne_10m_rivers_lake_centerlines/` | Natural Earth 10m 河流(钉在 5.0.0 旧副本) | `python Myanmar/main.py download` |
 | `data/cartopy/` | 共享缓存的 Natural Earth 10m 国界(底图)/海岸线(剪国界用)/国界线 | `python download_data.py` |
 | `Myanmar/data/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集 | `python Myanmar/main.py download --region myanmar` |
 
@@ -70,14 +70,14 @@ GADM 与 Natural Earth 10m 国界来自不同测绘成果, 直接按国界裁剪
 
 ```bash
 python download_data.py                              # 首次: 共享 Natural Earth 底图
-python Myanmar/main.py download --region myanmar     # 首次: ETOPO 高程子集(已存在则跳过)
-python Myanmar/main.py prepare                       # 首次: GADM/OSM 原始数据 + 行政区 GeoJSON
+python Myanmar/main.py download --region myanmar     # 首次: ETOPO + GADM/NE 河流/OSM 内比都原始数据
+python Myanmar/main.py prepare                       # 首次: 由原始数据重建行政区 GeoJSON(离线)
 python Myanmar/main.py render --sheet myanmar-admin  # 出图
 ```
 
-`prepare` 无选项; 数据准备脚本在文件已就位时只跳过、不联网, 派生的行政区 GeoJSON 每次重新
-生成. `render` 的选项与其它图种相同(`--stride` / `--dpi` / `--show`), 高程文件也可用
-`MYANMAR_ETOPO_PATH` 指定.
+`prepare` 无选项、不联网: 只读 `data/raw/`, 派生行政区 GeoJSON 每次全量重建; 缺原始数据时
+报错并提示先跑上面的 `download`(不会在派生流程里悄悄联网). `render` 的选项与其它图种相同
+(`--stride` / `--dpi` / `--show`), 高程文件也可用 `MYANMAR_ETOPO_PATH` 指定.
 
 ## 注意事项
 

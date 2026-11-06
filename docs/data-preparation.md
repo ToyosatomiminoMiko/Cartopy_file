@@ -61,7 +61,7 @@
 | 命令 | 产物 | 什么时候需要 |
 | --- | --- | --- |
 | `python download_data.py` | `data/cartopy/` 共用底图 | 每台机器一次 |
-| `python Myanmar/main.py download` | 缅甸 ETOPO(stride=2, 掸邦 stride=1) 与 OSM 特区边界/国界 | 缅甸首次 |
+| `python Myanmar/main.py download` | 缅甸 ETOPO(stride=2, 掸邦 stride=1)、掸邦 OSM 特区边界/国界、行政区用的 GADM/NE 河流/OSM 内比都原始数据 | 缅甸首次 |
 | `python Myanmar/main.py prepare` | `Myanmar/data/derived/myanmar_admin1.geojson` 等 | 缅甸行政区图 |
 | `python USSR/main.py download` | 苏联 ETOPO(默认 stride=8) | 苏联图 |
 | `python Ukraine/main.py download` | `Ukraine/data/raw/` 全部原始数据 | 乌克兰图首次 |

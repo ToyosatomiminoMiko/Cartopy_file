@@ -3,10 +3,11 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Myanmar subproject entry point: download / prepare / render / all.
 
-是什么: 缅甸子项目的唯一可执行入口. ``download`` 把 ETOPO 高程子集与 OSM 特区边界/国界
-下载/入库到 ``Myanmar/data/raw/``; ``prepare`` 由原始数据重建
-``Myanmar/data/derived/myanmar_admin1.geojson``; ``render`` 按 ``--sheet`` 出一到三张图,
-地图进 ``Myanmar/map/``、文字信息进 ``Myanmar/text/``; ``all`` 依次跑前三个子命令.
+是什么: 缅甸子项目的唯一可执行入口. ``download`` 把 ETOPO 高程子集、OSM 特区边界/国界,
+以及行政区派生所需的 GADM/NE 河流/OSM 内比都原始数据下载/入库到 ``Myanmar/data/raw/``;
+``prepare`` 只读 ``raw/`` 重建 ``Myanmar/data/derived/myanmar_admin1.geojson``(不联网);
+``render`` 按 ``--sheet`` 出一到三张图, 地图进 ``Myanmar/map/``、文字信息进
+``Myanmar/text/``; ``all`` 依次跑前三个子命令.
 为什么只有一个入口: 全项目约定「一个子项目一个可执行文件, 其余 .py 只导出 run()」;
 参数解析与退出码归这里, 模块不再各自解析命令行; 子命令分派用懒导入, download 不加载
 matplotlib/cartopy, render 不加载下载栈.
@@ -50,7 +51,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True, metavar="<子命令>")
 
-    download = subparsers.add_parser("download", help="下载 ETOPO 子集与 OSM 特区边界/国界")
+    download = subparsers.add_parser(
+        "download", help="下载 ETOPO 子集、OSM 特区边界/国界与行政区原始数据"
+    )
     download.add_argument(
         "--region",
         choices=("all", *DOWNLOAD_REGIONS),
@@ -67,7 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     download.add_argument(
         "--skip-regions",
         action="store_true",
-        help="跳过 OSM 特区边界/国界下载(只准备 ETOPO 高程)",
+        help="跳过掸邦特区边界/国界下载(其余 ETOPO 与行政区原始数据照常准备)",
     )
 
     subparsers.add_parser("prepare", help="由原始数据重建行政区 GeoJSON")
@@ -123,11 +126,11 @@ def download(
     force: bool = False,
     skip_regions: bool = False,
 ) -> int:
-    """下载 ETOPO 子集, 并(默认)抓取 OSM 特区边界/国界; 返回进程退出码.
+    """下载三组原始数据: ETOPO 子集、掸邦特区边界/国界、行政区派生所需的 GADM/河流/缓存.
 
-    为什么只调 download_etopo/download_regions: 行政区派生脚本
-    ``prepare_admin_data.py`` 自己会按需补 GADM/OSM 内比都等原始数据, 那些不属于
-    download 子命令的职责(见 docs/maps/myanmar-admin.md).
+    为什么行政区那三份也在这里下: ``prepare_admin_data.py`` 约定只读 ``raw/`` 不联网,
+    「下载」这件事必须只有 download 一个入口; 三组数据源不同(ERDDAP/Overpass/GADM),
+    各自有独立模块, 本函数只负责编排与退出码.
     """
     from download_etopo import run as download_etopo_run
 
@@ -139,13 +142,18 @@ def download(
         if status != 0:
             return status
 
-    if skip_regions:
-        print("已跳过 OSM 特区边界/国界下载 (--skip-regions).")
-        return 0
+    if not skip_regions:
+        from download_regions import run as download_regions_run
 
-    from download_regions import run as download_regions_run
+        status = download_regions_run(force=force)
+        if status != 0:
+            return status
+    else:
+        print("已跳过掸邦特区边界/国界下载 (--skip-regions).")
 
-    return download_regions_run(force=force)
+    from download_admin_data import run as download_admin_run
+
+    return download_admin_run(force=force)
 
 
 def prepare() -> int:

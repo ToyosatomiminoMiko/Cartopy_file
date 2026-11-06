@@ -28,8 +28,9 @@
 `RenderContext` 字段: `sheet`、`catalog`、`root`、`fig`、`ax`、`world`、`lon`/`lat`/`z`
 (有高程时)、`covered`.
 
-`add_standard_arguments(parser)` 给 argparse 加全项目统一的 `--dpi` / `--show`(由子项目的
-`main.py` 调用); `run(...)` 是 `render(...)` 的标准命令行外壳.
+命令行参数(`--dpi` / `--show` / `--stride` 等)由子项目入口 `main.py` 解析, 本模块只接收
+解析好的值; 入口与绘图模块的分工见 [reference/spec.md](spec.md) 与
+[docs/conventions.md](../conventions.md) 的「脚本入口」一节.
 
 ## 用法
 

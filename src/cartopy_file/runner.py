@@ -10,7 +10,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -29,7 +28,7 @@ from .spec import Extent, Sheet, map_path, text_path
 configure_cartopy()
 apply_svg_output()
 
-__all__ = ["RenderContext", "add_standard_arguments", "render", "run"]
+__all__ = ["RenderContext", "render"]
 
 # 回调: draw(ctx) 画图种特有的图层; collect(doc, ctx) 登记 geo 元数据.
 DrawHook = Callable[["RenderContext"], None]
@@ -50,17 +49,6 @@ class RenderContext:
     lat: np.ndarray | None = None
     z: np.ndarray | None = None
     covered: Extent | None = None
-
-
-def add_standard_arguments(parser: argparse.ArgumentParser) -> None:
-    """给脚本的 argparse 加上全项目统一的 ``--dpi`` / ``--show``."""
-    parser.add_argument(
-        "--dpi",
-        type=int,
-        default=None,
-        help="内嵌晕渲栅格的像素密度(dpi); 矢量部分与 dpi 无关, 缺省用 spec 里的值",
-    )
-    parser.add_argument("--show", action="store_true", help="保存后弹出交互窗口(需要图形界面)")
 
 
 def _warn_coverage(sheet: Sheet, dataset, covered: Extent) -> None:
@@ -144,32 +132,3 @@ def render(
     elif close:
         plt.close(fig)
     return svg_path, geo_path
-
-
-def run(
-    sheet: Sheet,
-    *,
-    root: Path,
-    catalog: DatasetSet,
-    draw: DrawHook,
-    collect: CollectHook,
-    dem_path: Path | None = None,
-    argv: list[str] | None = None,
-    description: str | None = None,
-    close: bool = True,
-) -> tuple[Path, Path]:
-    """带统一命令行参数(--dpi/--show)的 ``render``; 图种要额外参数时自行 parse 后调 render."""
-    parser = argparse.ArgumentParser(description=description)
-    add_standard_arguments(parser)
-    args = parser.parse_args(argv)
-    return render(
-        sheet,
-        root=root,
-        catalog=catalog,
-        draw=draw,
-        collect=collect,
-        dem_path=dem_path,
-        dpi=args.dpi,
-        show=args.show,
-        close=close,
-    )

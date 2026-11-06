@@ -61,7 +61,7 @@
 
 ```bash
 python download_data.py                            # 首次: 共享 Natural Earth 底图
-python Myanmar/main.py download --region myanmar   # 首次: ETOPO 高程子集(已存在则跳过)
+python Myanmar/main.py download --region myanmar   # 首次: ETOPO + 行政区原始数据(已存在则跳过)
 python Myanmar/main.py render --sheet myanmar      # 出图, 地图进 Myanmar/map/, 文字信息进 Myanmar/text/
 ```
 
@@ -73,7 +73,7 @@ python Myanmar/main.py render --sheet myanmar      # 出图, 地图进 Myanmar/m
 - `--region {all,myanmar,northern-shan}`: 下载区域, 缺省 `all` 两个 ETOPO 区域都下;
 - `--stride`: 覆盖两个区域各自登记的默认步长(缅甸 2, 掸邦 1);
 - `--force`: 覆盖已存在的下载文件;
-- `--skip-regions`: 跳过 OSM 特区边界/国界下载(本图不需要).
+- `--skip-regions`: 跳过掸邦特区边界/国界下载(本图不需要); 行政区原始数据仍会准备.
 
 `render` 的选项(`--sheet myanmar`):
 

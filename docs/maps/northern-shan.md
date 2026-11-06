@@ -81,13 +81,13 @@ ETOPO 子集范围 94.6~102.1°E, 18.8~25.2°N: 画框南界是 19.0°N, 子集�
 
 ```bash
 python download_data.py                                  # 首次: 共享 Natural Earth 底图
-python Myanmar/main.py download --region northern-shan   # 高程子集(缺省 stride 1) + OSM 区域/国界
+python Myanmar/main.py download --region northern-shan   # 高程子集(缺省 stride 1) + OSM 区域/国界 + 行政区原始数据
 python Myanmar/main.py render --sheet northern-shan      # 出图
 ```
 
 `download --region northern-shan` 下掸邦的 ETOPO 子集(该区域登记 stride 1, 可用 `--stride`
-覆盖)并抓取 OSM 区域/国界; 加 `--skip-regions` 可跳过后者. 数据准备脚本在文件已就位时
-只跳过、不联网. `render` 的选项: `--stride`(指定 `Myanmar/data/raw/` 下的采样步长)、
+覆盖)并抓取 OSM 区域/国界; 加 `--skip-regions` 可跳过后者. 同一条命令还会准备行政区图的
+GADM/NE 河流/OSM 内比都原始数据(文件已就位时只跳过、不联网). `render` 的选项: `--stride`(指定 `Myanmar/data/raw/` 下的采样步长)、
 `--dpi`(内嵌晕渲像素密度, 默认 300)、`--show`(保存后弹窗).
 
 ## 注意事项

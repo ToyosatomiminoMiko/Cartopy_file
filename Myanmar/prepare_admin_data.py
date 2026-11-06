@@ -3,11 +3,12 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Prepare the 15 first-order administrative units of Myanmar for mapping.
 
-是什么: 读取 GADM 4.1 缅甸一级行政区原始 JSON, 从 OpenStreetMap 取内比都联邦区边界,
-经过裁剪、补缝、拓扑检查后输出 ``Myanmar/data/derived/myanmar_admin1.geojson`` 供绘图
-读取. 本文件是模块, 只导出 ``run()``, 由统一入口 ``python Myanmar/main.py prepare`` 调用.
-原始数据与派生文件的位置全部来自 ``Myanmar/config.py`` 的 ``DATASETS``; 缺失的
-原始数据用共享下载层补齐, 已就位时只做跳过、不联网.
+是什么: 读取 GADM 4.1 缅甸一级行政区原始 JSON 与 OSM 内比都联邦区缓存, 经过裁剪、补缝、
+拓扑检查后输出 ``Myanmar/data/derived/myanmar_admin1.geojson`` 供绘图读取. 本文件是模块,
+只导出 ``run()``, 由统一入口 ``python Myanmar/main.py prepare`` 调用.
+为什么自己不下数据: 全项目约定 prepare 只读 ``raw/``、只写 ``derived/``、不联网
+(见 docs/data-preparation.md); 原始数据由 ``python Myanmar/main.py download`` 落到
+``Myanmar/data/raw/``, 缺文件时本模块报错并给出准备命令, 不在派生流程里悄悄联网.
 完整说明(为什么混用 GADM/OSM、为什么补缝)见 ``docs/maps/myanmar-admin.md``;
 数据集层见 ``docs/reference/datasets.md``.
 """
@@ -15,33 +16,30 @@
 from __future__ import annotations
 
 import json
-import urllib.parse
 
 import geopandas as gpd
 from shapely.geometry import LineString, mapping, shape
 from shapely.ops import polygonize, unary_union
 from shapely.validation import make_valid
 
-# 数据集清单与数据源登记: 路径/URL 都不在脚本里另写一份.
+# 数据集清单: 路径不在脚本里另写一份.
 import config
-from cartopy_file.fetch import (
-    MAGIC_JSON,
-    MAGIC_ZIP,
-    download,
-    extract_zip,
-    post,
-)
-from cartopy_file.sources import gadm_url, overpass_endpoints
 
 # 数据路径全部由数据集清单给出(raw/ 与 derived/ 的约定见 docs/reference/datasets.md).
 ADMIN_JSON = config.DATASETS.path(config.GADM_MMR_RAW)
-ADMIN_DIR = ADMIN_JSON.parent
 COUNTRY_SHP = config.DATASETS.path(config.NE_COUNTRIES)
 RIVER_DIR = config.DATASETS.path(config.NE_RIVERS)
 RIVER_SHP = RIVER_DIR / "ne_10m_rivers_lake_centerlines.shp"
 NPT_JSON = config.DATASETS.path(config.NAYPYIDAW_CACHE)
 OUT_PATH = config.DATASETS.path(config.ADMIN_GEOJSON)
-NPT_RELATION_ID = 5996482
+
+# 派生所需的原始数据: (路径, 名称, 准备命令). 命令与各行图种页的"运行"一节一致.
+RAW_INPUTS = (
+    (COUNTRY_SHP, "Natural Earth 10m 国界", "python download_data.py"),
+    (ADMIN_JSON, "GADM 4.1 缅甸一级行政区", "python Myanmar/main.py download"),
+    (RIVER_SHP, "Natural Earth 10m 河流", "python Myanmar/main.py download"),
+    (NPT_JSON, "OSM 内比都联邦区缓存", "python Myanmar/main.py download"),
+)
 
 # GADM 名称 -> (键名, 中文名, 英文名, 类型, 行政中心中文, 行政中心英文, 中心经度, 中心纬度).
 # 行政中心坐标来自 Natural Earth 10m populated places, 实皆省的行政中心
@@ -203,75 +201,24 @@ ADMIN_INFO: dict[str, tuple[str, str, str, str, str, str, float, float]] = {
 }
 
 
-def ensure_country_data() -> None:
-    """确保共享缓存里的 Natural Earth 10m 国界可用(由根目录 download_data.py 预取)."""
-    if COUNTRY_SHP.is_file():
-        print(f"已存在, 跳过 Natural Earth 10m 国界: {COUNTRY_SHP}")
+def require_raw_data() -> None:
+    """检查派生所需的原始数据是否就位; 有缺失就报错并指出准备命令.
+
+    为什么只检查不下载: 本模块属于 prepare 层, 约定不联网(见 docs/data-preparation.md).
+    以前这里在缺文件时顺手下载, 结果换机器跑 prepare 会悄悄联网, 「raw 已备好」这件事
+    也就没有明确的命令可以确认; 下载统一交给 download_admin_data.py.
+    """
+    missing = [
+        (path, label, hint) for path, label, hint in RAW_INPUTS if not path.exists()
+    ]
+    if not missing:
+        print("原始数据齐全: Natural Earth 国界/河流、GADM 缅甸、OSM 内比都缓存.")
         return
-    raise FileNotFoundError(
-        f"未找到 Natural Earth 10m 国界: {COUNTRY_SHP}\n"
-        "请先运行根目录的 python download_data.py 预取共享底图缓存."
-    )
-
-
-def ensure_river_data() -> None:
-    """确保 Natural Earth 10m 河流(5.0.0 旧副本)可用; 已存在时绝不重下."""
-    if RIVER_SHP.is_file():
-        print(f"已存在, 跳过 Natural Earth 10m 河流: {RIVER_DIR}")
-        return
-    dataset = config.NE_RIVERS
-    archive = RIVER_DIR.with_suffix(".zip")
-    download(
-        dataset.url,
-        archive,
-        description="Natural Earth 10m 河流压缩包",
-        magic=MAGIC_ZIP,
-    )
-    extract_zip(archive, RIVER_DIR)
-    # 这份数据钉在旧版本 5.0.0(河网几何参与成品); S3 地址不带版本号, 重下可能拿到
-    # 新版, 这里显式提示, 版本对不上时按 docs/reference/datasets.md 的流程复核.
-    found = config.DATASETS.version_of(dataset)
-    if found and dataset.version and found != dataset.version:
-        print(
-            f"警告: 河流数据版本是 {found}, 期望 {dataset.version}; "
-            "换版会改变河网几何, 请复核产物."
-        )
-
-
-def ensure_gadm_data() -> None:
-    """确保 GADM 4.1 缅甸一级行政区 JSON 可用; 已存在时跳过."""
-    download(
-        gadm_url("MMR"),
-        ADMIN_JSON,
-        description="GADM 4.1 缅甸一级行政区",
-        magic=MAGIC_JSON,
-    )
-
-
-def ensure_npt_cache() -> None:
-    """确保 OSM 内比都联邦区 relation 的原始响应已缓存; 已存在时跳过."""
-    if NPT_JSON.is_file():
-        print(f"已存在, 跳过 OSM 内比都联邦区缓存: {NPT_JSON}")
-        return
-    query = f"[out:json][timeout:90];rel({NPT_RELATION_ID});out geom;"
-    body = urllib.parse.urlencode({"data": query}).encode()
-    # Overpass 主实例偶尔返回 502; 换镜像并重试, 避免整个数据准备流程中断.
-    last_error: Exception | None = None
-    for url in overpass_endpoints():
-        try:
-            post(
-                url,
-                body,
-                NPT_JSON,
-                description="OSM 内比都联邦区",
-                retries=2,
-                timeout=180,
-            )
-            return
-        except RuntimeError as exc:  # fetch.post 重试用尽后的统一异常
-            last_error = exc
-            print(f"  Overpass 请求失败 ({url}): {exc}")
-    raise RuntimeError(f"无法从 Overpass 获取内比都联邦区边界: {last_error}")
+    lines = [
+        f"未找到 {label}: {path}\n请先运行: {hint}"
+        for path, label, hint in missing
+    ]
+    raise FileNotFoundError("\n".join(lines))
 
 
 def overpass_npt_geometry() -> object:
@@ -329,12 +276,9 @@ def fill_gaps(units: dict[str, object], country) -> None:
 
 
 def run() -> int:
-    """重建 ``myanmar_admin1.geojson``; 返回 0=成功(拓扑自检失败会抛 RuntimeError)."""
-    ADMIN_DIR.mkdir(parents=True, exist_ok=True)
-    ensure_country_data()
-    ensure_river_data()
-    ensure_gadm_data()
-    ensure_npt_cache()
+    """重建 ``myanmar_admin1.geojson``; 返回 0=成功(原始数据缺失或拓扑自检失败会抛异常)."""
+    require_raw_data()
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     country_gdf = gpd.read_file(COUNTRY_SHP)
     country = make_valid(
