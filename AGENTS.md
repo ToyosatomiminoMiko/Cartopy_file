@@ -1,0 +1,34 @@
+# Cartopy_file 硬规矩
+
+本文件只放**必须做 / 禁止做**的条款。项目怎么组成、文档怎么写, 看
+[docs/index.md](docs/index.md) 的阅读路径与 [docs/conventions.md](docs/conventions.md);
+这里不重复它们的内容。
+
+## 开工前
+
+1. **先定位再动手**: 读 [docs/index.md](docs/index.md) 的阅读路径, 找到本次任务对应的
+   [docs/maps/](docs/maps) 或 [docs/reference/](docs/reference) 页; 不凭印象改代码。
+2. **既定取舍不擅自推翻**: 页面"设计要点"与"注意事项"里的投影、范围、数据源、参数默认值
+   都是已决定的事; 要改先问用户, 并把改动理由同时写进文档页。
+3. **不读、不改、不提交仓库根的 `prompt.md`**(本地草稿, 已进 .gitignore)。
+
+## 收尾前(每次都必须)
+
+1. 跑 `uv run python tools/check_all.py`(需要先 `export UV_CACHE_DIR="$PWD/data/uv-cache"`),
+   把输出贴进回复; 不许用"应该没问题""看起来对"代替。
+2. 检查失败必须修到过; 修不了就明确报告失败项与原因, **不许注释掉、跳过或放宽检查**。
+
+## 改动必须配套
+
+1. 改实现、参数或数据源 → 同一个提交里同步改对应文档页(维护流程见
+   [docs/conventions.md](docs/conventions.md))。
+2. 新增图种或共享模块 → 按 [docs/add-map.md](docs/add-map.md) 的清单逐项补, 不许挑着做。
+3. 改产物相关代码 → 重新生成 `.svg` 与同名 `.geo.json` 再自检; 产物不进 git, 但必须是
+   当前代码生成的(否则 `geo.base.sha256` 会与底图不符)。
+4. 绘图脚本**不联网**; 新增数据源先写进 [docs/data-preparation.md](docs/data-preparation.md)。
+
+## 代码与注释
+
+ 1. 注释只写三类: 是什么 / 为什么 / 元信息; 跨文件的原理与取舍写进 docs, 代码里只留指针。
+ 2. 不提交 `.venv/`、`data/`、`*.svg`、`*.geo.json`、`__pycache__/`(已在 .gitignore,
+    不要用 `-f` 强加)。
