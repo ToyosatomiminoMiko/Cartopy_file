@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Myanmar subproject: dataset inventory and per-sheet render specs.
+"""Myanmar subproject: dataset inventory and per-sheet render config.
 
 是什么: 缅甸子项目的唯一配置入口——数据集清单(从哪下、版本、下载范围、本地路径)与
 每张图的规格(画框、投影、色带、经纬网、地名、文案). 数据准备脚本与绘图脚本都从这里

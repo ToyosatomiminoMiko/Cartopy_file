@@ -7,7 +7,7 @@
 第聂伯河梯级水库水面与邻国地貌/水系参照; 只绘制地理要素, 不绘制任何文字/图例/色标/
 标题/比例尺/指北针. 文字与版面由前端接管, 本脚本同时产出同名 geo.json, 契约见
 ``docs/reference/geo.md``.
-画框/投影/色带/地名/文案全部来自 ``Ukraine/specs.py``; 完整说明: ``docs/maps/ukraine.md``
+画框/投影/色带/地名/文案全部来自 ``Ukraine/config.py``; 完整说明: ``docs/maps/ukraine.md``
 (设计要点/数据来源/运行方式).
 """
 
@@ -31,7 +31,7 @@ from shapely.geometry import LineString, Point, box  # 图幅范围/端头延伸
 from shapely.ops import unary_union  # 合并几何
 
 # 图种规格与数据集清单: 画框/投影/色带/地名/文案都从这里取, 见 docs/reference/spec.md.
-import specs
+import config
 
 # 共享图层原语(底图/晕渲/经纬网/城市点/geo 收集), 见 docs/reference/layers.md.
 from cartopy_file import layers
@@ -45,11 +45,11 @@ from cartopy_file.overlap import cut, overlap_mask
 # ETOPO 定位与 Natural Earth 图层读取, 见 docs/reference/relief.md.
 from cartopy_file.relief import find_etopo, load_ne_layer
 
-SHEET = specs.SHEET_UKRAINE
-DATASETS = specs.DATASETS
+SHEET = config.SHEET_UKRAINE
+DATASETS = config.DATASETS
 
 # ============================
-# 数据路径(派生 GeoJSON 由 download_data.py 生成, 见 specs.py)
+# 数据路径(派生 GeoJSON 由 prepare_data.py 生成, 见 config.py)
 # ============================
 OBLASTS_PATH = DATASETS.path("ukraine-oblasts")
 BORDER_1991_PATH = DATASETS.path("ukraine-border-1991")
@@ -57,7 +57,7 @@ CRIMEA_LINE_PATH = DATASETS.path("crimea-2014-line")
 OCCUPIED_2014_PATH = DATASETS.path("occupied-2014")
 CONTACT_2014_PATH = DATASETS.path("contact-2014")
 CLAIMED_2022_PATH = DATASETS.path("claimed-2022")
-# 德左区域面: 由 download_data.py 用 OSM 的 PMR 边界面按"德涅斯特河心线 +
+# 德左区域面: 由 prepare_data.py 用 OSM 的 PMR 边界面按"德涅斯特河心线 +
 # 1991 国界"裁切得到; 只用于灰色参照填色, 不参与任何边界口径.
 TRANSNISTRIA_PATH = DATASETS.path("transnistria")
 DNIEPER_RIVER_PATH = DATASETS.path("dnieper-river")
@@ -65,7 +65,7 @@ DNIEPER_WATER_PATH = DATASETS.path("dnieper-water")
 # 德涅斯特河中心线(OSM): NE 10m 版本在德左一段平均 ~1 km 一个顶点, 而德左参照面
 # 的西缘就压在这条河上, 两者必须同源同精度.
 DNIESTER_RIVER_PATH = DATASETS.path("dniester-river")
-# 南布格河/顿河中心线: NE 10m 在河口前收笔, download_data.py 用 OSM 补了下游段,
+# 南布格河/顿河中心线: NE 10m 在河口前收笔, prepare_data.py 用 OSM 补了下游段,
 # 并与 NE 上段在接缝处拼成一条线(文件里含 NE + OSM 两段, 属性 replaces_ne_id
 # 标出被替换的 NE 要素).
 RIVER_EXTENSION_PATHS = (
@@ -122,7 +122,9 @@ CRIMEA_BOX = (32.0, 44.3, 37.0, 46.5)
 def _require(path: Path) -> Path:
     """缺少数据时给出明确修复命令, 而不是让后面的读取抛难懂的错."""
     if not path.exists():
-        raise FileNotFoundError(f"未找到数据: {path}\n请先运行: python Ukraine/download_data.py")
+        raise FileNotFoundError(
+            f"未找到数据: {path}\n请先运行: python Ukraine/prepare_data.py"
+        )
     return path
 
 
@@ -141,7 +143,7 @@ def load_reference_region():
     """读取德左参照区域面(OSM PMR 边界, 按德涅斯特河心线与 1991 国界裁切).
 
     单独一个函数而不是并进 load_vectors: 这张面不参与任何边界口径计算,
-    只用来填一层灰色; 缺文件时直接报错(数据由 download_data.py 准备),
+    只用来填一层灰色; 缺文件时直接报错(数据由 prepare_data.py 准备),
     避免悄悄少一个图层. 面的西缘与 DNIESTER_RIVER_PATH 是同一条几何,
     所以填色边缘与蓝线严格重合.
     """
@@ -150,7 +152,7 @@ def load_reference_region():
 
 
 def load_dnieper() -> tuple:
-    """读取第聂伯河干流中心线与梯级水库水面(由 download_data.py 从 OSM 派生).
+    """读取第聂伯河干流中心线与梯级水库水面(由 prepare_data.py 从 OSM 派生).
 
     干流与水库分开存: 干流是线, 水库是面, 绘图时用不同样式, 且水面要盖住
     穿过水库的那段中心线(水面内不该再看到河道线).
@@ -161,7 +163,7 @@ def load_dnieper() -> tuple:
 
 
 def load_dniester():
-    """读取德涅斯特河干流中心线(由 download_data.py 从 OSM main_stream 派生).
+    """读取德涅斯特河干流中心线(由 prepare_data.py 从 OSM main_stream 派生).
 
     单独读、单独画的原因: NE 10m 河网里那条同名河已被剔除, 否则同一条河会出现
     两条位置略有差异的线; 而德左参照面的西缘用的正是这条 OSM 线, 绘图也用同
@@ -403,7 +405,7 @@ def draw_basemap_layers(
 ) -> None:
     """水系 + 邻国国界 + 乌克兰州界背景线(海陆底色与晕渲已由 runner 铺好).
 
-    海岸线不画: 海陆界线由 ETOPO 配色在 0 m 处的跳变表达(specs 里的
+    海岸线不画: 海陆界线由 ETOPO 配色在 0 m 处的跳变表达(config 里的
     UKRAINE_RELIEF), 岸边一条线都没有. 1991 国界与州界同样只画陆上段
     (国界见 draw_borders, 州界在 _build_border_land 里用海岸蒙版剪好).
 
@@ -413,7 +415,7 @@ def draw_basemap_layers(
     水库 3~15 km).
 
     ``river_extensions`` 是南布格河/顿河的整条中心线(NE 上段 + OSM 下段拼好,
-    见 download_data.py): 与一般河流同一图层、同一线型画.
+    见 prepare_data.py): 与一般河流同一图层、同一线型画.
 
     ``dniester_river`` 是 OSM 的德涅斯特河中心线, 也并入一般河流图层画: NE 的
     同名要素已在 _load_vectors 里剔除.

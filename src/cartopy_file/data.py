@@ -61,13 +61,13 @@ def shared_data_dir() -> Path:
 
 
 def subproject_dirs() -> tuple[str, ...]:
-    """返回仓库里的子项目目录名(按名字排序), 判定标准是目录里有 ``specs.py``.
+    """返回仓库里的子项目目录名(按名字排序), 判定标准是目录里有 ``config.py``.
 
-    为什么用「有 specs.py」而不是硬编码列表: 名单只该在目录结构里出现一次, 新增子项目
-    只要建目录 + specs.py, 清单检查与产物枚举就自动收录, 不用再改工具.
+    为什么用「有 config.py」而不是硬编码列表: 名单只该在目录结构里出现一次, 新增子项目
+    只要建目录 + config.py, 清单检查与产物枚举就自动收录, 不用再改工具.
     """
     root = project_root()
-    return tuple(sorted(path.parent.name for path in root.glob("*/specs.py")))
+    return tuple(sorted(path.parent.name for path in root.glob("*/config.py")))
 
 
 def prepare_matplotlib_env() -> Path:

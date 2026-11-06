@@ -77,7 +77,7 @@ def _warn_coverage(sheet: Sheet, dataset, covered: Extent) -> None:
         return
     print(
         f"警告: 数据集 {dataset.id} 的覆盖范围 {dataset.bbox} 盖不住画框投影后的范围 "
-        f"{covered}; 画框角落会露出底图颜色. 请在子项目的 specs.py 里核对 bbox."
+        f"{covered}; 画框角落会露出底图颜色. 请在子项目的 config.py 里核对 bbox."
     )
 
 

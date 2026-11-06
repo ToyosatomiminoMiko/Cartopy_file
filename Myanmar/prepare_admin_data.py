@@ -5,7 +5,7 @@
 
 是什么: 读取 GADM 4.1 缅甸一级行政区原始 JSON, 从 OpenStreetMap 取内比都联邦区边界,
 经过裁剪、补缝、拓扑检查后输出 ``Myanmar/data/derived/myanmar_admin1.geojson`` 供绘图
-读取. 原始数据与派生文件的位置全部来自 ``Myanmar/specs.py`` 的 ``DATASETS``; 缺失的
+读取. 原始数据与派生文件的位置全部来自 ``Myanmar/config.py`` 的 ``DATASETS``; 缺失的
 原始数据用共享下载层补齐, 已就位时只做跳过、不联网.
 完整说明(为什么混用 GADM/OSM、为什么补缝)见 ``docs/maps/myanmar-admin.md``;
 数据集层见 ``docs/reference/datasets.md``.
@@ -22,7 +22,7 @@ from shapely.ops import polygonize, unary_union
 from shapely.validation import make_valid
 
 # 数据集清单与数据源登记: 路径/URL 都不在脚本里另写一份.
-import specs
+import config
 from cartopy_file.fetch import (
     MAGIC_JSON,
     MAGIC_ZIP,
@@ -33,13 +33,13 @@ from cartopy_file.fetch import (
 from cartopy_file.sources import gadm_url, overpass_endpoints
 
 # 数据路径全部由数据集清单给出(raw/ 与 derived/ 的约定见 docs/reference/datasets.md).
-ADMIN_JSON = specs.DATASETS.path(specs.GADM_MMR_RAW)
+ADMIN_JSON = config.DATASETS.path(config.GADM_MMR_RAW)
 ADMIN_DIR = ADMIN_JSON.parent
-COUNTRY_SHP = specs.DATASETS.path(specs.NE_COUNTRIES)
-RIVER_DIR = specs.DATASETS.path(specs.NE_RIVERS)
+COUNTRY_SHP = config.DATASETS.path(config.NE_COUNTRIES)
+RIVER_DIR = config.DATASETS.path(config.NE_RIVERS)
 RIVER_SHP = RIVER_DIR / "ne_10m_rivers_lake_centerlines.shp"
-NPT_JSON = specs.DATASETS.path(specs.NAYPYIDAW_CACHE)
-OUT_PATH = specs.DATASETS.path(specs.ADMIN_GEOJSON)
+NPT_JSON = config.DATASETS.path(config.NAYPYIDAW_CACHE)
+OUT_PATH = config.DATASETS.path(config.ADMIN_GEOJSON)
 NPT_RELATION_ID = 5996482
 
 # GADM 名称 -> (键名, 中文名, 英文名, 类型, 行政中心中文, 行政中心英文, 中心经度, 中心纬度).
@@ -218,7 +218,7 @@ def ensure_river_data() -> None:
     if RIVER_SHP.is_file():
         print(f"已存在, 跳过 Natural Earth 10m 河流: {RIVER_DIR}")
         return
-    dataset = specs.NE_RIVERS
+    dataset = config.NE_RIVERS
     archive = RIVER_DIR.with_suffix(".zip")
     download(
         dataset.url,
@@ -229,7 +229,7 @@ def ensure_river_data() -> None:
     extract_zip(archive, RIVER_DIR)
     # 这份数据钉在旧版本 5.0.0(河网几何参与成品); S3 地址不带版本号, 重下可能拿到
     # 新版, 这里显式提示, 版本对不上时按 docs/reference/datasets.md 的流程复核.
-    found = specs.DATASETS.version_of(dataset)
+    found = config.DATASETS.version_of(dataset)
     if found and dataset.version and found != dataset.version:
         print(
             f"警告: 河流数据版本是 {found}, 期望 {dataset.version}; "

@@ -45,7 +45,7 @@ Uzbekistan, Turkmenistan, Kyrgyzstan, Tajikistan, Lithuania, Latvia, Estonia. �
 `NAME`/`NAME_EN`/`ADMIN` 字段筛选, 主字段没匹配时遍历所有名称字段兜底.
 
 ETOPO 子集范围: 经度 15°E 向东到 165°W(ERDDAP 的经度是 0~360, 右端写 195 = -165 + 360)、
-纬度 20°N~90°N; 默认步长 8(2 弧分, 300 dpi 出图够用). 这个范围就是 `USSR/specs.py` 里的
+纬度 20°N~90°N; 默认步长 8(2 弧分, 300 dpi 出图够用). 这个范围就是 `USSR/config.py` 里的
 `ETOPO_BBOX_USSR`, 下载范围与「这份数据覆盖多大」是同一个对象, 下载脚本不再另写一份——
 旧版下载脚本写的是 20~90°N、绘图脚本写 15~90°N, 两处分叉正是本次迁移修掉的 bug.
 画框底边到 15°N, 15~20°N 一带本来就没有高程数据(改前成品如此, 靠留白), 要扩到 15°N

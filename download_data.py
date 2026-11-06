@@ -3,7 +3,7 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Prefetch the shared Natural Earth basemap data and check the whole-repo data inventory.
 
-是什么: 全仓库数据清单的唯一入口. 清单不再手写, 而是从各子项目 ``<Sub>/specs.py``
+是什么: 全仓库数据清单的唯一入口. 清单不再手写, 而是从各子项目 ``<Sub>/config.py``
 的 ``DatasetSet`` 汇总而来; 本脚本只做两件事: 预取全项目共用的 Natural Earth 底图,
 以及 ``--check`` 逐项核对本地数据是否就位(不联网).
 完整说明(为什么集中预取、目录约定、退出码)见 ``docs/data-preparation.md``.
@@ -25,11 +25,11 @@ from cartopy_file.data import (
 )
 from cartopy_file.datasets import CheckLine, Dataset, DatasetSet
 
-# 子项目目录就是「层」: 每个目录的 specs.py 声明自己的数据集; 名单由目录结构自动发现.
+# 子项目目录就是「层」: 每个目录的 config.py 声明自己的数据集; 名单由目录结构自动发现.
 
 
 def load_catalogs() -> list[tuple[str, DatasetSet]]:
-    """导入每个子项目的 specs, 取回它声明的 DatasetSet."""
+    """导入每个子项目的 config, 取回它声明的 DatasetSet."""
     root = project_root()
     added = str(root) not in sys.path
     if added:
@@ -37,10 +37,10 @@ def load_catalogs() -> list[tuple[str, DatasetSet]]:
     try:
         catalogs = []
         for name in subproject_dirs():
-            module = importlib.import_module(f"{name}.specs")
+            module = importlib.import_module(f"{name}.config")
             catalog = getattr(module, "DATASETS", None)
             if not isinstance(catalog, DatasetSet):
-                raise SystemExit(f"{name}/specs.py 必须导出 DATASETS = dataset_set(...)")
+                raise SystemExit(f"{name}/config.py 必须导出 DATASETS = dataset_set(...)")
             catalogs.append((name, catalog))
         return catalogs
     finally:
@@ -140,7 +140,9 @@ def check_inventory(verbose: bool = True) -> int:
                 "python Myanmar/prepare_admin_data.py",
                 "python USSR/download_etopo.py",
                 "python Ukraine/download_data.py",
+                "python Ukraine/prepare_data.py",
                 "python Volga/download_data.py",
+                "python Volga/prepare_data.py",
             ):
                 print(f"  {command}")
         else:

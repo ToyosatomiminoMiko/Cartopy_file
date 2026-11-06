@@ -6,7 +6,7 @@
 是什么: 通过公共 Overpass 接口抓取掸邦各特区/自治区域的 OpenStreetMap 行政边界关系
 与画框附近国界(admin_level=2), 拼装成多边形/折线后缓存为 GeoJSON, 供
 ``northern_shan.py`` 绘图. 缓存路径与 Overpass 镜像都来自共享层: 路径取
-``Myanmar/specs.py`` 的 ``DATASETS``, 镜像取 ``cartopy_file.sources``.
+``Myanmar/config.py`` 的 ``DATASETS``, 镜像取 ``cartopy_file.sources``.
 完整说明(数据来源、拼装原理、ODbL 许可)见 ``docs/maps/northern-shan.md``;
 数据集层见 ``docs/reference/datasets.md``.
 """
@@ -28,13 +28,13 @@ from shapely.ops import polygonize, unary_union
 from shapely.validation import make_valid
 
 # 缓存路径由数据集清单给出(raw/ 的约定见 docs/reference/datasets.md).
-import specs
+import config
 from cartopy_file import fetch as fetch_lib
 from cartopy_file.sources import overpass_endpoints
 
-OUT_PATH = specs.DATASETS.path(specs.SHAN_REGIONS)
+OUT_PATH = config.DATASETS.path(config.SHAN_REGIONS)
 # 国界单独存一个文件: 它没有"面"的属性(面积/上级区域), 与区域边界用途不同.
-BORDER_PATH = specs.DATASETS.path(specs.OSM_COUNTRY_BORDERS)
+BORDER_PATH = config.DATASETS.path(config.OSM_COUNTRY_BORDERS)
 REGION_DIR = OUT_PATH.parent
 
 GEOD = Geod(ellps="WGS84")

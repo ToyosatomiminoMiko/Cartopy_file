@@ -45,7 +45,7 @@ uv run python tools/check_all.py
 按 `docs/add-map.md` 的 5 节**逐项**做, 不许挑着做。额外三条容易漏的:
 
 - 脚本顶部的导入顺序是硬约束(缓存目录必须设在导入 matplotlib 之前), 抄现有脚本的头部;
-- 产物路径不用手写:`tools/check_geo.py` 从各子项目 `specs.py` 的 `SHEETS` 自动派生
+- 产物路径不用手写:`tools/check_geo.py` 从各子项目 `config.py` 的 `SHEETS` 自动派生
   `map/` 与 `text/` 两个路径;
 - 新页面必须被 `docs/index.md` 收录, 脚本 docstring 必须带 `docs/...` 指针——这两项
   `check_docs` 会各自报错。

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Dataset specs: what a subproject needs on disk, where it comes from, how to verify it.
+"""Dataset config: what a subproject needs on disk, where it comes from, how to verify it.
 
-是什么: 数据集规格 ``Dataset`` 与集合 ``DatasetSet``. 每个子项目在自己的 ``specs.py``
+是什么: 数据集规格 ``Dataset`` 与集合 ``DatasetSet``. 每个子项目在自己的 ``config.py``
 里声明一份 ``DatasetSet``, 数据准备脚本据此下载/校验, 绘图脚本据此定位文件, 根目录的
 ``download_data.py --check`` 据此汇总整个仓库的数据清单.
 完整说明(为什么集中到子项目配置、raw/derived 目录约定、版本怎么钉)见
@@ -192,11 +192,18 @@ class DatasetSet:
         return item.files or (item.dest,)
 
     def exists(self, dataset: Dataset | str) -> bool:
-        """数据是否已就位; 不联网, 只查本地."""
+        """数据是否已就位; 不联网, 只查本地.
+
+        注意 ``Path.glob`` 返回生成器, 生成器对象本身恒为真: 必须真正取出一个匹配项
+        再判断, 否则 ``--check`` 会对任何数据集都报「已存在」(历史 bug).
+        """
         item = self.get(dataset) if isinstance(dataset, str) else dataset
         if item.kind == "cartopy-ne":
             return self.path(item).is_file()
-        return any(self.root.glob(pattern) for pattern in self.patterns(item))
+        return any(
+            next(iter(self.root.glob(pattern)), None) is not None
+            for pattern in self.patterns(item)
+        )
 
     # ------------------------------------------------------------------ 校验
 

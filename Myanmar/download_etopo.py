@@ -3,7 +3,7 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Download the ETOPO 2022 subsets declared in the Myanmar dataset inventory.
 
-是什么: 按 ``Myanmar/specs.py`` 里登记的 ETOPO 数据集(URL、下载范围、dest 命名约定)
+是什么: 按 ``Myanmar/config.py`` 里登记的 ETOPO 数据集(URL、下载范围、dest 命名约定)
 从 NOAA ERDDAP 下载区域高程子集; 目标文件已存在时跳过, 中断过可续传.
 Natural Earth 10m 国界不再由本脚本下载: 它由根目录 ``download_data.py`` 预取到全项目
 共享缓存 ``data/cartopy/``, 绘图脚本通过 cartopy 的缓存路径直接读取.
@@ -18,11 +18,11 @@ import sys
 from pathlib import Path
 
 # 图种规格与数据集清单: ETOPO 的 URL/范围/dest 只写在那里, 见 docs/reference/datasets.md.
-import specs
+import config
 from cartopy_file.fetch import MAGIC_NETCDF, download
 from cartopy_file.sources import erddap_url
 
-# --region -> specs 里对应的 ETOPO 数据集 id; 下载范围与默认步长都在数据集里声明.
+# --region -> config 里对应的 ETOPO 数据集 id; 下载范围与默认步长都在数据集里声明.
 REGIONS = {
     "myanmar": "etopo-myanmar",
     "northern_shan": "etopo-northern-shan",
@@ -39,14 +39,14 @@ def resolve_target(region: str, stride: int | None) -> tuple[str, str, Path]:
     stride 缺省时用数据集自己登记的步长; 与登记值不同时按同一套 URL 生成规则
     重新拼查询串, 并把 dest 换成对应步长的文件名.
     """
-    dataset = specs.DATASETS.get(REGIONS[region])
+    dataset = config.DATASETS.get(REGIONS[region])
     actual_stride = dataset.stride if stride is None else stride
     if actual_stride is None:
         raise ValueError(f"数据集 {dataset.id} 没有登记 stride, 请用 --stride 指定")
     if actual_stride < 1:
         raise ValueError(f"--stride 必须 >= 1, 得到 {actual_stride}")
     if actual_stride == dataset.stride:
-        return dataset.url, dataset.id, specs.DATASETS.path(dataset)
+        return dataset.url, dataset.id, config.DATASETS.path(dataset)
 
     bbox = dataset.bbox
     if bbox is None:
@@ -57,7 +57,7 @@ def resolve_target(region: str, stride: int | None) -> tuple[str, str, Path]:
         lon_range=(bbox.lon_min, bbox.lon_max),
         lat_range=(bbox.lat_min, bbox.lat_max),
     )
-    dest = specs.DATASETS.root / DEST_TEMPLATE.format(
+    dest = config.DATASETS.root / DEST_TEMPLATE.format(
         region=region, stride=actual_stride
     )
     return url, dataset.id, dest

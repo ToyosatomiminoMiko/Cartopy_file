@@ -1,14 +1,14 @@
 # 新增图种或共享模块
 
 照着这个清单做, 新图种就能接进数据清单、文档和出图约定. 想看最小可运行例子, 读
-[`AmericaArmy/`](../AmericaArmy) 的 `specs.py` + `main.py`: 全项目里唯一一个「一个文件放数据
+[`AmericaArmy/`](../AmericaArmy) 的 `config.py` + `main.py`: 全项目里唯一一个「一个文件放数据
 清单, 一个文件放一对回调」的演示, 没有历史包袱.
 
 ## 新增图种
 
-### 1. 建目录与 `specs.py`
+### 1. 建目录与 `config.py`
 
-新目录 `<Name>/`, 里面至少两个文件: `specs.py`(数据 + 规格)和绘图脚本. `specs.py` 必须导出
+新目录 `<Name>/`, 里面至少两个文件: `config.py`(数据 + 规格)和绘图脚本. `config.py` 必须导出
 `DATASETS` 与 `SHEETS`, 工具(`download_data.py --check`、`tools/check_geo.py`)会自动收录,
 **不需要**再去改任何清单:
 
@@ -61,11 +61,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 os.environ.setdefault("MPLCONFIGDIR", str(ROOT / "data" / ".mplcache"))
 
-import specs
+import config
 from cartopy_file import layers, runner
 from cartopy_file.relief import find_etopo
 
-SHEET, DATASETS = specs.SHEET, specs.DATASETS
+SHEET, DATASETS = config.SHEET, config.DATASETS
 
 def draw(ctx):          # 图种特有的图层, 顺序与改前成品一致
     …
@@ -93,11 +93,15 @@ def main():
 ### 3. 数据准备脚本
 
 - 文件名 `download_*.py`(下载原始数据)或 `prepare_*.py`(加工派生数据), 放同一目录;
+- **一个脚本只做一件事**: `download_*.py` 只写 `data/raw/`(下载/解压/入库, 不加工),
+  `prepare_*.py` 只读 `raw/`、只写 `data/derived/`(不联网); 两者各自有 `main()` 与
+  `--check` 提示, 不互相 import 私有函数. 需要同时有两者时是两条独立命令, 见
+  [data-preparation.md](data-preparation.md) 的准备命令总表;
 - 下载一律走 [`cartopy_file.fetch`](../src/cartopy_file/fetch.py): `download()` 自带 `.part`
   续传、重试、内容魔数校验与可选 sha256, `post()` 用于 Overpass 这类实时查询接口,
-  `extract_zip()` 解压并留 `.unpacked` 标记; URL/目标路径来自 `specs.py` 的 `Dataset`;
-- 幂等: 文件已存在且非空就跳过, 提供 `--force` 覆盖; 不要各写一份下载循环(以前四个
-  `download()` 实现各写一遍, 已经删掉);
+  `extract_zip()` 解压并留 `.unpacked` 标记; URL/目标路径来自 `config.py` 的 `Dataset`;
+- 幂等: 下载脚本文件已存在且非空就跳过, 提供 `--force` 覆盖; 派生脚本每次全量重建(产物可
+  随时删), 不要各写一份下载循环;
 - 产物落在 `data/raw/` 或 `data/derived/` 下, 并遵守"不入库"约定.
 
 ### 4. 文档
@@ -114,7 +118,7 @@ def main():
 python download_data.py --check   # 新数据已自动进清单
 python <Name>/<name>.py           # 出图
 python <Name>/<name>.py           # 再跑一次, 产物(`map/` 下的 SVG 与 `text/` 下的 geo.json)应字节级不变
-python tools/check_geo.py         # 无参: 产物清单由 specs.py 自动派生, 不用手改
+python tools/check_geo.py         # 无参: 产物清单由 config.py 自动派生, 不用手改
 python tools/check_docs.py        # 文档链接/模板/索引全绿
 ```
 
@@ -132,6 +136,6 @@ python tools/check_docs.py        # 文档链接/模板/索引全绿
 
 ## 一次性脚本
 
-- 临时/一次性脚本不要建文档页, 也不要在 `specs.py` 里声明成必需数据集(除非产物确实要长期保留);
+- 临时/一次性脚本不要建文档页, 也不要在 `config.py` 里声明成必需数据集(除非产物确实要长期保留);
 - 在脚本 docstring 里指向所属图种页, 在对应图种页或 [data-preparation.md](data-preparation.md)
   里用一段说明它的用途和是否还需要.

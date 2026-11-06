@@ -6,7 +6,7 @@
 是什么: 以掸邦为中心绘制缅甸联邦第一特区、德昂邦、佤邦、掸邦东部第四特区及
 周边的地形图, 并在第一特区内标出其前身"原果敢自治区"的范围; 只绘制地理要素,
 文字/图例/色标/标题/刻度文字都以数据形式写进同名 ``<产物>.geo.json``, 由前端排版.
-画框/投影/色带/经纬网/地名/文案取自 ``Myanmar/specs.py``; 本图的特殊图层
+画框/投影/色带/经纬网/地名/文案取自 ``Myanmar/config.py``; 本图的特殊图层
 (特区填色与斜线、原果敢自治区、干流强调、OSM 国界)留在本脚本, 用共享原语画.
 完整说明(范围、南界取值理由、投影、果敢关系、国界处理)见
 ``docs/maps/northern-shan.md``; 出图流程见 ``docs/reference/runner.md``,
@@ -33,7 +33,7 @@ from shapely.geometry import shape  # GeoJSON -> Shapely
 from shapely.ops import unary_union  # 合并同类边界
 
 # 图种规格与数据集清单: 画框/投影/色带/经纬网/地名/文案都从这里取, 见 docs/reference/spec.md.
-import specs
+import config
 
 # 共享图层原语(底图/经纬网/城市点/经纬刻度/色标/geo 收集), 见 docs/reference/layers.md.
 from cartopy_file import layers
@@ -50,12 +50,12 @@ from cartopy_file.relief import find_etopo, load_elevation, load_ne_layer, make_
 # 斜线填充的线宽: 默认 1.0 在成品尺寸下偏粗, 会把特区填充压成深色块.
 plt.rcParams["hatch.linewidth"] = 0.45
 
-SHEET = specs.SHEET_NORTHERN_SHAN
-DATASETS = specs.DATASETS
+SHEET = config.SHEET_NORTHERN_SHAN
+DATASETS = config.DATASETS
 
 # 缓存路径由数据集清单给出(raw/ 的约定见 docs/reference/datasets.md).
-REGION_GEOJSON = DATASETS.path(specs.SHAN_REGIONS)
-BORDER_GEOJSON = DATASETS.path(specs.OSM_COUNTRY_BORDERS)
+REGION_GEOJSON = DATASETS.path(config.SHAN_REGIONS)
+BORDER_GEOJSON = DATASETS.path(config.OSM_COUNTRY_BORDERS)
 
 # ============================
 # 本图特有图层
@@ -357,7 +357,7 @@ def add_city_markers(ax: plt.Axes) -> None:
     for city in SHEET.cities:
         if city.capital:
             marker = "*"
-        elif city.name in specs.NORTHERN_SHAN_MAJOR:
+        elif city.name in config.NORTHERN_SHAN_MAJOR:
             marker = "s"
         else:
             marker = "o"

@@ -13,7 +13,7 @@ Cartopy_file/
 ├── data/                   cartopy 共用的 Natural Earth 底图缓存(不入库)
 ├── download_data.py        共用底图预取 + 全项目数据清单检查
 ├── src/cartopy_file/       共享包: 数据层 / 规格 / 图层 / 出图流程 / 几何工具
-├── Myanmar/                缅甸子项目: 3 张图 + specs.py + 数据准备脚本 + data/
+├── Myanmar/                缅甸子项目: 3 张图 + config.py + 数据准备脚本 + data/
 ├── USSR/                   苏联子项目
 ├── Ukraine/                乌克兰子项目
 ├── Volga/                  伏尔加河流域子项目: 流域图 + 周边共和国图, 两图共用一套规格
@@ -28,21 +28,25 @@ Cartopy_file/
 ## 四层结构
 
 1. **框架层**([`src/cartopy_file/`](../src/cartopy_file)): 可安装的包, 放所有子项目共用的
-   能力: 数据源登记、下载、数据集清单、实例规格、图层原语、出图流程、几何工具.
-2. **子项目层**([`docs/maps/`](maps)): 一个目录就是一个子项目, 内含 `specs.py`(该子项目的
+   能力: 数据源登记、下载、数据集清单、配置模型、图层原语、出图流程、几何工具.
+2. **子项目层**([`docs/maps/`](maps)): 一个目录就是一个子项目, 内含 `config.py`(该子项目的
    数据与实例规格)、绘图脚本、数据准备脚本和私有数据目录 `<子项目>/data/`.
-3. **数据集层**([`specs.py`](../Myanmar/specs.py) 里的 `DATASETS`): 每个子项目声明自己要用
+3. **数据集配置**([`config.py`](../Myanmar/config.py) 里的 `DATASETS`): 每个子项目声明自己要用
    哪些数据——从哪下、什么版本、覆盖哪个范围、放哪、怎么校验. 数据准备脚本与绘图脚本都从
    这里取参数, 不再各写一份.
-4. **实例规格层**([`specs.py`](../Myanmar/specs.py) 里的 `SHEETS`): 一张产物就是一个
+4. **实例配置**([`config.py`](../Myanmar/config.py) 里的 `SHEETS`): 一张产物就是一个
    `Sheet`(画框/投影/画布/色带/经纬网/地名/文案). 一个脚本可以有多张(伏尔加的两张图).
+
+`config.py` 只放**数值**; 这些值的类型与校验在 [`src/cartopy_file/spec.py`](../src/cartopy_file/spec.py)
+(参考页 [`reference/spec.md`](reference/spec.md)). 分开的理由: 类型不随图种变, 配置每个子项目
+一份; 新加一个子项目只写 `config.py`, 不用碰共享包.
 
 ## 数据流
 
 ```
 download_data.py ──► data/cartopy/ ─┐
 <子项目>/download_*.py ──► <子项目>/data/raw/ ──┐
-<子项目>/prepare_*.py ──► <子项目>/data/derived/ ─┴─► specs.py ──► runner.render ──┬─► <子项目>/map/<stem>.svg
+<子项目>/prepare_*.py ──► <子项目>/data/derived/ ─┴─► config.py ──► runner.render ──┬─► <子项目>/map/<stem>.svg
                                                                                    └─► <子项目>/text/<stem>.geo.json
 ```
 
@@ -78,5 +82,5 @@ download_data.py ──► data/cartopy/ ─┐
 
 子目录脚本直接运行时只有脚本所在目录在 `sys.path` 上; 共享代码放进已安装的包后普通
 `import` 即可, 不必再用 `sys.path.insert` 去操作外层目录. 安装方式见
-[README](../README.md) 的"安装"一节. 子项目目录里只有 `specs.py` 需要被工具按
-`<子项目>.specs` 导入, 其余脚本仍是"从脚本所在目录运行"的普通脚本.
+[README](../README.md) 的"安装"一节. 子项目目录里只有 `config.py` 需要被工具按
+`<子项目>.config` 导入, 其余脚本仍是"从脚本所在目录运行"的普通脚本.

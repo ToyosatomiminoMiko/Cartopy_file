@@ -7,7 +7,7 @@
 叠加河流与 ETOPO 2022 地形晕渲, 并画出各行政区中心点; 国界用半透明红色、只画陆地
 上的国界段, 海岸线不单独绘制. 底图只画地理要素, 文字/图例/色标/标题/刻度文字都由
 同名 ``<产物>.geo.json`` 交给前端排版; 画框/投影/色带/经纬网/文案取自
-``Myanmar/specs.py``. 本图的特殊图层(行政区填色与双语图例、特区填色、河网、国界线型、
+``Myanmar/config.py``. 本图的特殊图层(行政区填色与双语图例、特区填色、河网、国界线型、
 自定义地形底纹)留在本脚本, 用共享原语画.
 完整说明(配色、投影、数据来源、运行方式)见 ``docs/maps/myanmar-admin.md``;
 出图流程见 ``docs/reference/runner.md``, 图层原语见 ``docs/reference/layers.md``.
@@ -35,7 +35,7 @@ from shapely.geometry import LineString, shape  # GeoJSON -> Shapely / 取外环
 from shapely.ops import unary_union  # 合并行政区, 得到缅甸整体轮廓
 
 # 图种规格与数据集清单: 画框/投影/色带/经纬网/文案都从这里取, 见 docs/reference/spec.md.
-import specs
+import config
 
 # 共享图层原语(底图/经纬网/城市点/geo 收集), 见 docs/reference/layers.md.
 from cartopy_file import layers
@@ -61,13 +61,13 @@ from cartopy_file.spec import City
 # 斜线填充过密会在成品尺寸下糊成深色块, 这里保持项目里一致的细线.
 plt.rcParams["hatch.linewidth"] = 0.5
 
-SHEET = specs.SHEET_ADMIN
-DATASETS = specs.DATASETS
+SHEET = config.SHEET_ADMIN
+DATASETS = config.DATASETS
 
 # 数据路径全部由数据集清单给出(raw/ 与 derived/ 的约定见 docs/reference/datasets.md).
-ADMIN_GEOJSON = DATASETS.path(specs.ADMIN_GEOJSON)
+ADMIN_GEOJSON = DATASETS.path(config.ADMIN_GEOJSON)
 RIVER_SHP = (
-    DATASETS.path(specs.NE_RIVERS) / "ne_10m_rivers_lake_centerlines.shp"
+    DATASETS.path(config.NE_RIVERS) / "ne_10m_rivers_lake_centerlines.shp"
 )
 
 # ============================

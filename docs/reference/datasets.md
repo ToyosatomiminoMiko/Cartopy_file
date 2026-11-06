@@ -7,11 +7,11 @@
 
 数据层的三个模块: `sources` 登记外部数据源(URL 模板/版本/许可/署名), `fetch` 做下载与
 解压, `datasets` 描述「一个子项目要哪些数据、放哪、怎么校验」并与实例规格互相引用.
-一页写清是因为它们只有一个用法: 在子项目的 `specs.py` 里声明一份 `DATASETS`, 数据准备
+一页写清是因为它们只有一个用法: 在子项目的 `config.py` 里声明一份 `DATASETS`, 数据准备
 脚本与绘图脚本都从它取参数.
 
 `DATASETS` 是数据清单的唯一真源: 根目录 `python download_data.py --check` 汇总所有子项目
-的清单, `tools/check_geo.py` 的产物清单也由同一批 `specs.py` 派生, 不再有第二处手写表.
+的清单, `tools/check_geo.py` 的产物清单也由同一批 `config.py` 派生, 不再有第二处手写表.
 
 ## 关键行为
 
@@ -43,7 +43,9 @@
 data/cartopy/         全项目共用的 Natural Earth 缓存(由根目录 download_data.py 预取)
 ```
 
-`raw` 一次下载、永不改写; `derived` 可以随时删掉重算, 删它不会触发重新联网.
+`raw` 一次下载、永不改写; `derived` 可以随时删掉重算, 删它不会触发重新联网. 目录归属与脚本
+一一对应: `download_*.py` 只写 `raw/`, `prepare_*.py` 只写 `derived/`(见
+[data-preparation.md](../data-preparation.md)).
 
 ### 版本怎么钉
 
@@ -97,7 +99,7 @@ fetch.extract_zip(archive, dest_dir)
 
 ## 注意事项
 
-- **不要在两处各写一份画框**: 下载范围只能从 `specs.py` 里的 `Sheet.extent` 推出来
+- **不要在两处各写一份画框**: 下载范围只能从 `config.py` 里的 `Sheet.extent` 推出来
   (`Extent.padded(...)` 或就地声明的 `Extent`), 绘图那一侧用同一个 `Sheet.extent`;
 - `bbox` 要盖住投影后的画框, 而不只是经纬度矩形: 圆锥投影的矩形画框顶边会张开, 只按经纬度
   下载会在画框角上露白. `runner` 出图时会打印覆盖不足的警告, 看到就回来核对(不要改回去
@@ -107,6 +109,9 @@ fetch.extract_zip(archive, dest_dir)
 - Natural Earth 的 zip 解出来是 `目录/数据文件` 结构, 而 cartopy 找的是 `类别目录/ne_*.shp`
   平铺结构; 手工复制时两种都要照顾(根目录 `download_data.py` 的 `_copy_shapefile_set`
   已经把 `.README.html` / `.VERSION.txt` 也一起复制);
+- `DatasetSet.exists()` 用 glob 判定「就位」时必须真正取出匹配项(`next(iter(glob), None)`);
+  `any(root.glob(p) for p in patterns)` 恒为真(生成器对象本身是 truthy), 会让 `--check`
+  把缺失一律当成就位——这是修过的历史 bug, 改动这段要做一次「移走文件应报 missing」的验证;
 - 版本不符是失败而不是警告: 产物是「当前代码 + 当前数据」生成的, 换版后底图与文档就对不上了;
 - 「下载压缩包再解压」有两种登记方式: ① ``kind="zip"``, ``dest`` 指向解压目录(缅甸的河流副本);
   ② 拆成两条——``kind="file"`` 的压缩包放 ``raw/`` + ``kind="derived"`` 的解压目录(伏尔加的

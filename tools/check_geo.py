@@ -15,7 +15,7 @@
 
 用法:
     python tools/check_geo.py [<子项目>/map/<产物>.svg ...]
-不给参数时检查各子项目 specs.py 里声明的全部产物(不存在的跳过并提示).
+不给参数时检查各子项目 config.py 里声明的全部产物(不存在的跳过并提示).
 """
 
 from __future__ import annotations
@@ -63,18 +63,18 @@ LEGEND_MARKERS = {"star", "square", "circle"}
 COLOR_RE = re.compile(r"#[0-9a-f]{6}\Z")
 
 def discover_products() -> tuple[tuple[str, str], ...]:
-    """无参自检要覆盖的产物: 从各子项目 ``specs.py`` 的 ``SHEETS`` 派生.
+    """无参自检要覆盖的产物: 从各子项目 ``config.py`` 的 ``SHEETS`` 派生.
 
     返回 (地图相对路径, 文字信息相对路径), 都相对仓库根; 目录布局来自
-    ``cartopy_file.spec`` 的 ``map_path``/``text_path``. 新增图种只要在 specs.py 里加
+    ``cartopy_file.spec`` 的 ``map_path``/``text_path``. 新增图种只要在 config.py 里加
     一个 Sheet, 这里自动收录; 不再需要手改本文件的清单.
     """
     products: list[tuple[str, str]] = []
     for name in subproject_dirs():
-        module = importlib.import_module(f"{name}.specs")
+        module = importlib.import_module(f"{name}.config")
         sheets = getattr(module, "SHEETS", ())
         if not sheets:
-            raise SystemExit(f"{name}/specs.py 必须导出 SHEETS(产出列表)")
+            raise SystemExit(f"{name}/config.py 必须导出 SHEETS(产出列表)")
         products.extend(
             (str(map_path(name, sheet.out)), str(text_path(name, sheet.out)))
             for sheet in sheets
@@ -82,7 +82,7 @@ def discover_products() -> tuple[tuple[str, str], ...]:
     return tuple(products)
 
 
-# 无参自检覆盖的产物(地图/文字信息相对路径), 由 specs.py 派生(见 docs/add-map.md).
+# 无参自检覆盖的产物(地图/文字信息相对路径), 由 config.py 派生(见 docs/add-map.md).
 PRODUCTS = discover_products()
 
 _ROOT_TAG_RE = re.compile(rb"<svg\b[^>]*>", re.IGNORECASE)

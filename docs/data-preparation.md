@@ -13,8 +13,15 @@
 | `AmericaArmy/data.geojson` | 基地点位, 仓库自带 | — |
 
 `raw` 与 `derived` 分开的理由: 前者是一次下载、永不改写的原始资产, 后者可以随时删掉重算
-(删它不会触发重新联网). `**/data` 在 `.gitignore` 里, 数据不随仓库提交; 换机器或重新 clone
-后重跑准备命令即可恢复. 唯一入库的数据文件是 `AmericaArmy/data.geojson`.
+(删它不会触发重新联网). 因此脚本也按目录拆开, 各只做一件事:
+
+- `download_*.py`: 只把数据下载/解压进 `raw/`, 不加工; 已存在就跳过;
+- `prepare_*.py`: 只读 `raw/`、只写 `derived/`, 不联网; 每次运行都全量重建;
+- 两者各自有 `main()`, 互不 import 对方的私有函数; 一个子项目没有派生需求时(缅甸的 ETOPO、
+  苏联的高程)就没有 `prepare_*.py`.
+
+`**/data` 在 `.gitignore` 里, 数据不随仓库提交; 换机器或重新 clone 后重跑准备命令即可恢复.
+唯一入库的数据文件是 `AmericaArmy/data.geojson`.
 
 本机 `/home` 是只读挂载, cartopy/matplotlib 的默认缓存目录不可写, 所以缓存统一放在仓库内.
 需要把共用缓存放到别的可写磁盘时设 `CARTOPY_FILE_DATA=/path/to/data`; 定位逻辑与各环境变量
@@ -47,8 +54,8 @@
 
 ## 准备命令总表
 
-每条命令都是"文件已存在就跳过", 重复执行不会重新下载; 派生数据(如乌克兰的边界 GeoJSON)每次
-重新生成.
+下载命令"文件已存在就跳过", 重复执行不会重新下载; 派生命令每次都重建(不联网). 下载与派生
+是两条独立的命令: 先下载, 再派生.
 
 | 命令 | 产物 | 什么时候需要 |
 | --- | --- | --- |
@@ -58,8 +65,10 @@
 | `python Myanmar/download_regions.py` | OSM 特区边界与画框附近国界 | 掸邦/特区图 |
 | `python Myanmar/prepare_admin_data.py` | `Myanmar/data/derived/myanmar_admin1.geojson` 等 | 缅甸行政区图 |
 | `python USSR/download_etopo.py` | 苏联 ETOPO(默认 stride=8) | 苏联图 |
-| `python Ukraine/download_data.py` | 乌克兰全部原始数据与派生 GeoJSON | 乌克兰图 |
-| `python Volga/download_data.py` | 伏尔加河流域原始数据与派生 GeoJSON | 伏尔加河流域图 |
+| `python Ukraine/download_data.py` | `Ukraine/data/raw/` 全部原始数据 | 乌克兰图首次 |
+| `python Ukraine/prepare_data.py` | `Ukraine/data/derived/` 边界/水系 GeoJSON | 原始数据就位后 |
+| `python Volga/download_data.py` | `Volga/data/raw/` 原始数据 | 伏尔加河流域图首次 |
+| `python Volga/prepare_data.py` | `Volga/data/derived/` 行政区/流域/国界 GeoJSON | 原始数据就位后 |
 
 想确认数据是否齐全(不联网、不下载):
 
@@ -67,24 +76,24 @@
 python download_data.py --check   # 全部就位退出码 0, 有缺失退出码 1 并给出准备命令
 ```
 
-清单不再手写: `--check` 逐个导入各子项目目录里的 `specs.py`, 读出它声明的 `DATASETS`
+清单不再手写: `--check` 逐个导入各子项目目录里的 `config.py`, 读出它声明的 `DATASETS`
 (`DatasetSet`)后逐项核对. 所以:
 
-- 新增子项目或新数据, 只改该子项目的 `specs.py`, 不用回来改 `download_data.py`;
+- 新增子项目或新数据, 只改该子项目的 `config.py`, 不用回来改 `download_data.py`;
 - 「就位」以项目缓存为准: 只有 `~/.local/share/cartopy` 里有不算就位(换机器就没了);
 - 版本不符、只在旧缓存里, 都会算失败并打印原因.
 
 ## ETOPO 下载
 
 各图种都用同一套 NOAA ERDDAP 下载方式(实现走 [`cartopy_file.fetch`](../src/cartopy_file/fetch.py),
-下载范围来自各自 `specs.py`):
+下载范围来自各自 `config.py`):
 
 - 不直接打开 NOAA OPeNDAP 的几十个瓦片(要在经度上跨瓦片拼接, 还要处理 0°/360° 与
   -180°/180° 两套经度约定), 改为向 ERDDAP 请求一次已裁剪、重采样好的区域 NetCDF,
   绘图时只读一个文件;
 - ERDDAP 的经度是 0~360°, 跨 180° 的区域(如苏联图)要把负经度 +360;
 - 区域范围要覆盖**投影后的矩形画框**四角, 而不是只按经纬度画框下载, 否则兰勃特投影画框的
-  角上会露出没有高程数据的空白. 这个范围在 `specs.py` 里由 `Sheet.extent.padded(...)` 推出,
+  角上会露出没有高程数据的空白. 这个范围在 `config.py` 里由 `Sheet.extent.padded(...)` 推出,
   与绘图用的画框是同一个数据源, 出图时 `runner` 还会核对是否盖住;
 - 默认步长按图幅大小选: 缅甸全境 `stride=2`(30 弧秒, 约 34 MB), 掸邦放大图 `stride=1`
   (15 弧秒), 苏联 `stride=8`(2 弧分, 约 45 MB), 乌克兰 `stride=2`;
@@ -100,7 +109,7 @@ python download_data.py --check   # 全部就位退出码 0, 有缺失退出码 
 
 - 只有换机器或重新 clone 时才需要重跑准备命令; 同一份数据反复出图不会再下载;
 - 网络受限时(ERDDAP、Overpass、GADM、OCHA 任一不可用), 可以手动把文件放进对应
-  `data/raw/` 目录, 文件名按各子项目 `specs.py` 里的 `dest` 约定, 脚本检测到就不下载;
+  `data/raw/` 目录, 文件名按各子项目 `config.py` 里的 `dest` 约定, 脚本检测到就不下载;
 - OSM 数据经公共 Overpass API 获取: 首次运行请求 relation 并缓存原始 JSON, 公共实例满负荷
   (502)时会轮换镜像; Overpass 是实时查询接口, 没有版本号, 缓存只能当快照用;
 - 数据缺失时绘图脚本会 `FileNotFoundError` 并提示对应的准备命令, 按提示跑即可.

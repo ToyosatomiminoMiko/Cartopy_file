@@ -1,7 +1,7 @@
 # Cartopy_file
 
 五组地图(缅甸、苏联、乌克兰、伏尔加河流域、美军基地演示)的 cartopy 绘图脚本, 共用一套可安装的
-`cartopy_file` 包. 每个子项目一个目录, 目录里的 `specs.py` 同时声明数据清单与每张图的规格
+`cartopy_file` 包. 每个子项目一个目录, 目录里的 `config.py` 同时声明数据清单与每张图的规格
 (画框/投影/色带/经纬网/文案), 出图流程与图层原语都在共享包里. 每张图
 产出两个文件: 地图(裁到地图框的**纯几何底图**, 只有地理图形, 不含文字、图例、色标、标题与刻度文字)
 写到 `<子项目>/map/<stem>.svg`, 文字信息(地图框、经纬刻度、初始标注候选、色标、图例与默认文案)
@@ -31,10 +31,11 @@ python download_data.py           # 全项目共用的 Natural Earth 底图, 放
 python download_data.py --check   # 只检查不下载; 有缺失时退出码 1 并打印准备命令
 ```
 
-各子项目自己的数据(ETOPO 高程、行政区、OSM 边界等)由各自的脚本准备, 下载原样落在
-`<子项目>/data/raw/`, 加工产物落在 `<子项目>/data/derived/`; 命令与数据清单见
+各子项目自己的数据(ETOPO 高程、行政区、OSM 边界等)由各自的脚本准备: `download_*.py` 只
+下载/入库到 `<子项目>/data/raw/`(已存在就跳过), `prepare_*.py` 只加工到
+`<子项目>/data/derived/`(每次重建、不联网), 两条独立命令; 命令与数据清单见
 [docs/data-preparation.md](docs/data-preparation.md). 清单不用手写: `--check` 从各子项目的
-`specs.py` 汇总. 只有换机器或重新 clone 时才需要重跑; 已存在的文件不会重复下载.
+`config.py` 汇总. 只有换机器或重新 clone 时才需要重跑; 已存在的文件不会重复下载.
 
 ## 出图
 
@@ -70,7 +71,7 @@ viewBox/尺寸)、`graticule`(经纬刻度)、`labels`(地名候选: id/role/文
 脚本生成. 与前端排版的衔接(契约字段、字体嵌入等)见 `miko_svg_editor` 的
 `docs/CARTOPY-MIGRATION.md`.
 
-`AmericaArmy/` 是**框架用法的最小演示**: 一个 `specs.py`(本地点位 + 一个 Sheet)加一个
+`AmericaArmy/` 是**框架用法的最小演示**: 一个 `config.py`(本地点位 + 一个 Sheet)加一个
 `main.py`(一对 draw/collect 回调), 走和正式图种完全相同的出图流水线, 产物是
 `AmericaArmy/map/america_army_bases.svg` 与 `AmericaArmy/text/america_army_bases.geo.json`
 (同 stem 分目录). 想新增子项目时从这个目录抄结构, 见

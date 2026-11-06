@@ -8,7 +8,7 @@
 并画出主要城市点; 海岸线不单独绘制, 海陆界线由地形配色在 0 m 处的跳变表达.
 文字与版面由前端接管, 本脚本同时产出同名的 geo.json: 底图只画地理要素, 地名/
 色标/标题/来源只以 ``GeoDoc`` 数据形式登记, 不再画任何文字; 字段与口径见
-``docs/reference/geo.md``. 画框/色带/地名/文案全部来自 ``Myanmar/specs.py``;
+``docs/reference/geo.md``. 画框/色带/地名/文案全部来自 ``Myanmar/config.py``;
 完整说明(投影选择、数据来源、运行方式)见 ``docs/maps/myanmar.md``.
 """
 
@@ -28,7 +28,7 @@ import numpy as np  # 筛选国界要素
 from shapely.ops import unary_union  # 合并多块几何, 得到缅甸整体轮廓
 
 # 图种规格与数据集清单: 画框/投影/色带/地名/文案都从这里取, 见 docs/reference/spec.md.
-import specs
+import config
 
 # 共享图层原语(底图/晕渲/经纬网/城市点/geo 收集), 见 docs/reference/layers.md.
 from cartopy_file import layers
@@ -42,8 +42,8 @@ from cartopy_file.overlap import cut, overlap_mask
 # ETOPO 定位与 Natural Earth 图层读取, 见 docs/reference/relief.md.
 from cartopy_file.relief import clip_to_axes, find_etopo, load_ne_layer
 
-SHEET = specs.SHEET_MYANMAR
-DATASETS = specs.DATASETS
+SHEET = config.SHEET_MYANMAR
+DATASETS = config.DATASETS
 
 # ============================
 # 本图特有图层
@@ -73,7 +73,7 @@ def draw_borders(ax, world) -> None:
     """画缅甸陆上国界(半透明红线)与邻国国界(灰虚线), 不画海岸线.
 
     为什么国界只画陆上段: 本图不画海岸线, 海陆界线由地形配色在 0 m 处的
-    跳变表达(见 specs.py 的 MYANMAR_RELIEF). 国界面本身沿海岸闭合, 整圈画出来
+    跳变表达(见 config.py 的 MYANMAR_RELIEF). 国界面本身沿海岸闭合, 整圈画出来
     就等于又画了一条红色海岸线; 所以先按 Natural Earth 海岸线缓冲剪掉沿海段,
     红线在孟加拉湾/安达曼海岸收笔, 岸线交给颜色分界. 岛屿(安达曼海群岛等)
     的边界整圈都贴着海岸线, 会被一并剪掉, 岛上只剩地形色斑 —— 这正是

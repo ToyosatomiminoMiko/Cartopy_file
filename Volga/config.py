@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Volga subproject: dataset inventory and per-sheet render specs.
+"""Volga subproject: dataset inventory and per-sheet render config.
 
 是什么: 伏尔加子项目的唯一配置入口——数据集清单(从哪下、版本、下载范围、本地路径)、
 两张图各自的 ``Sheet``(画框、投影、色带、经纬网、文案)与图种特有图层的数据(配色、
@@ -71,7 +71,8 @@ GADM_RUS = Dataset(
     note="GADM 4.1 俄罗斯一级行政区(原始)",
 )
 
-# HydroBASINS level 5 欧洲区: 压缩包是下载原样, 解压目录放在 derived.
+# HydroBASINS level 5 欧洲区: 压缩包是下载原样, 下载与解压都由 download_data.py 做,
+# 解压目录放在 derived; prepare_data.py 只读解压结果派生流域面.
 HYBAS_EU_ARCHIVE = Dataset(
     id="hybas-eu-lev05-archive",
     kind="file",
@@ -85,7 +86,7 @@ HYBAS_EU_SHAPES = Dataset(
     id="hybas-eu-lev05",
     kind="derived",
     dest="derived/hybas_eu_lev05_v1c/hybas_eu_lev05_v1c.shp",
-    note="HydroBASINS level 5 欧洲区(解压, 流域派生用)",
+    note="HydroBASINS level 5 欧洲区(download_data.py 解压, 流域派生用)",
 )
 
 # 共享缓存里的 Natural Earth 10m 图层用 cartopy-ne: 只登记出处, 由 cartopy 的下载器
@@ -130,7 +131,7 @@ NE_COASTLINE = Dataset(
     note="Natural Earth 10m 海岸线(国界剪掉沿海段的蒙版)",
 )
 
-# 派生输出(绘图脚本直接读这三个文件, 字段契约不要随意改).
+# 派生输出(由 prepare_data.py 生成; 绘图脚本直接读这三个文件, 字段契约不要随意改).
 VOLGA_SUBJECTS = Dataset(
     id="volga-subjects",
     kind="derived",
@@ -260,7 +261,7 @@ FIG_RIGHT_IN = 0.144
 
 # 画框在兰勃特投影下的宽高比. 数值由 cartopy 的
 # ``LambertConformal.project_geometry(画框环, PlateCarree).bounds`` 算得(原
-# ``_projected_aspect``); 这里写成常量是为了让 specs.py 保持「纯数据、不 import
+# ``_projected_aspect``); 这里写成常量是为了让 config.py 保持「纯数据、不 import
 # cartopy」——数据清单检查只读本文件, 不必为两个数拖起整套投影库. 改画框必须重算:
 # 公式与算法见 docs/maps/volga.md 设计要点 1.
 ASPECT_BASIN = 1.2582431702887398

@@ -8,7 +8,7 @@
 所有图种共用的出图骨架: 建画布 -> 核对数据覆盖 -> 读高程 -> 铺底图与晕渲 -> 调图种自己的
 图层函数 -> 版面 -> 量地图框 -> 收集 geo.json -> 保存产物.
 
-图种脚本自己只剩三样东西: 数据(`specs.py` 里的 `DATASETS`)、规格(`SHEETS` 里的 `Sheet`)、
+图种脚本自己只剩三样东西: 数据(`config.py` 里的 `DATASETS`)、规格(`SHEETS` 里的 `Sheet`)、
 以及一对回调 `draw` / `collect`.
 
 ## 关键行为
@@ -38,8 +38,8 @@ import argparse
 from cartopy_file import runner
 from cartopy_file.relief import find_etopo
 
-SHEET = specs.SHEET_MYANMAR
-DATASETS = specs.DATASETS
+SHEET = config.SHEET_MYANMAR
+DATASETS = config.DATASETS
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -62,12 +62,12 @@ def main():
   会让 gridliner 用未闭合顶点构造多边形而抛 `GEOSException`. 只有原来就用 `tight_layout`
   的图(苏联)通过 `Sheet.tight_layout=True` 保留该行为;
 - 覆盖不足只打印警告不报错: 画框角落本来就有底图颜色兜底, 但看到警告应当回去核对
-  `specs.py` 的 `bbox`, 那说明下载范围和绘图范围又分叉了;
+  `config.py` 的 `bbox`, 那说明下载范围和绘图范围又分叉了;
 - 一个进程出多张图时逐个 `render`(伏尔加的两张图), 每张都会独立建画布并在结束时关闭;
 - 回调里不要自己调 `save_map`/`figure_frame`: 那是 `render` 的职责, 两处都做会写出两份产物;
 - 需要在高程铺图**之前**预处理 z(例如按海岸线/湖泊把里海低地的负高程修正回陆地)时,
   把 `Sheet.dem_id` 留空, 在 `main()` 里 `load_elevation()` 预处理一次, 再在 `draw()` 里调
   `layers.add_relief`(伏尔加两张图就是这样): 图层仍是框架原语, 只是绕开了 runner 的自动
-  铺图那一步, 代价是同时绕开它的数据覆盖警告, 所以 `specs.py` 的 bbox 要自己核对;
+  铺图那一步, 代价是同时绕开它的数据覆盖警告, 所以 `config.py` 的 bbox 要自己核对;
 - 同理, 底纹需要特殊合成(透明遮罩/插值/命名色带软光)时也在 `draw()` 里画, 见
   [reference/layers.md](layers.md) 的注意事项.

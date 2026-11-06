@@ -15,7 +15,7 @@
   登记为 `pre_existing_data_dir`(只读复用);
 - `natural_earth_paths()`: 查某个 Natural Earth 要素已落在哪个缓存、下载会落到哪里, 不联网;
 - `project_root()`: 仓库根目录;
-- `subproject_dirs()`: 仓库里的子项目目录名(判定标准是目录里有 `specs.py`), 供
+- `subproject_dirs()`: 仓库里的子项目目录名(判定标准是目录里有 `config.py`), 供
   `download_data.py` 与 `tools/check_geo.py` 自动枚举数据清单和产物.
 
 ## 关键行为
@@ -38,8 +38,8 @@
   文件会"看不见"而被重新下载;
 - `natural_earth_paths()` 判断"是否已存在"只看 `.shp`(下载器把 shp/shx/dbf 一起解压),
   返回顺序故意让项目缓存优先;
-- `subproject_dirs()` 用「目录里有 `specs.py`」当判定: 子项目名单只在目录结构里出现一次,
-  新增子项目只要建目录 + `specs.py`, 清单检查与产物枚举就自动收录.
+- `subproject_dirs()` 用「目录里有 `config.py`」当判定: 子项目名单只在目录结构里出现一次,
+  新增子项目只要建目录 + `config.py`, 清单检查与产物枚举就自动收录.
 
 ### 为什么缓存要重定向
 

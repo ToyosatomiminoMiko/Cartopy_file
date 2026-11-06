@@ -7,7 +7,7 @@
 叠加 Natural Earth 110m 海岸线与 15 个前苏联加盟共和国合并出的红色外轮廓.
 文字与版面由前端接管, 本脚本同时产出同名的 geo.json: 底图只画地理要素, 色标/标题/
 副标题只以 ``GeoDoc`` 数据形式登记; 字段与口径见 ``docs/reference/geo.md``.
-画框/投影/色带/经纬网/文案全部来自 ``USSR/specs.py``; 完整说明(投影选择、图幅内容、
+画框/投影/色带/经纬网/文案全部来自 ``USSR/config.py``; 完整说明(投影选择、图幅内容、
 数据来源、运行方式)见 ``docs/maps/ussr.md``.
 """
 
@@ -28,7 +28,7 @@ import numpy as np  # 筛选国界要素
 from shapely.ops import unary_union  # 合并多个面为苏联整体轮廓
 
 # 图种规格与数据集清单: 画框/投影/色带/经纬网/文案都从这里取, 见 docs/reference/spec.md.
-import specs
+import config
 
 # 共享图层原语(经纬网/色标/geo 收集), 见 docs/reference/layers.md.
 from cartopy_file import layers
@@ -39,8 +39,8 @@ from cartopy_file import runner
 # ETOPO 定位, 见 docs/reference/relief.md.
 from cartopy_file.relief import find_etopo
 
-SHEET = specs.SHEET_USSR
-DATASETS = specs.DATASETS
+SHEET = config.SHEET_USSR
+DATASETS = config.DATASETS
 
 # ============================
 # 本图特有图层
@@ -116,7 +116,7 @@ def draw(ctx: runner.RenderContext) -> None:
 
     为什么海岸线钉死 110m: ``cfeature`` 默认按视野自动选分辨率, 缩放重绘时可能换到
     没预取的 50m/10m 并触发下载, 违背「出图不联网」; 110m 是改前成品的实际分辨率,
-    也由根目录 ``download_data.py`` 按 specs.py 的 cartopy-ne 声明预取.
+    也由根目录 ``download_data.py`` 按 config.py 的 cartopy-ne 声明预取.
     为什么自己读国界: ``Sheet.basemap=False`` 时 runner 不加载共享底图, 苏联轮廓要的
     是 10m 国界(与 110m 海岸线同尺度才不会折线); 这份图层全项目共用 data/cartopy 缓存.
     """

@@ -8,7 +8,7 @@
 SVG: 只画流域的流域图, 与画框收窄、保留六个周边共和国的共和区图; 只绘制地理
 要素, 不绘制任何文字/图例/色标/标题/比例尺/指北针.
 完整说明(两份画框、行政区取舍、河网分级与配色)见 ``docs/maps/volga.md``;
-数据集与两张图的规格见 ``Volga/specs.py``, 分层与 API 见 ``docs/reference/spec.md``
+数据集与两张图的规格见 ``Volga/config.py``, 分层与 API 见 ``docs/reference/spec.md``
 与 ``docs/reference/datasets.md``, 共享图层与出图流水线见 ``docs/reference/layers.md``
 与 ``docs/reference/runner.md``.
 """
@@ -35,7 +35,7 @@ from shapely.geometry import box  # 投影画框与湖库筛选
 from shapely.ops import unary_union  # 流域/行政区几何合并
 
 # 图种规格与数据集清单: 画框/投影/色带/地名/文案都从这里取, 见 docs/reference/spec.md.
-import specs
+import config
 
 # 共享图层原语(底图/晕渲/经纬网/城市点/geo 收集), 见 docs/reference/layers.md.
 from cartopy_file import layers
@@ -87,11 +87,11 @@ def _data() -> VolgaData:
 
 
 def _require(path: Path) -> Path:
-    """检查数据文件存在, 缺失时给出可操作提示."""
+    """检查数据文件存在, 缺失时按 raw/derived 给出对应的准备脚本."""
     if not path.exists():
-        raise FileNotFoundError(
-            f"未找到数据: {path}\n请先运行: python Volga/download_data.py"
-        )
+        # raw/ 由下载脚本准备, derived/ 由派生脚本准备, 见 docs/maps/volga.md 运行一节.
+        script = "download_data.py" if "raw" in path.parts else "prepare_data.py"
+        raise FileNotFoundError(f"未找到数据: {path}\n请先运行: python Volga/{script}")
     return path
 
 
@@ -131,8 +131,8 @@ def load_vectors(extent) -> tuple[gpd.GeoDataFrame, object, object]:
     来自仓库 data/cartopy 里已缓存的 Natural Earth 10m 图层(见 add_rivers /
     add_water), 不需要各图种再下载一份.
     """
-    subjects = gpd.read_file(_require(specs.DATASETS.path("volga-subjects")))
-    basin = unary_union(gpd.read_file(_require(specs.DATASETS.path("volga-basin"))).geometry)
+    subjects = gpd.read_file(_require(config.DATASETS.path("volga-subjects")))
+    basin = unary_union(gpd.read_file(_require(config.DATASETS.path("volga-basin"))).geometry)
     # 流域面裁到俄罗斯陆地: HydroBASINS 的单元边界在里海岸边比 GADM 岸线
     # 略靠外, 不裁的话浅蓝填色会在海面上多出一圈岸线误差(约 1500 km²);
     # 行政区的陆地并集与国界同源, 裁完岸线才与国界对齐.
@@ -144,7 +144,7 @@ def load_vectors(extent) -> tuple[gpd.GeoDataFrame, object, object]:
     if ocean is not None:
         land = land.difference(ocean.intersection(_view_box(extent, pad=1.0)))
     basin = unary_union(polygon_parts(basin.intersection(land)))
-    border = unary_union(gpd.read_file(_require(specs.DATASETS.path("russia-border"))).geometry)
+    border = unary_union(gpd.read_file(_require(config.DATASETS.path("russia-border"))).geometry)
     return subjects, basin, border
 
 
@@ -222,13 +222,13 @@ def prepare_elevation(lon: np.ndarray, lat: np.ndarray, z: np.ndarray) -> np.nda
     为什么只做一次: 水陆判识依赖与画框无关的 Natural Earth 面, 流域图的画框
     覆盖共和国图, 同一份修正后的高程可以直接铺进两个坐标区.
     """
-    return negative_land_as_land(z, lon, lat, specs.EXTENT_BASIN)
+    return negative_land_as_land(z, lon, lat, config.EXTENT_BASIN)
 
 
 def load_data(etopo_path: Path) -> None:
     """主流程载入一次数据: 矢量图层 + 修正后的高程 + 流域面积."""
     global _DATA
-    subjects, basin, border = load_vectors(specs.EXTENT_BASIN)
+    subjects, basin, border = load_vectors(config.EXTENT_BASIN)
     lon, lat, z = load_elevation(etopo_path)
     _DATA = VolgaData(
         subjects=subjects,
@@ -254,9 +254,9 @@ def add_basin(ax: plt.Axes, basin) -> None:
     ax.add_geometries(
         [basin],
         crs=ccrs.PlateCarree(),
-        facecolor=specs.COLOR_BASIN_FILL,
+        facecolor=config.COLOR_BASIN_FILL,
         edgecolor="none",
-        alpha=specs.COLOR_BASIN_ALPHA,
+        alpha=config.COLOR_BASIN_ALPHA,
         linewidth=0,
         zorder=1.5,
     )
@@ -273,7 +273,7 @@ def add_basin(ax: plt.Axes, basin) -> None:
         [basin.boundary],
         crs=ccrs.PlateCarree(),
         facecolor="none",
-        edgecolor=specs.COLOR_BASIN_EDGE,
+        edgecolor=config.COLOR_BASIN_EDGE,
         linewidth=2.1,
         zorder=4.0,
     )
@@ -302,8 +302,8 @@ def add_water(ax: plt.Axes, extent) -> None:
     ax.add_geometries(
         geoms,
         crs=ccrs.PlateCarree(),
-        facecolor=specs.COLOR_WATER,
-        edgecolor=specs.COLOR_WATER_EDGE,
+        facecolor=config.COLOR_WATER,
+        edgecolor=config.COLOR_WATER_EDGE,
         linewidth=0.45,
         zorder=2.75,
     )
@@ -324,7 +324,7 @@ def add_rivers(ax: plt.Axes, extent) -> None:
     view = box(extent.lon_min, extent.lat_min, extent.lon_max, extent.lat_max)
     selected = rivers[
         rivers.geometry.intersects(view)
-        & ~rivers["featurecla"].isin(specs.RIVER_EXCLUDE_FEATURECLA)
+        & ~rivers["featurecla"].isin(config.RIVER_EXCLUDE_FEATURECLA)
     ]
     if selected.empty:
         print("警告: 画框内没有 Natural Earth 河流, 跳过河流图层.")
@@ -340,7 +340,7 @@ def add_rivers(ax: plt.Axes, extent) -> None:
                 geoms,
                 crs=ccrs.PlateCarree(),
                 facecolor="none",
-                edgecolor=specs.COLOR_RIVER_HALO,
+                edgecolor=config.COLOR_RIVER_HALO,
                 linewidth=linewidth + 1.9,
                 zorder=2.50,
             )
@@ -354,27 +354,27 @@ def add_rivers(ax: plt.Axes, extent) -> None:
         )
 
     geoms = list(selected.geometry)
-    trunk = ranks <= specs.RIVER_TRUNK_MAX_SCALERANK
-    medium = (ranks > specs.RIVER_TRUNK_MAX_SCALERANK) & (
-        ranks <= specs.RIVER_MEDIUM_MAX_SCALERANK
+    trunk = ranks <= config.RIVER_TRUNK_MAX_SCALERANK
+    medium = (ranks > config.RIVER_TRUNK_MAX_SCALERANK) & (
+        ranks <= config.RIVER_MEDIUM_MAX_SCALERANK
     )
     minor = ~trunk & ~medium
-    draw([g for g, m in zip(geoms, minor) if m], specs.COLOR_RIVER, 0.5, halo=False)
+    draw([g for g, m in zip(geoms, minor) if m], config.COLOR_RIVER, 0.5, halo=False)
     draw(
         [g for g, m in zip(geoms, medium) if m],
-        specs.COLOR_RIVER_MEDIUM,
+        config.COLOR_RIVER_MEDIUM,
         0.85,
         halo=False,
     )
     draw(
         [g for g, m in zip(geoms, trunk) if m],
-        specs.COLOR_RIVER_TRUNK,
+        config.COLOR_RIVER_TRUNK,
         1.9,
         halo=True,
     )
 
 
-def add_admin(ax: plt.Axes, subjects: gpd.GeoDataFrame, theme: specs.Theme) -> None:
+def add_admin(ax: plt.Axes, subjects: gpd.GeoDataFrame, theme: config.Theme) -> None:
     """主体界(灰色虚线)与 theme.republics 的填色/描边.
 
     为什么共和国填色画在行政界线之下: 填色是面, 界线是线, 先铺面再画线,
@@ -397,7 +397,7 @@ def add_admin(ax: plt.Axes, subjects: gpd.GeoDataFrame, theme: specs.Theme) -> N
             other_edges,
             crs=ccrs.PlateCarree(),
             facecolor="none",
-            edgecolor=specs.COLOR_SUBJECT,
+            edgecolor=config.COLOR_SUBJECT,
             linewidth=0.5,
             alpha=0.55,
             linestyle=(0, (5, 3)),
@@ -409,9 +409,9 @@ def add_admin(ax: plt.Axes, subjects: gpd.GeoDataFrame, theme: specs.Theme) -> N
         ax.add_geometries(
             [g for g in republics.geometry if g is not None and not g.is_empty],
             crs=ccrs.PlateCarree(),
-            facecolor=specs.COLOR_REPUBLIC_FILL,
+            facecolor=config.COLOR_REPUBLIC_FILL,
             edgecolor="none",
-            alpha=specs.COLOR_REPUBLIC_ALPHA,
+            alpha=config.COLOR_REPUBLIC_ALPHA,
             linewidth=0,
             zorder=2.1,
         )
@@ -422,7 +422,7 @@ def add_admin(ax: plt.Axes, subjects: gpd.GeoDataFrame, theme: specs.Theme) -> N
             republic_edges,
             crs=ccrs.PlateCarree(),
             facecolor="none",
-            edgecolor=specs.COLOR_REPUBLIC_EDGE,
+            edgecolor=config.COLOR_REPUBLIC_EDGE,
             linewidth=1.9,
             zorder=6.3,
         )
@@ -473,7 +473,7 @@ def add_borders(ax: plt.Axes, border, extent) -> None:
         [line],
         crs=ccrs.PlateCarree(),
         facecolor="none",
-        edgecolor=specs.COLOR_BORDER,
+        edgecolor=config.COLOR_BORDER,
         linewidth=1.4,
         zorder=5.5,
     )
@@ -488,7 +488,7 @@ def add_city_markers(ax: plt.Axes, extent) -> None:
     只画地理符号: 国名/海名/丘陵名/河名/城名与面积注记都属于排版文字, 不在本脚本绘制.
     画框外跳过: 与改前一致, 窄画框(共和国图)不画框外的城市.
     """
-    for lon, lat, _name, kind, _dx, _dy, _align in specs.CITIES:
+    for lon, lat, _name, kind, _dx, _dy, _align in config.CITIES:
         if not in_extent(lon, lat, extent):
             continue
         if kind == "capital":
@@ -539,7 +539,7 @@ def add_city_markers(ax: plt.Axes, extent) -> None:
 LEGEND_TITLE = "图例"
 
 
-def collect_labels(doc, ax, sheet: specs.Sheet, area_km2: float) -> None:
+def collect_labels(doc, ax, sheet: config.Sheet, area_km2: float) -> None:
     """把旧成品上的地名整理成 geo.labels(role/位置/字号/锚点), 不画文字、不存样式.
 
     顺序按旧图的 zorder 升序登记(前端 scene 按 order 叠放): 国名/海名/地貌(9.0)、
@@ -547,22 +547,22 @@ def collect_labels(doc, ax, sheet: specs.Sheet, area_km2: float) -> None:
     与改前用 in_extent 过滤文字的行为一致; 颜色/斜体/描边/旋转由前端 role 表决定.
     """
     extent = sheet.extent
-    theme = specs.THEMES[sheet.id]
+    theme = config.THEMES[sheet.id]
 
     # 邻国名称.
-    for lon, lat, text in specs.COUNTRY_LABELS:
+    for lon, lat, text in config.COUNTRY_LABELS:
         if not in_extent(lon, lat, extent):
             continue
         doc.add_label(ax, lon, lat, text, role="country", font_size_pt=12.0)
 
     # 海域名称.
-    for lon, lat, text in specs.SEA_LABELS:
+    for lon, lat, text in config.SEA_LABELS:
         if not in_extent(lon, lat, extent):
             continue
         doc.add_label(ax, lon, lat, text, role="sea", font_size_pt=11.0)
 
     # 地貌名.
-    for lon, lat, text in specs.HIGHLAND_LABELS:
+    for lon, lat, text in config.HIGHLAND_LABELS:
         if not in_extent(lon, lat, extent):
             continue
         doc.add_label(ax, lon, lat, text, role="highland", font_size_pt=10.0)
@@ -579,10 +579,10 @@ def collect_labels(doc, ax, sheet: specs.Sheet, area_km2: float) -> None:
     # 共和国名: 字号按共和国轮廓大小分两档(小共和国 10.5, 大共和国 12.5);
     # id 前缀保留旧的 label-republic-*.
     for name in theme.republics:
-        lon, lat, text = specs.REPUBLIC_LABELS[name]
+        lon, lat, text = config.REPUBLIC_LABELS[name]
         if not in_extent(lon, lat, extent):
             continue
-        size = 10.5 if name in specs.SMALL_REPUBLICS else 12.5
+        size = 10.5 if name in config.SMALL_REPUBLICS else 12.5
         doc.add_label(
             ax, lon, lat, text,
             role="area-accent-1", id_kind="republic", name=name, font_size_pt=size,
@@ -590,10 +590,10 @@ def collect_labels(doc, ax, sheet: specs.Sheet, area_km2: float) -> None:
 
     # 河名: 同一条河标两段时 id 加 1 起算序号; 旋转由前端处理.
     river_counts: dict[str, int] = {}
-    for _, _, text in specs.RIVER_LABELS:
+    for _, _, text in config.RIVER_LABELS:
         river_counts[text] = river_counts.get(text, 0) + 1
     river_seen: dict[str, int] = {}
-    for lon, lat, text in specs.RIVER_LABELS:
+    for lon, lat, text in config.RIVER_LABELS:
         river_seen[text] = river_seen.get(text, 0) + 1
         if not in_extent(lon, lat, extent):
             continue
@@ -606,7 +606,7 @@ def collect_labels(doc, ax, sheet: specs.Sheet, area_km2: float) -> None:
 
     # 城市: 文字跟着点位偏移; 字号按城市等级分三档.
     sizes = {"capital": 10.8, "rep": 9.3, "city": 8.8}
-    for lon, lat, name, kind, dx, dy, align in specs.CITIES:
+    for lon, lat, name, kind, dx, dy, align in config.CITIES:
         if not in_extent(lon, lat, extent):
             continue
         doc.add_label(
@@ -615,16 +615,16 @@ def collect_labels(doc, ax, sheet: specs.Sheet, area_km2: float) -> None:
         )
 
 
-def collect_legend(doc, sheet: specs.Sheet) -> None:
+def collect_legend(doc, sheet: config.Sheet) -> None:
     """图例数据: 只列该图实际画了的线型/面, 流域图没有行政区两项(与改前图例一致)."""
-    theme = specs.THEMES[sheet.id]
+    theme = config.THEMES[sheet.id]
     entries: list[dict] = [
         {
             "label": "伏尔加河流域",
             "shape": "rect",
-            "stroke": specs.COLOR_BASIN_EDGE,
+            "stroke": config.COLOR_BASIN_EDGE,
             "width_pt": 2.0,
-            "fill": specs.COLOR_BASIN_FILL,
+            "fill": config.COLOR_BASIN_FILL,
             "opacity": 0.45,
         }
     ]
@@ -634,15 +634,15 @@ def collect_legend(doc, sheet: specs.Sheet) -> None:
                 {
                     "label": "周边联邦主体共和国",
                     "shape": "rect",
-                    "stroke": specs.COLOR_REPUBLIC_EDGE,
+                    "stroke": config.COLOR_REPUBLIC_EDGE,
                     "width_pt": 1.8,
-                    "fill": specs.COLOR_REPUBLIC_FILL,
+                    "fill": config.COLOR_REPUBLIC_FILL,
                     "opacity": 0.45,
                 },
                 {
                     "label": "其他联邦主体界",
                     "shape": "line",
-                    "stroke": specs.COLOR_SUBJECT,
+                    "stroke": config.COLOR_SUBJECT,
                     "width_pt": 0.9,
                     "dash": [5.0, 3.0],
                     "opacity": 0.8,
@@ -651,15 +651,15 @@ def collect_legend(doc, sheet: specs.Sheet) -> None:
         )
     entries.extend(
         [
-            {"label": "国界", "shape": "line", "stroke": specs.COLOR_BORDER, "width_pt": 1.4},
-            {"label": "干流(伏尔加河等)", "shape": "line", "stroke": specs.COLOR_RIVER_TRUNK, "width_pt": 1.8},
-            {"label": "支流", "shape": "line", "stroke": specs.COLOR_RIVER, "width_pt": 0.8},
+            {"label": "国界", "shape": "line", "stroke": config.COLOR_BORDER, "width_pt": 1.4},
+            {"label": "干流(伏尔加河等)", "shape": "line", "stroke": config.COLOR_RIVER_TRUNK, "width_pt": 1.8},
+            {"label": "支流", "shape": "line", "stroke": config.COLOR_RIVER, "width_pt": 0.8},
             {
                 "label": "湖泊 / 水库水面",
                 "shape": "rect",
-                "stroke": specs.COLOR_WATER_EDGE,
+                "stroke": config.COLOR_WATER_EDGE,
                 "width_pt": 0.6,
-                "fill": specs.COLOR_WATER,
+                "fill": config.COLOR_WATER,
             },
             {
                 "label": "首都",
@@ -690,7 +690,7 @@ def collect_legend(doc, sheet: specs.Sheet) -> None:
     doc.set_legend(LEGEND_TITLE, entries)
 
 
-def collect_suggestions(doc, sheet: specs.Sheet, area_km2: float) -> None:
+def collect_suggestions(doc, sheet: config.Sheet, area_km2: float) -> None:
     """默认文案: 标题/副标题/右栏注/来源/图外面积注记, 只给前端预填, 不参与合成.
 
     数据来源由 ``layers.suggestions`` 按 ``sheet.dataset_ids`` 从 DatasetSet 的署名
@@ -699,8 +699,8 @@ def collect_suggestions(doc, sheet: specs.Sheet, area_km2: float) -> None:
     area_annotation -> legend_title).
     """
     area_wan = area_km2 / 1e4
-    suggestion = layers.suggestions(sheet, specs.DATASETS)
-    theme = specs.THEMES[sheet.id]
+    suggestion = layers.suggestions(sheet, config.DATASETS)
+    theme = config.THEMES[sheet.id]
     ordered = {
         "title": suggestion["title"],
         "subtitle": suggestion["subtitle"],
@@ -733,7 +733,7 @@ def draw(ctx: runner.RenderContext) -> None:
     ax.set_facecolor(sheet.base_ocean)
 
     add_basin(ax, data.basin)
-    add_admin(ax, data.subjects, specs.THEMES[sheet.id])
+    add_admin(ax, data.subjects, config.THEMES[sheet.id])
     layers.add_relief(ax, sheet, data.lon, data.lat, data.z)
     add_rivers(ax, sheet.extent)
     add_water(ax, sheet.extent)
@@ -787,14 +787,14 @@ def main() -> None:
     load_data(etopo_path)
 
     # 晕渲栅格密度按地图区宽度与 dpi 算(与原实现一致); --dpi 只影响这张内嵌栅格.
-    dpi = args.dpi or specs.SHEET_BASIN.dpi
+    dpi = args.dpi or config.SHEET_BASIN.dpi
     selected = (
-        specs.SHEETS
+        config.SHEETS
         if args.map == "all"
-        else tuple(sheet for sheet in specs.SHEETS if sheet.id == args.map)
+        else tuple(sheet for sheet in config.SHEETS if sheet.id == args.map)
     )
     for sheet in selected:
-        layout = specs.LAYOUTS[sheet.id]
+        layout = config.LAYOUTS[sheet.id]
         sheet = replace(sheet, regrid_shape=max(1200, int(layout.map_width_in * dpi)))
         # 注意: 不用 tight_layout / bbox_inches="tight";
         # cartopy 在非矩形投影上绘制经纬网时会触发 gridliner 用未闭合顶点构造
@@ -802,7 +802,7 @@ def main() -> None:
         runner.render(
             sheet,
             root=ROOT,
-            catalog=specs.DATASETS,
+            catalog=config.DATASETS,
             draw=draw,
             collect=collect,
             dpi=args.dpi,

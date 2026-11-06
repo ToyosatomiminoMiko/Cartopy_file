@@ -2,7 +2,7 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """AmericaArmy demo: world basemap + base markers, rendered through the shared pipeline.
 
-是什么: 框架用法的最小示例——``specs.py`` 里放数据清单与 Sheet, 本文件只写一对回调
+是什么: 框架用法的最小示例——``config.py`` 里放数据清单与 Sheet, 本文件只写一对回调
 (``draw`` 画图种特有图层, ``collect`` 登记 geo 元数据), 其余(建画布、定范围、量地图框、
 保存纯几何 SVG 与同名 geo.json)由 ``cartopy_file.runner`` 统一完成.
 为什么底图要素显式钉死 Natural Earth 110m: cartopy 的 ``cfeature.*`` 默认用
@@ -24,13 +24,13 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 # 子项目配置(数据集清单 + Sheet), 见 docs/reference/spec.md.
-import specs
+import config
 
 # 共享图层原语与统一出图流程, 见 docs/reference/layers.md / docs/reference/runner.md.
 from cartopy_file import layers, runner
 
-SHEET = specs.SHEET_WORLD
-DATASETS = specs.DATASETS
+SHEET = config.SHEET_WORLD
+DATASETS = config.DATASETS
 
 # 预取清单只准备了 110m(见 docs/data-preparation.md), 这里钉死, 缩放也不换分辨率.
 SCALE = "110m"
@@ -50,7 +50,7 @@ def draw(ctx: runner.RenderContext) -> None:
         ctx.ax.add_feature(feature.with_scale(SCALE), **style)
 
     # 经纬度符号约定: E 东经为正, W 西经为负, N 北纬为正, S 南纬为负.
-    for feature in specs.BASES:
+    for feature in config.BASES:
         lon, lat = feature["geometry"]["coordinates"]
         ctx.ax.plot(lon, lat, "+", transform=ccrs.PlateCarree())
 
