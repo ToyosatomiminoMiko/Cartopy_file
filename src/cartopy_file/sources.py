@@ -125,7 +125,7 @@ SOURCES: dict[str, Source] = {
             homepage="https://www.openstreetmap.org/copyright",
             license="ODbL 1.0",
             # ODbL 要求署名文字, 不能省略.
-            credit="© OpenStreetMap contributors (ODbL)",
+            credit="(C) OpenStreetMap contributors (ODbL)",
         ),
     )
 }
