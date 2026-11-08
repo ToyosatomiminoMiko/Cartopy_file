@@ -295,7 +295,8 @@ class Label:
 
     dx/dy 是相对锚点经纬度的偏移(度), 用于「城名贴在城点旁边」这类旧图排版.
     ``name`` 是 id 的标识符段(小写 ASCII slug), ``text`` 才是图上显示的文案:
-    id 会被前端和旧布局文件当键用, 不能随显示文案(中文/换行/双语后缀)一起漂移.
+    id 会被前端和旧布局文件当键用, 不能随显示文案(中文/双语后缀)一起漂移.
+    ``text`` 必须单行: 折行位置属于排版, 由前端按文本块宽度决定, 生成端不写换行.
     """
 
     lon: float
@@ -314,6 +315,10 @@ class Label:
             raise ValueError(f"Label.font_size_pt 必须 > 0, 得到 {self.font_size_pt!r}")
         if self.ha not in ("left", "center", "right"):
             raise ValueError(f"Label.ha 必须是 left|center|right, 得到 {self.ha!r}")
+        if not isinstance(self.text, str) or not self.text:
+            raise ValueError(f"Label.text 必须是非空字符串, 得到 {self.text!r}")
+        if "\n" in self.text or "\r" in self.text:
+            raise ValueError(f"Label.text 必须单行(折行由前端负责), 得到 {self.text!r}")
         check_slug("Label.name", self.name)
         if self.id_kind is not None:
             check_slug("Label.id_kind", self.id_kind)
@@ -325,6 +330,7 @@ class LegendEntry:
 
     字段与 ``geo.legend.entries`` 一一对应(见 docs/reference/geo.md);
     ``_legend_entry`` 还会再规整一遍, 这里在 import 期就报错, 免得画完图才发现.
+    ``label`` 必须单行: 折行与排版由前端负责, 生成端不提供分行文案.
     """
 
     label: str
@@ -336,11 +342,12 @@ class LegendEntry:
     dash: tuple[float, float] | None = None
     marker: str | None = None
     hatch: str | None = None
-    label_lines: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.label, str) or not self.label:
             raise ValueError(f"LegendEntry.label 必须是非空字符串, 得到 {self.label!r}")
+        if "\n" in self.label or "\r" in self.label:
+            raise ValueError(f"LegendEntry.label 必须单行(折行由前端负责), 得到 {self.label!r}")
         if self.shape not in ("line", "rect", "point"):
             raise ValueError(f"LegendEntry.shape 必须是 line|rect|point, 得到 {self.shape!r}")
         if self.shape != "point" and self.marker is not None:
@@ -355,12 +362,6 @@ class LegendEntry:
             raise ValueError(f"LegendEntry.opacity 必须在 [0, 1], 得到 {self.opacity!r}")
         if self.dash is not None and len(self.dash) != 2:
             raise ValueError(f"LegendEntry.dash 必须是 None 或 (on, off), 得到 {self.dash!r}")
-        if self.label_lines and not all(
-            isinstance(item, str) and item for item in self.label_lines
-        ):
-            raise ValueError(
-                f"LegendEntry.label_lines 必须是非空字符串元组, 得到 {self.label_lines!r}"
-            )
 
     def as_geo(self) -> dict[str, Any]:
         """转成 ``GeoDoc.set_legend`` 要的 dict(缺省字段不写, 由 geo 侧补默认值)."""
@@ -374,8 +375,6 @@ class LegendEntry:
             "opacity": self.opacity,
             "marker": self.marker,
         }
-        if self.label_lines:
-            entry["label_lines"] = list(self.label_lines)
         if self.hatch is not None:
             entry["hatch"] = self.hatch
         return entry

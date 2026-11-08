@@ -30,14 +30,14 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
   产物就不再是同一份图. `color` 原样传给 `ax.gridlines`(允许 `"gray"`), `stroke` 是给
   geo.json 的 `#rrggbb` 副本;
 - `Label`: `lon/lat/text/role/font_size_pt/name` 必填, `dx/dy`(度)是相对锚点的偏移,
-  `ha` 是水平对齐. `text` 只放图上显示的文案(中文/换行都行), `name` 是 id 的标识符段,
+  `ha` 是水平对齐. `text` 只放图上显示的文案(必须单行, 中文/双语都行), `name` 是 id 的标识符段,
   必须是小写 ASCII slug(`check_slug`: 字母数字, 用 `-` `_` `.` 连接, 如 `belarus`,
   `black-sea`). 为什么分开: id 会被前端和旧布局文件当键引用, 不能随显示文案漂移,
   也不允许中文(旧产物的 `label-country-白俄罗斯` 就是在 text 兜底进 id 时产生的);
   `id_kind` 覆盖 id 的角色家族(如共和国名要 `republic`), 同样是 slug;
 - `LegendEntry`: 一条图例, `label`/`shape(line|rect|point)` 必填, 其余 `stroke`/`fill`
-  (`#rrggbb`),`width_pt`,`opacity`,`dash`,`marker`(point 专用),`hatch`,
-  `label_lines`(多行图例的分行文案)可选; 字段与 geo 的 `legend.entries` 一一对应;
+  (`#rrggbb`),`width_pt`,`opacity`,`dash`,`marker`(point 专用),`hatch` 可选; `label`
+  必须单行, 折行/排版由前端负责; 字段与 geo 的 `legend.entries` 一一对应;
 - `City`: 点标记的尺寸/填充/描边/边宽与是否首都(形状由 `layers.add_cities` 固定);
 - `Sheet`: 一张图. `out` 只是地图文件名(不带目录), 地图渲染到 `<子项目>/map/`, 文字信息
   写到 `<子项目>/text/<stem>.geo.json`, 目录由 `map_path`/`text_path` 决定; `axes=None`
@@ -103,5 +103,5 @@ SHEET = Sheet(
   先确认这是设计变更而不是顺手重排;
 - `Sheet.out` 只写地图文件名,必须 `.svg` 结尾, 不能带目录; 一个 `SHEETS` 里 id 与产物名
   都不能重复;
-- 文案(`title/subtitle/notes`)只写纯文本; 色标标题只在 `relief` 存在时输出
+- 文案(`title/subtitle/notes`)只写纯文本且单行(折行由前端负责); 色标标题只在 `relief` 存在时输出
   (`colorbar_title`), 不铺高程的图不要留一个空色标版面.

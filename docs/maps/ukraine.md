@@ -31,7 +31,7 @@
 role 表统一决定.
 
 地名,图例,配色,标题/注全部声明在 [`Ukraine/config.py`](../../Ukraine/config.py): 每条地名
-同时给显示文案 `text`(中文/换行随图面走)与标识符 `name`(小写 ASCII slug, 拼成
+同时给显示文案 `text`(中文单行文案)与标识符 `name`(小写 ASCII slug, 拼成
 `label-country-belarus` 这类 id); 绘图模块只画几何, 不拼 geo 字段.
 
 ## 设计要点

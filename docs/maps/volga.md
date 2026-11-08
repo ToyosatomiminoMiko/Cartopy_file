@@ -30,7 +30,7 @@ Natural Earth 10m 河网与湖泊水面, 一次生成两张自包含 SVG:
 共和国图另有: 六国(半透明蓝紫填色 + 深紫描边),其余联邦主体(灰色虚线界线).
 
 地名,图例,配色,标题/注全部声明在 [`Volga/config.py`](../../Volga/config.py): 每条地名
-同时给显示文案 `text`(中文/换行随图面走)与标识符 `name`(小写 ASCII slug, 拼成
+同时给显示文案 `text`(中文单行文案)与标识符 `name`(小写 ASCII slug, 拼成
 `label-country-kazakhstan` 这类 id), 两张图各按自己的画框过滤成一份 `Sheet.labels`;
 图例是 `Sheet.legend`/`legend_title`, 文案是 `Sheet.title`/`subtitle`/`notes`. 绘图模块
 只画几何, 不拼 geo 字段.

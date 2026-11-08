@@ -23,14 +23,19 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
    来裁到地图框, 因此 geo 里的 `x/y` 与底图坐标逐值一致(原点为原 Figure 左上角,
    y 向下, 单位 pt). `base.view_box` 与底图根标签由同一份 `Frame` 生成.
 2. **labels 只描述语义与摆放, 不含样式**: 生成端输出 `id / role / text / x / y /
-   anchor / font_size_pt / order`, 颜色,描边,斜体,字重,字距,行高全部由前端
+   anchor / font_size_pt / order`, 颜色,描边,斜体,字重,字距,行高,折行位置全部由前端
    `miko_svg_editor/src/config/text-style.ts` 的角色表与全局常量决定; 旋转也由前端
    处理(默认 0). v1 的 `kind / lines / color / italic / halo / rotation_deg` 已删除.
+   **导出文字一律单行**: `labels[].text`,`legend.entries[].label` 与 `suggestions` 里的
+   标题/注/来源都不带换行符, 折行(按文本块宽度)全由前端负责; 生成端不写换行, 也不输出
+   旧产物里的扩展字段 `label_lines`(v2 契约本身没有这个键). `geo.add_label` 与
+   `tools/check_geo.py` 遇到换行直接报错.
 3. **x 是文字块的水平锚点**: `anchor=start` 时 x 指文字块左端, `middle` 时指中心,
    `end` 时指右端(就是 matplotlib 的 `ha`). `anchor` 属于摆放数据, 不同角色/个别
    标签取值不同, 无法只由 role 推导, 所以保留.
-4. **y 是文字块的垂直中心**(底图坐标). 前端按固定行高把多行文字排好后换算回第一行
-   基线; 生成端不再自己算基线, 多行行高统一由前端 `1.2 x 字号` 处理.
+4. **y 是文字块的垂直中心**(底图坐标), x 是水平锚点; 文案单行时它就是这段文字的中心.
+   需要折行时由前端按文本块宽度决定断点并排版, 行高也由前端决定(旧成品用 `1.2 x 字号`);
+   生成端不再自己算基线, 也不存行高/断点.
 5. **role 枚举**与前端完全一致(唯一真源是 `src/config/text-style.ts` 的
    `MAP_LABEL_ROLES`; Python 只镜像校验, 不存样式值):
 
@@ -44,7 +49,7 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
    (`country-name -> country`, `city-reference -> city`, `area* -> area`, 其余 role 同名),
    `id_kind=` 可覆盖家族(如 `label-republic-tatarstan`). `<name>` **必须是小写 ASCII slug**
    (`spec.check_slug`): 字母数字, 用 `-` `_` `.` 连接, 例如 `label-country-belarus`;
-   中文/换行/双语后缀只放在 `labels[].text` 里. 为什么: id 是前端与布局文件引用的键,
+   中文/双语后缀只放在 `labels[].text` 里(且必须单行). 为什么: id 是前端与布局文件引用的键,
    带中文时既是非法标识符, 也会随显示文案一起漂移; `tools/check_geo.py` 会拒绝不合规的
    id, 所以改名等于改产物, 必须重新出图.
 
@@ -76,7 +81,7 @@ frame = figure_frame(fig, ax)
 doc = GeoDoc(frame)
 
 # role 决定前端样式; 这里只给语义 + 位置 + 字号 + 锚点.
-doc.add_label(ax, 50.30, 54.85, "鞑靼斯坦\n共和国",
+doc.add_label(ax, 50.30, 54.85, "鞑靼斯坦共和国",
               role="area-accent-1", id_kind="republic", name="tatarstan",
               font_size_pt=12.5, ha="center")
 doc.add_graticule(ax, extent, lon_step=5, lat_step=2,
@@ -109,12 +114,12 @@ save_map(fig, MAP_PATH, doc, geo_path=TEXT_PATH, dpi=args.dpi)
   的是 aspect 修正前的矩形;
 - `suggestions.source` 由数据集清单自动生成(每个数据源一条, 带发布页 URL), 不要手写:
   手写的来源句容易混进投影参数之类的废话, 还会漏掉 ODbL 这类许可要求的署名;
-- `title/subtitle/notes/source` 用纯文本(不带 `#` 等标记), 前端预填到 scene 的 text /
+- `title/subtitle/notes/source` 用纯文本且单行(不带 `#` 等标记), 前端预填到 scene 的 text /
   legend / colorbar 组件; 图外面积注记放 `suggestions.area_annotation`, 图内区域名放
   `labels`(用 `area`/`area-muted`/`area-accent-*` 等角色);
-- 多行标注只输出文字块中心: 前端用固定的行高(`1.2 x 字号`)排多行, 旧成品用的是
-  matplotlib 的 `linespacing`(CJK 字体下实际行距更大); 因此两行以上标注的整块视觉中心
-  可能与旧成品差 ≤1 pt, 这是「行高统一到前端」的必然取舍, 不在 geo 里存行距;
+- 文字一律单行: `labels[].text`,`legend.entries[].label` 与 `suggestions` 的标题/注/来源
+  都不写换行, 折行与行高全部由前端负责; 旧产物里手工分行的 `label_lines` 已删除,
+  `suggestions.notes` 也不再按行拆开(一条注一个完整字符串);
 - 契约里仍未定义的 `labels[].leader/lang`,`scale`,`north`,`area_labels` 不输出: 比例尺与
   指北针仍是非目标, 现有图种不产生这些信息(旧图的指引线端点保留在脚本数据表中);
 - 布局只有一种: 地图必须在 `<子项目>/map/` 下,文字信息必须在 `<子项目>/text/` 下; 只拿到
@@ -122,5 +127,6 @@ save_map(fig, MAP_PATH, doc, geo_path=TEXT_PATH, dpi=args.dpi)
   报错, 不做「同级找同名 geo」的回退;
 - 产物不入库: `.gitignore` 忽略 `*.svg` 与 `*.geo.json`, 需要时按图种页的命令生成;
 - 出图后跑 `python tools/check_geo.py <子项目>/map/<产物>.svg`(或直接无参检查全部产物):
-  定位「根标签没裁,残留 `<text>`,sha 没更新,字段/枚举不合法,v1 旧字段残留」这类结构错误;
+  定位「根标签没裁,残留 `<text>`,sha 没更新,字段/枚举不合法,v1 旧字段/`label_lines` 残留,
+  文字带换行」这类结构错误;
   它不做视觉判断, 前端标准校验仍以 miko 的 `mapdoc-geo` 实现为准.

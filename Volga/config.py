@@ -344,21 +344,21 @@ REPUBLICS = (
 )
 REPUBLICS_SHOWN = REPUBLICS[:6]
 REPUBLICS_HIDDEN = frozenset(REPUBLICS[6:])
-# 轮廓小的共和国用略小字号, 防止两行文字的宽度超出共和国范围.
+# 轮廓小的共和国用略小字号, 防止文字宽度超出共和国范围.
 SMALL_REPUBLICS = frozenset({"Chuvash", "Mariy-El", "Mordovia", "Kalmyk"})
 
 # 共和国名称: GADM NAME_1 -> (经度, 纬度, 文字). 放在各共和国境内的空旷处,
-# 避开首府城点与主要河湖; 小共和国用两行文字, 字号见 SMALL_REPUBLICS.
+# 避开首府城点与主要河湖; 小共和国用略小字号, 见 SMALL_REPUBLICS.
 # id 的 slug 用 key 的小写形式(如 tatarstan,mariy-el), 与 GADM 的 NAME_1 一一对应.
 REPUBLIC_LABELS: dict[str, tuple[float, float, str]] = {
-    "Tatarstan": (50.30, 54.85, "鞑靼斯坦\n共和国"),
-    "Bashkortostan": (56.60, 53.35, "巴什科尔托斯坦\n共和国"),
-    "Chuvash": (47.05, 55.28, "楚瓦什\n共和国"),
-    "Mariy-El": (48.90, 57.22, "马里埃尔\n共和国"),
-    "Mordovia": (44.50, 54.85, "莫尔多瓦\n共和国"),
-    "Udmurt": (52.60, 57.55, "乌德穆尔特\n共和国"),
-    "Kalmyk": (45.25, 46.78, "卡尔梅克\n共和国"),
-    "Komi": (54.50, 61.00, "科米\n共和国"),
+    "Tatarstan": (50.30, 54.85, "鞑靼斯坦共和国"),
+    "Bashkortostan": (56.60, 53.35, "巴什科尔托斯坦共和国"),
+    "Chuvash": (47.05, 55.28, "楚瓦什共和国"),
+    "Mariy-El": (48.90, 57.22, "马里埃尔共和国"),
+    "Mordovia": (44.50, 54.85, "莫尔多瓦共和国"),
+    "Udmurt": (52.60, 57.55, "乌德穆尔特共和国"),
+    "Kalmyk": (45.25, 46.78, "卡尔梅克共和国"),
+    "Komi": (54.50, 61.00, "科米共和国"),
 }
 
 # 城市: (经度, 纬度, 名称, id slug, 类型, 文字偏移经度, 文字偏移纬度, 水平对齐).
@@ -432,31 +432,22 @@ RIVER_EXCLUDE_FEATURECLA = frozenset({"Canal"})
 
 # 图注: 面积由 Volga/volga.py 按派生流域面重算后填入 {area_wan:.0f}; 其余是固定文字.
 NOTES_BASIN = (
-    "注 1:流域为 HydroBASINS level 5 的伏尔加河主流域合并,",
-    "面积约 {area_wan:.0f} 万 km²(HydroSHEDS 口径,不含里海).",
-    "注 2:本图不画联邦主体行政区界,只保留俄罗斯国界(GADM",
-    "4.1 口径,不含克里米亚).",
-    "注 3:河网与湖库为 Natural Earth 10m;河流按 scalerank 分三级,",
-    "湖泊/水库按面填色;里海不在湖泊层,其水深仍由地形配色表达.",
-    "注 4:地形 ETOPO 2022(15″);投影 Lambert Conformal Conic,",
-    "中央经线 46°E,标准纬线 47°N / 57°N.",
+    "注 1:流域为 HydroBASINS level 5 的伏尔加河主流域合并,面积约 {area_wan:.0f} 万 km²(HydroSHEDS 口径,不含里海).",
+    "注 2:本图不画联邦主体行政区界,只保留俄罗斯国界(GADM 4.1 口径,不含克里米亚).",
+    "注 3:河网与湖库为 Natural Earth 10m;河流按 scalerank 分三级,湖泊/水库按面填色;里海不在湖泊层,其水深仍由地形配色表达.",
+    "注 4:地形 ETOPO 2022(15″);投影 Lambert Conformal Conic,中央经线 46°E,标准纬线 47°N / 57°N.",
 )
 
 NOTES_REPUBLICS = (
-    "注 1:流域为 HydroBASINS level 5 的伏尔加河主流域合并,",
-    "面积约 {area_wan:.0f} 万 km²(HydroSHEDS 口径,不含里海).",
-    "注 2:加粗填色者为流域周边的六个联邦主体共和国,科米与",
-    "卡尔梅克不画;其余联邦主体只画灰色虚线界线.行政区为",
-    "GADM 4.1,其俄罗斯国界口径不含克里米亚.",
-    "注 3:河网与湖库为 Natural Earth 10m;河流按 scalerank 分三级,",
-    "湖泊/水库按面填色;里海不在湖泊层,其水深仍由地形配色表达.",
-    "注 4:地形 ETOPO 2022(15″);投影 Lambert Conformal Conic,",
-    "中央经线 46°E,标准纬线 47°N / 57°N.",
+    "注 1:流域为 HydroBASINS level 5 的伏尔加河主流域合并,面积约 {area_wan:.0f} 万 km²(HydroSHEDS 口径,不含里海).",
+    "注 2:加粗填色者为流域周边的六个联邦主体共和国,科米与卡尔梅克不画;其余联邦主体只画灰色虚线界线.行政区为 GADM 4.1,其俄罗斯国界口径不含克里米亚.",
+    "注 3:河网与湖库为 Natural Earth 10m;河流按 scalerank 分三级,湖泊/水库按面填色;里海不在湖泊层,其水深仍由地形配色表达.",
+    "注 4:地形 ETOPO 2022(15″);投影 Lambert Conformal Conic,中央经线 46°E,标准纬线 47°N / 57°N.",
 )
 
 # 图内流域面积注记: 只有共和国图把这块文字画在图内; 面积出图时才算得出来,
 # 所以 text 里留 {area_wan:.0f} 占位符, 由 runner.render(label_vars=...) 在出图时填充.
-BASIN_AREA_LABEL = (42.55, 51.95, "伏尔加河流域\n约 {area_wan:.0f} 万 km²", "volga-basin")
+BASIN_AREA_LABEL = (42.55, 51.95, "伏尔加河流域约 {area_wan:.0f} 万 km²", "volga-basin")
 # 图外面积注记(geo.suggestions.area_annotation): 只有流域图用; 共和国图把同一块文字
 # 画在图内, 不再给图外面板重复一份. 数值同样是出图时才知道的.
 AREA_ANNOTATION = ("伏尔加河流域", "约 {area_wan:.0f} 万 km²")

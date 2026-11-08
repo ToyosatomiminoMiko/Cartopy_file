@@ -535,7 +535,7 @@ LEGEND_REGION_KEYS = (
 # 行政区划图: 图例(14 个行政区 + 联邦区 + 6 个符号, 顺序同旧面板)
 # ============================
 ADMIN_LEGEND_TITLE = "图例"
-# label 是单行串(前端不识别 label_lines 时用它), label_lines 是旧面板的分行文案.
+# 图例文案一律单行: 中文 + 英文写进同一个 label, 分行/排版由前端负责.
 # 分组标题(邦/省/联邦区)与说明文字无法用条目表达, 已放进 Sheet.notes.
 ADMIN_LEGEND = (
     *(
@@ -545,7 +545,6 @@ ADMIN_LEGEND = (
             stroke=UNIT_EDGE_COLOR,
             width_pt=UNIT_EDGE_WIDTH,
             fill=STATE_COLORS[key],
-            label_lines=(ADMIN_UNITS_BY_KEY[key][1], ADMIN_UNITS_BY_KEY[key][2]),
         )
         for key in LEGEND_STATE_KEYS
     ),
@@ -556,7 +555,6 @@ ADMIN_LEGEND = (
             stroke=UNIT_EDGE_COLOR,
             width_pt=UNIT_EDGE_WIDTH,
             fill=REGION_COLORS[key],
-            label_lines=(ADMIN_UNITS_BY_KEY[key][1], ADMIN_UNITS_BY_KEY[key][2]),
         )
         for key in LEGEND_REGION_KEYS
     ),
@@ -567,11 +565,6 @@ ADMIN_LEGEND = (
         width_pt=1.0,
         fill=UNION_COLOR,
         hatch=UNION_HATCH,
-        label_lines=(
-            "联邦区 Union Territory",
-            ADMIN_UNITS_BY_KEY["npt"][1],
-            ADMIN_UNITS_BY_KEY["npt"][2],
-        ),
     ),
     LegendEntry(
         "联邦首都 Union capital",
@@ -580,7 +573,6 @@ ADMIN_LEGEND = (
         width_pt=0.7,
         fill=CAPITAL_FILL,
         marker="star",
-        label_lines=("联邦首都", "Union capital"),
     ),
     LegendEntry(
         "行政中心 Administrative centre",
@@ -589,21 +581,18 @@ ADMIN_LEGEND = (
         width_pt=0.9,
         fill="#ffffff",
         marker="circle",
-        label_lines=("行政中心", "Administrative centre"),
     ),
     LegendEntry(
         "河流 River",
         "line",
         stroke=ADMIN_RIVER_COLOR,
         width_pt=2.25,
-        label_lines=("河流", "River"),
     ),
     LegendEntry(
         "邦/省界 State & region boundary",
         "line",
         stroke=BOUNDARY_COLOR,
         width_pt=1.05,
-        label_lines=("邦/省界", "State & region boundary"),
     ),
     LegendEntry(
         "国界 International boundary",
@@ -611,7 +600,6 @@ ADMIN_LEGEND = (
         stroke=COLOR_BORDER,
         width_pt=BORDER_WIDTH,
         opacity=BORDER_ALPHA,
-        label_lines=("国界", "International boundary"),
     ),
     LegendEntry(
         "邻国国界 Neighbour boundary",
@@ -619,7 +607,6 @@ ADMIN_LEGEND = (
         stroke=COLOR_NEIGHBOR,
         width_pt=0.45,
         dash=(5.0, 3.0),
-        label_lines=("邻国国界", "Neighbour boundary"),
     ),
 )
 
@@ -951,7 +938,7 @@ SHAN_CAPITAL_EDGE = "#000000"
 # ============================
 # 图例(声明在 config 里, 渲染模块只画图; 顺序与旧面板一致)
 # ============================
-# label_lines 是契约 v2 的预留字段: 旧图例的文字按行给出, 前端不识别时忽略.
+# 图例文案一律单行: 分行/排版由前端负责, 生成端不写 label_lines.
 NORTHERN_SHAN_LEGEND_TITLE = "图例"
 NORTHERN_SHAN_LEGEND = (
     LegendEntry(
@@ -961,7 +948,6 @@ NORTHERN_SHAN_LEGEND = (
         width_pt=1.5,
         fill=REGION_STYLES["sr1"]["fill"],
         opacity=0.6,
-        label_lines=("缅甸联邦第一特区(辖区)",),
     ),
     LegendEntry(
         "原果敢自治区(2010–2023)",
@@ -969,7 +955,6 @@ NORTHERN_SHAN_LEGEND = (
         width_pt=0.0,
         fill=KOKANG_SAZ_FILL,
         opacity=0.8,
-        label_lines=("原果敢自治区(2010–2023)",),
     ),
     # 图例色块只有约 20 pt 宽, 图上 "///" 在这个尺寸下几乎看不出斜线,
     # 所以图例用更密的 "////"; 颜色仍与图上斜线同色.
@@ -979,7 +964,6 @@ NORTHERN_SHAN_LEGEND = (
         stroke=MNDAA_HATCH_COLOR,
         width_pt=0.0,
         hatch="////",
-        label_lines=("MNDAA 实控区(大致)",),
     ),
     LegendEntry(
         "德昂邦(TNLA 控制)",
@@ -988,7 +972,6 @@ NORTHERN_SHAN_LEGEND = (
         width_pt=1.5,
         fill=REGION_STYLES["taang"]["fill"],
         opacity=0.6,
-        label_lines=("德昂邦(TNLA 控制)",),
     ),
     LegendEntry(
         "佤邦",
@@ -997,7 +980,6 @@ NORTHERN_SHAN_LEGEND = (
         width_pt=1.5,
         fill=REGION_STYLES["wa"]["fill"],
         opacity=0.6,
-        label_lines=("佤邦",),
     ),
     LegendEntry(
         "掸邦东部第四特区",
@@ -1006,7 +988,6 @@ NORTHERN_SHAN_LEGEND = (
         width_pt=1.5,
         fill=REGION_STYLES["sr4"]["fill"],
         opacity=0.6,
-        label_lines=("掸邦东部第四特区",),
     ),
     LegendEntry(
         "国界",
@@ -1014,7 +995,6 @@ NORTHERN_SHAN_LEGEND = (
         stroke=COLOR_BORDER,
         width_pt=BORDER_WIDTH,
         opacity=BORDER_ALPHA,
-        label_lines=("国界",),
     ),
     LegendEntry(
         "省/邦界",
@@ -1022,14 +1002,12 @@ NORTHERN_SHAN_LEGEND = (
         stroke=PROVINCE_EDGE_COLOR,
         width_pt=1.0,
         dash=(6.0, 3.0),
-        label_lines=("省/邦界",),
     ),
     LegendEntry(
         "河流",
         "line",
         stroke=RIVER_COLOR,
         width_pt=0.9,
-        label_lines=("河流",),
     ),
     LegendEntry(
         "特区首府",
@@ -1038,7 +1016,6 @@ NORTHERN_SHAN_LEGEND = (
         width_pt=1.0,
         fill=SHAN_CAPITAL_FILL,
         marker="star",
-        label_lines=("特区首府",),
     ),
 )
 
@@ -1118,7 +1095,7 @@ NORTHERN_SHAN_LABELS = (
     # 特区/区域名: 旧图 label-region-<slug>; 前端按区域家族处理, 样式仍由 role 决定.
     Label(98.30, 23.72, "缅甸联邦第一特区", role="area-accent-1", font_size_pt=13.5,
           id_kind="region", name="special-region-1"),
-    Label(98.25, 23.08, "MNDAA 实控区\n(大致范围)", role="area-accent-1", font_size_pt=9.5,
+    Label(98.25, 23.08, "MNDAA 实控区(大致范围)", role="area-accent-1", font_size_pt=9.5,
           id_kind="region", name="mndaa-control"),
     Label(97.00, 23.34, "德昂邦", role="area-accent-2", font_size_pt=14,
           id_kind="region", name="taang"),
@@ -1128,7 +1105,7 @@ NORTHERN_SHAN_LABELS = (
           id_kind="region", name="kokang-saz"),
     Label(98.99, 22.60, "佤邦", role="area-accent-3", font_size_pt=16,
           id_kind="region", name="wa-state"),
-    Label(99.79, 21.73, "掸邦东部\n第四特区", role="area-accent-4", font_size_pt=10.0,
+    Label(99.79, 21.73, "掸邦东部第四特区", role="area-accent-4", font_size_pt=10.0,
           id_kind="region", name="special-region-4"),
     # 两条大江的河名.
     Label(95.75, 22.90, "伊洛瓦底江", role="river", font_size_pt=10.5, name="irrawaddy"),

@@ -21,11 +21,13 @@ locator,文字 artist 的锚点,legend handles,colorbar 的 norm/cmap), 由这�
   所以 geo 里的 x/y 可以直接对底图坐标使用;
 - ``labels`` 只描述语义与摆放: ``role``(样式由前端 miko_svg_editor 的
   ``src/config/text-style.ts`` 决定),``text``,``x/y``,``anchor``,
-  ``font_size_pt`` 与 ``order``. 颜色/描边/斜体/字距/行高都不在生成端输出,
-  旋转也由前端处理(默认 0);
+  ``font_size_pt`` 与 ``order``. 颜色/描边/斜体/字距/行高/折行位置都不在生成端
+  输出, 旋转也由前端处理(默认 0);
 - ``labels[].x`` 是文字块的水平锚点(``anchor`` 为 start 时指左端, middle 指中心,
-  end 指右端); ``labels[].y`` 是**文字块垂直中心**(底图坐标), 前端按固定行高把多行
-  文字排好后换算回第一行基线;
+  end 指右端); ``labels[].y`` 是**文字块垂直中心**(底图坐标). ``text`` 一律单行,
+  折行与行高由前端按文本块宽度处理, 生成端不写换行, 也不换算基线;
+- 所有导出文字(``labels[].text`` / ``legend.entries[].label`` / ``suggestions.*``)
+  一律单行: 折行与排版全部由前端负责, 生成端遇到换行直接报错;
 - id 规则是 ``label-<role 家族>-<name>[-<index>]``: 角色家族见 ``_ID_PREFIX``(如
   ``country-name`` 归到 ``country``); ``<name>`` 必须是小写 ASCII slug(见
   ``spec.check_slug``), 中文显示名只进 ``text``--id 要当键用, 不能带中文
@@ -150,7 +152,7 @@ def label_id(kind: str, name: str, index: int | None = None) -> str:
 
     kind 是「角色家族」(见 ``_ID_PREFIX``), 不是 role 本身. name 是**标识符**,
     必须是小写 ASCII slug(``spec.check_slug``): id 会被前端和旧布局文件当键引用,
-    中文,换行,双语后缀都只应出现在 ``labels[].text`` 里, 不进 id.
+    中文,双语后缀都只应出现在 ``labels[].text`` 里, 不进 id.
     """
     if not kind or not str(name).strip():
         raise ValueError(f"label_id 需要非空的 kind/name: {kind!r} {name!r}")
@@ -377,6 +379,8 @@ def _legend_entry(entry: dict[str, Any]) -> dict[str, Any]:
     label = entry.get("label")
     if not isinstance(label, str) or not label:
         raise ValueError(f"图例条目缺少非空 label: {entry!r}")
+    if "\n" in label or "\r" in label:
+        raise ValueError(f"图例条目 label 必须单行(折行由前端负责), 得到 {label!r}")
     marker = entry.get("marker")
     if shape == "point":
         if marker not in ("star", "square", "circle"):
@@ -407,15 +411,8 @@ def _legend_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "opacity": _clean(opacity),
         "marker": marker,
     }
-    # 多行图例与 hatch: v2 契约的 legend 条目没有这两个键, 但本仓图种实际用到
-    # (缅甸行政区图的双语图例与联邦区斜线); 这里原样带上, 前端忽略未知键即可.
-    if "label_lines" in entry:
-        lines = entry["label_lines"]
-        if not isinstance(lines, (list, tuple)) or not lines or not all(
-            isinstance(item, str) and item for item in lines
-        ):
-            raise ValueError(f"图例 label_lines 必须是非空字符串数组, 得到 {lines!r}")
-        result["label_lines"] = [str(item) for item in lines]
+    # hatch: v2 契约的 legend 条目没有这个键, 但本仓图种实际用到(联邦区斜线);
+    # 这里原样带上, 前端忽略未知键即可.
     if "hatch" in entry and entry["hatch"] is not None:
         result["hatch"] = str(entry["hatch"])
     return result
@@ -483,15 +480,19 @@ class GeoDoc:
     ) -> None:
         """登记一条地名候选(底图坐标), 不画文字,不存样式.
 
-        text 里的换行原样保留(前端自己 split); x/y 是文字块的水平锚点与垂直中心,
-        不再换算基线. role 决定前端样式, 生成端只按 _ID_PREFIX 把它折成 id 前缀.
-        name 是 id 的标识符段(ASCII slug), 与 text 分开: text 可以随便改中文/换行,
-        id 不变.
+        text 必须单行: 折行由前端按文本块宽度处理, 生成端遇到换行直接报错;
+        x/y 是文字块的水平锚点与垂直中心, 不再换算基线. role 决定前端样式,
+        生成端只按 _ID_PREFIX 把它折成 id 前缀. name 是 id 的标识符段(ASCII slug),
+        与 text 分开: text 可以随便改中文/双语, id 不变.
         """
         if role not in LABEL_ROLE_SET:
             raise ValueError(f"label role 必须是 {LABEL_ROLES} 之一, 得到 {role!r}")
         if ha not in _ANCHORS:
             raise ValueError(f"ha 必须是 {tuple(_ANCHORS)} 之一, 得到 {ha!r}")
+        if not isinstance(text, str) or not text:
+            raise ValueError(f"label text 必须是非空字符串, 得到 {text!r}")
+        if "\n" in text or "\r" in text:
+            raise ValueError(f"label text 必须单行(折行由前端负责), 得到 {text!r}")
         if not float(font_size_pt) > 0:
             raise ValueError(f"label font_size_pt 必须 > 0, 得到 {font_size_pt!r}")
         x, y = svg_point(ax, lon, lat)
@@ -609,12 +610,19 @@ class GeoDoc:
 
     def set_legend(self, title: str, entries: Sequence[dict[str, Any]]) -> None:
         """设置图例标题与条目; 条目经 ``_legend_entry`` 规整, 避免各脚本写法漂移."""
+        if not isinstance(title, str) or not title:
+            raise ValueError(f"legend title 必须是非空字符串, 得到 {title!r}")
+        if "\n" in title or "\r" in title:
+            raise ValueError(f"legend title 必须单行(折行由前端负责), 得到 {title!r}")
         if not entries:
             raise ValueError("geo.legend.entries 不能为空(没有图例就不要 set_legend)")
         self.legend = {"title": title, "entries": [_legend_entry(entry) for entry in entries]}
 
     def set_suggestions(self, suggestions: dict[str, Any]) -> None:
-        """设置默认文案候选(title/subtitle/notes/source/area_annotation/...)."""
+        """设置默认文案候选(title/subtitle/notes/source/area_annotation/...).
+
+        文案一律单行: 折行与排版由前端负责, 这里遇到 ``\n`` 直接报错.
+        """
         allowed = {
             "title",
             "subtitle",
@@ -627,6 +635,13 @@ class GeoDoc:
         unknown = set(suggestions) - allowed
         if unknown:
             raise ValueError(f"suggestions 含未知字段: {sorted(unknown)}")
+        for key, value in suggestions.items():
+            items = value if isinstance(value, (list, tuple)) else (value,)
+            for item in items:
+                if isinstance(item, str) and ("\n" in item or "\r" in item):
+                    raise ValueError(
+                        f"suggestions.{key} 必须单行(折行由前端负责), 得到 {item!r}"
+                    )
         self.suggestions = dict(suggestions)
 
     # ---------------------------------------------------------------- 写盘

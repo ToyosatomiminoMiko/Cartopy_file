@@ -11,7 +11,8 @@
 为什么: 前端(miko_svg_editor)按同一份契约解析产物, 字段写错了要到合成阶段才报;
 出图后先跑一遍这个检查, 能在本仓内定位问题. 完整契约见
 ``docs/reference/geo.md`` 与 miko 的 PAGE-EDITOR.md §3(``mapdoc-geo`` v2); 这里只做
-结构级校验, 不判断标注位置是否美观, 也不校验文字样式(样式由前端 role 表决定).
+结构级校验, 不判断标注位置是否美观, 也不校验文字样式(样式由前端 role 表决定);
+文字只要求单行--折行与排版由前端负责, 带换行符或旧 ``label_lines`` 的产物直接拒绝.
 
 用法:
     python tools/check_geo.py [<子项目>/map/<产物>.svg ...]
@@ -218,8 +219,11 @@ def check_product(svg_path: Path, geo_path: Path) -> list[str]:
                     seen.add(label["id"])
             if label.get("role") not in LABEL_ROLE_SET:
                 errors.append(f"{path}.role 必须是 {'|'.join(LABEL_ROLES)} 之一")
-            if not isinstance(label.get("text"), str):
+            text = label.get("text")
+            if not isinstance(text, str):
                 errors.append(f"{path}.text 必须是字符串")
+            elif "\n" in text or "\r" in text:
+                errors.append(f"{path}.text 必须单行(折行由前端负责), 行内含换行符")
             for key in ("x", "y", "font_size_pt"):
                 if not _number(label.get(key)):
                     errors.append(f"{path}.{key} 必须是数字")
@@ -265,6 +269,13 @@ def check_product(svg_path: Path, geo_path: Path) -> list[str]:
                     value = entry.get(key)
                     if value is not None and not COLOR_RE.fullmatch(str(value)):
                         errors.append(f"{path}.{key} 必须是 null 或 #rrggbb")
+                if "label_lines" in entry:
+                    errors.append(
+                        f"{path}.label_lines 已删除(折行由前端负责, 产物需重新生成)"
+                    )
+                label_text = entry.get("label")
+                if isinstance(label_text, str) and ("\n" in label_text or "\r" in label_text):
+                    errors.append(f"{path}.label 必须单行(折行由前端负责)")
     suggestions = geo.get("suggestions")
     if suggestions is not None:
         if not isinstance(suggestions, dict):
@@ -272,8 +283,24 @@ def check_product(svg_path: Path, geo_path: Path) -> list[str]:
         else:
             for key in ("notes", "area_annotation"):
                 value = suggestions.get(key)
-                if value is not None and (not isinstance(value, list) or not all(isinstance(item, str) for item in value)):
+                if value is not None and (
+                    not isinstance(value, list) or not all(isinstance(item, str) for item in value)
+                ):
                     errors.append(f"geo.suggestions.{key} 必须是字符串数组")
+                    continue
+                for index, item in enumerate(value or ()):
+                    if "\n" in item or "\r" in item:
+                        errors.append(
+                            f"geo.suggestions.{key}[{index}] 必须单行(折行由前端负责)"
+                        )
+            for key in ("title", "subtitle", "source", "legend_title", "colorbar_title"):
+                value = suggestions.get(key)
+                if value is None:
+                    continue
+                if not isinstance(value, str):
+                    errors.append(f"geo.suggestions.{key} 必须是字符串")
+                elif "\n" in value or "\r" in value:
+                    errors.append(f"geo.suggestions.{key} 必须单行(折行由前端负责)")
     return errors
 
 
