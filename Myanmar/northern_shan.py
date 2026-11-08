@@ -309,7 +309,7 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> 
 def add_city_markers(ax: plt.Axes) -> None:
     """绘制城市点: 特区首府用星形, 区域中心城市用方点, 普通城镇用小圆点.
 
-    城名不在这里画: 名称/落点/字号属于排版文字, 只进 geo.labels(由 Sheet.labels 登记).
+    城名不在这里画: 名称/落点属于排版文字, 只进 geo.labels(由 Sheet.labels 登记).
     """
     for city in SHEET.cities:
         if city.capital:

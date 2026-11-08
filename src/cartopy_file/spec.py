@@ -291,7 +291,7 @@ class Graticule:
 
 @dataclass(frozen=True)
 class Label:
-    """一条地名候选: 只描述语义与落点, 样式由前端 role 表决定.
+    """一条地名候选: 只描述语义与落点, 字号/颜色/描边等样式一律由前端 role 表决定.
 
     dx/dy 是相对锚点经纬度的偏移(度), 用于「城名贴在城点旁边」这类旧图排版.
     ``name`` 是 id 的标识符段(小写 ASCII slug), ``text`` 才是图上显示的文案:
@@ -303,7 +303,6 @@ class Label:
     lat: float
     text: str
     role: str
-    font_size_pt: float
     name: str
     dx: float = 0.0
     dy: float = 0.0
@@ -311,8 +310,6 @@ class Label:
     id_kind: str | None = None
 
     def __post_init__(self) -> None:
-        if not float(self.font_size_pt) > 0:
-            raise ValueError(f"Label.font_size_pt 必须 > 0, 得到 {self.font_size_pt!r}")
         if self.ha not in ("left", "center", "right"):
             raise ValueError(f"Label.ha 必须是 left|center|right, 得到 {self.ha!r}")
         if not isinstance(self.text, str) or not self.text:

@@ -65,8 +65,7 @@ SHEET_WORLD = Sheet(
             # 显示名仍在 text.
             name=f"base-{index}",
             role="city",
-            # 世界图上一个点只有几像素, 字号与偏移都按屏幕可读性定, 不是地理量.
-            font_size_pt=7.0,
+            # 世界图上一个点只有几像素, 偏移按屏幕可读性定, 不是地理量.
             dx=3.0,
             dy=1.0,
             ha="left",

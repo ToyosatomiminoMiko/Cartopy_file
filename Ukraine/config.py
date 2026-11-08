@@ -483,62 +483,62 @@ CITIES = (
 # 否则会被读成乌克兰城市.
 REFERENCE_CITIES = ((39.72, 47.23, "顿河畔罗斯托夫", "rostov-on-don", 0.06, -0.13),)
 # 境外参照区域: 德左名称放在地带东侧敖德萨州的空地上.
-# (文字经度, 纬度, 显示文案, id slug, 字号); 旧图的指引线契约 v2 没有 leader 字段, 暂不画.
-REFERENCE_REGIONS = ((30.30, 47.14, "德涅斯特河沿岸摩尔达维亚共和国", "transnistria", 7.0),)
+# (文字经度, 纬度, 显示文案, id slug); 旧图的指引线契约 v2 没有 leader 字段, 暂不画.
+REFERENCE_REGIONS = ((30.30, 47.14, "德涅斯特河沿岸摩尔达维亚共和国", "transnistria"),)
 
-def _label(lon: float, lat: float, text: str, slug: str, role: str, size: float, **kwargs) -> Label:
+def _label(lon: float, lat: float, text: str, slug: str, role: str, **kwargs) -> Label:
     """写 Label 的短辅助函数; 顺序即前端叠放顺序, slug 是 id 的 ASCII 段."""
-    return Label(lon, lat, text, role=role, font_size_pt=size, name=slug, **kwargs)
+    return Label(lon, lat, text, role=role, name=slug, **kwargs)
 
 
 # 地名顺序按旧图 zorder 升序: 国名/海名 -> 山系 -> 河名 -> 主题区域名/境外参照 -> 城市.
 UKRAINE_LABELS = (
-    *(_label(lon, lat, text, slug, "country", 12.5) for lon, lat, text, slug in COUNTRY_LABELS),
-    *(_label(lon, lat, text, slug, "sea", 11.5) for lon, lat, text, slug in SEA_LABELS),
-    *(_label(lon, lat, text, slug, "highland", 11.0) for lon, lat, text, slug in MOUNTAIN_LABELS),
-    *(_label(lon, lat, text, slug, "river", 10.5) for lon, lat, text, slug in RIVER_LABELS),
+    *(_label(lon, lat, text, slug, "country") for lon, lat, text, slug in COUNTRY_LABELS),
+    *(_label(lon, lat, text, slug, "sea") for lon, lat, text, slug in SEA_LABELS),
+    *(_label(lon, lat, text, slug, "highland") for lon, lat, text, slug in MOUNTAIN_LABELS),
+    *(_label(lon, lat, text, slug, "river") for lon, lat, text, slug in RIVER_LABELS),
     # 2014 年宣布的"人民共和国": 卢甘斯克/顿涅茨克是实际控制区(蓝), 哈尔科夫只有
     # 宣称(橙), 强调色由 role 区分. 落点按"宣称全境"取中心, 不挤在 2014 控制区里.
     _label(
         39.03, 49.02, "卢甘斯克人民共和国", "luhansk-people-republic",
-        "area-accent-3", 8.8, id_kind="republic",
+        "area-accent-3", id_kind="republic",
     ),
     _label(
         37.70, 48.65, "顿涅茨克人民共和国", "donetsk-people-republic",
-        "area-accent-3", 8.8, id_kind="republic",
+        "area-accent-3", id_kind="republic",
     ),
     # 哈尔科夫: 纬度比州界折角高一截, 让开 2022 宣称边界的折角.
     _label(
         36.80, 49.50, "哈尔科夫人民共和国", "kharkiv-people-republic",
-        "area-accent-4", 9.4, id_kind="republic",
+        "area-accent-4", id_kind="republic",
     ),
     # 2022 年俄方宣称的两个州(顿/卢两州由上面的"人民共和国"标注覆盖): 放在远离
     # 第聂伯河/水库水面的州内陆地, 避免文字压住河宽变化的重点区域.
     _label(
         34.11, 46.52, "赫尔松州(俄宣称全境)", "kherson-oblast",
-        "area-accent-1", 9.4, id_kind="region",
+        "area-accent-1", id_kind="region",
     ),
     _label(
         35.65, 47.08, "扎波罗热州(俄宣称全境)", "zaporizhzhia-oblast",
-        "area-accent-1", 9.4, id_kind="region",
+        "area-accent-1", id_kind="region",
     ),
     _label(
         34.55, 45.40, "克里米亚(2014年俄实际控制)", "crimea",
-        "area-accent-3", 9.6, id_kind="region",
+        "area-accent-3", id_kind="region",
     ),
-    # 境外参照城市: 字号比境内城市(9.0)小一档, 只作定位参照.
+    # 境外参照城市: role=city-reference 与境内城市区分, 只作定位参照.
     *(
-        _label(lon + dx, lat + dy, name, slug, "city-reference", 8.4, ha="left")
+        _label(lon + dx, lat + dy, name, slug, "city-reference", ha="left")
         for lon, lat, name, slug, dx, dy in REFERENCE_CITIES
     ),
     # 境外狭长区域名: 只登记名字, 样式由 role=area-muted 决定.
     *(
-        _label(lon, lat, text, slug, "area-muted", size, id_kind="region")
-        for lon, lat, text, slug, size in REFERENCE_REGIONS
+        _label(lon, lat, text, slug, "area-muted", id_kind="region")
+        for lon, lat, text, slug in REFERENCE_REGIONS
     ),
-    # 城市: 文字跟着点位偏移; 首都与一般城市同字号, 只靠符号区分.
+    # 城市: 文字跟着点位偏移; 首都与一般城市靠符号区分, 字号由前端 role 表决定.
     *(
-        _label(lon + dx, lat + dy, name, slug, "city", 9.0, ha=align)
+        _label(lon + dx, lat + dy, name, slug, "city", ha=align)
         for lon, lat, name, slug, _capital, dx, dy, align in CITIES
     ),
 )

@@ -240,7 +240,6 @@ def collect_labels(doc: GeoDoc, ax: plt.Axes, labels, *, label_vars: dict | None
             role=label.role,
             name=label.name,
             id_kind=label.id_kind,
-            font_size_pt=label.font_size_pt,
             ha=label.ha,
         )
 

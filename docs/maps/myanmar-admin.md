@@ -11,7 +11,7 @@
 各行政区中心点(联邦区/首都用星形,其余用空心圆), 叠加伊洛瓦底江,萨尔温江与 ETOPO 2022
 地形晕渲. 国界用半透明红色,只画陆上段; 海岸线不单独绘制, 海陆界线由底色与行政区填色分界
 表达. 地名(邻国/海域/行政区/行政中心/河名)的中英双语各登记成一条标注, 两条共用同一个
-`role`(只有位置与字号不同), 颜色/描边等样式由前端 role 表统一决定. 标注 id 全是小写 ASCII
+`role`(只有落点不同), 字号/颜色/描边等样式由前端 role 表统一决定. 标注 id 全是小写 ASCII
 slug(如 `label-country-china`,`label-state-kachin`, 英文行加 `-en` 后缀), 中文只出现在
 `labels[].text`; 图例/配色/标注落点与行政区属性表全部声明在 `Myanmar/config.py`.
 
@@ -71,7 +71,7 @@ GADM 与 Natural Earth 10m 国界来自不同测绘成果, 直接按国界裁剪
 不存在统一点到度的换算系数, 所以 `ADMIN_LABEL_POSITIONS` / `CAPITAL_LABEL_POSITIONS` /
 `NEIGHBOUR_LABELS` / `SEA_LABELS` / `RIVER_LABELS` 里写的是**换算后的经纬度落点**(已含偏移),
 由旧产物的显示位置反算. 换投影,改画幅或 `SHEET_ADMIN.axes/figsize` 时必须重新换算, 否则
-标注会偏离旧版排版. 字号与对齐沿用旧图(小单元克耶/孟/仰光/联邦区小一档), 顺序是前端叠放顺序:
+标注会偏离旧版排版. 对齐方式沿用旧图, 顺序是前端叠放顺序:
 邻国/海域 -> 行政区名 -> 行政中心 -> 河名.
 
 ## 数据
@@ -108,5 +108,5 @@ python Myanmar/main.py render --sheet myanmar-admin  # 出图
   海岸处没有深灰轮廓, 由填色与海洋底色分界;
 - 行政区 GeoJSON 缺失时绘图报错并提示先跑 `python Myanmar/main.py prepare`;
 - 双语标注落点是按当前画框/投影折算的经纬度(见设计要点 7), 改投影或画幅要重算, 不要只改
-  字号/文案;
+  文案;
 - 标注 id 是稳定的 ASCII slug, 前端按 id 引用; 改显示文案只动 `text`.

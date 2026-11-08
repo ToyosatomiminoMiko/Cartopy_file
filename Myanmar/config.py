@@ -260,23 +260,23 @@ GRATICULE_3X5 = Graticule(
 )
 
 # 地名: 邻国名 -> 海域名 -> 国名 -> 城名(顺序就是前端叠放顺序).
-# 字号是生成端唯一保留的样式数据; 颜色/描边由前端 role 表决定.
+# 只登记语义与落点; 字号/颜色/描边等样式由前端 role 表决定.
 # name 是 id 的标识符段(小写 ASCII slug), 中文只进 text; 见 docs/reference/spec.md 的 Label.
 MYANMAR_LABELS = (
-    Label(99.6, 29.9, "中国", role="country", font_size_pt=13.0, name="china"),
-    Label(89.2, 25.4, "印度", role="country", font_size_pt=13.0, name="india"),
-    Label(89.6, 22.8, "孟加拉国", role="country", font_size_pt=13.0, name="bangladesh"),
-    Label(101.3, 16.0, "泰国", role="country", font_size_pt=13.0, name="thailand"),
-    Label(103.4, 19.6, "老挝", role="country", font_size_pt=13.0, name="laos"),
-    Label(89.8, 15.8, "孟加拉湾", role="sea", font_size_pt=12.0, name="bay-of-bengal"),
-    Label(96.8, 9.3, "安达曼海", role="sea", font_size_pt=12.0, name="andaman-sea"),
-    Label(95.6, 23.5, "缅甸", role="country-name", font_size_pt=22.0, name="myanmar"),
+    Label(99.6, 29.9, "中国", role="country", name="china"),
+    Label(89.2, 25.4, "印度", role="country", name="india"),
+    Label(89.6, 22.8, "孟加拉国", role="country", name="bangladesh"),
+    Label(101.3, 16.0, "泰国", role="country", name="thailand"),
+    Label(103.4, 19.6, "老挝", role="country", name="laos"),
+    Label(89.8, 15.8, "孟加拉湾", role="sea", name="bay-of-bengal"),
+    Label(96.8, 9.3, "安达曼海", role="sea", name="andaman-sea"),
+    Label(95.6, 23.5, "缅甸", role="country-name", name="myanmar"),
     # 城名贴在城点左下: 旧版是 (城点 + 0.18°E, -0.05°N) + ha="left".
-    Label(96.10 + 0.18, 19.75 - 0.05, "内比都", role="city", font_size_pt=10.0,
+    Label(96.10 + 0.18, 19.75 - 0.05, "内比都", role="city",
           ha="left", name="naypyidaw"),
-    Label(96.16 + 0.18, 16.87 - 0.05, "仰光", role="city", font_size_pt=10.0,
+    Label(96.16 + 0.18, 16.87 - 0.05, "仰光", role="city",
           ha="left", name="yangon"),
-    Label(96.08 + 0.18, 21.98 - 0.05, "曼德勒", role="city", font_size_pt=10.0,
+    Label(96.08 + 0.18, 21.98 - 0.05, "曼德勒", role="city",
           ha="left", name="mandalay"),
 )
 
@@ -641,7 +641,7 @@ RIVER_LABELS = (
      "salween"),
 )
 # 行政区名: key -> (中文行经度, 中文行纬度, 英文行经度, 英文行纬度).
-# 多数放在单元内部; 面积很小的单元(内比都联邦区,仰光省,孟邦)用更小字号.
+# 多数放在单元内部.
 ADMIN_LABEL_POSITIONS = {
     "kachin": (97.05028066, 27.13213977, 97.04953287, 26.91305850),
     "kayah": (97.45046254, 19.33314167, 97.44923011, 19.11142579),
@@ -678,10 +678,6 @@ CAPITAL_LABEL_POSITIONS = {
     "yangon": (96.02114445, 16.69789901, 96.02155956, 16.54748384, "right"),
 }
 
-# 小面积单元的行政区名字号比普通单元小一档(旧图口径).
-SMALL_ADMIN_KEYS = frozenset({"kayah", "mon", "yangon", "npt"})
-
-
 def _add_bilingual_label(
     sink: list[Label],
     zh_position: tuple[float, float],
@@ -692,25 +688,23 @@ def _add_bilingual_label(
     *,
     role: str,
     id_kind: str,
-    size_zh: float,
-    size_en: float,
     ha: str = "center",
 ) -> None:
-    """登记一对中文/英文标注: 两条共用一个 role 与 id_kind, 只有落点/字号不同.
+    """登记一对中文/英文标注: 两条共用一个 role 与 id_kind, 只有落点不同.
 
-    为什么英文单独一条: 旧版 en 是独立文字(字号更小,位置另给), 前端要能分别拖动;
+    为什么英文单独一条: 旧版 en 是独立文字(位置另给), 前端要能分别拖动;
     id 用同一个 slug 加 ``-en`` 后缀, 与旧版命名一致.
     """
     sink.append(
         Label(
             zh_position[0], zh_position[1], zh,
-            role=role, font_size_pt=size_zh, name=slug, id_kind=id_kind, ha=ha,
+            role=role, name=slug, id_kind=id_kind, ha=ha,
         )
     )
     sink.append(
         Label(
             en_position[0], en_position[1], en,
-            role=role, font_size_pt=size_en, name=f"{slug}-en", id_kind=id_kind, ha=ha,
+            role=role, name=f"{slug}-en", id_kind=id_kind, ha=ha,
         )
     )
 
@@ -725,12 +719,12 @@ def _build_admin_labels() -> tuple[Label, ...]:
     for zh_lon, zh_lat, en_lon, en_lat, zh, en, slug in NEIGHBOUR_LABELS:
         _add_bilingual_label(
             labels, (zh_lon, zh_lat), (en_lon, en_lat), zh, en, slug,
-            role="country", id_kind="country", size_zh=12.0, size_en=8.4,
+            role="country", id_kind="country",
         )
     for zh_lon, zh_lat, en_lon, en_lat, zh, en, slug in SEA_LABELS:
         _add_bilingual_label(
             labels, (zh_lon, zh_lat), (en_lon, en_lat), zh, en, slug,
-            role="sea", id_kind="sea", size_zh=11.5, size_en=8.0,
+            role="sea", id_kind="sea",
         )
     for _gadm_name, info in ADMIN_INFO.items():
         key, name_zh, name_en, kind = info[0], info[1], info[2], info[3]
@@ -738,16 +732,9 @@ def _build_admin_labels() -> tuple[Label, ...]:
         # 内比都的英文全名太长, 在图上会压到隔壁单元, 用 U.T. 缩写;
         # 图例和标题里保留全称 Naypyidaw Union Territory.
         display_en = "Naypyidaw U.T." if kind == "union" else name_en
-        if kind == "union":
-            size_zh, size_en = 8.8, 6.4
-        elif key in SMALL_ADMIN_KEYS:
-            size_zh, size_en = 10.3, 6.9
-        else:
-            size_zh = 10.8 if kind == "state" else 10.5
-            size_en = 7.8
         _add_bilingual_label(
             labels, (zh_lon, zh_lat), (en_lon, en_lat), name_zh, display_en, key,
-            role="area", id_kind=kind, size_zh=size_zh, size_en=size_en,
+            role="area", id_kind=kind,
         )
     for _gadm_name, info in ADMIN_INFO.items():
         key, kind = info[0], info[3]
@@ -759,12 +746,12 @@ def _build_admin_labels() -> tuple[Label, ...]:
         _add_bilingual_label(
             labels, (zh_lon, zh_lat), (en_lon, en_lat), info[4], capital_en,
             capital_en.lower().replace(" ", "-"),
-            role="city", id_kind="city", size_zh=8.0, size_en=6.5, ha=ha,
+            role="city", id_kind="city", ha=ha,
         )
     for zh_lon, zh_lat, en_lon, en_lat, zh, en, slug in RIVER_LABELS:
         _add_bilingual_label(
             labels, (zh_lon, zh_lat), (en_lon, en_lat), zh, en, slug,
-            role="river", id_kind="river", size_zh=9.0, size_en=6.8,
+            role="river", id_kind="river",
         )
     return tuple(labels)
 
@@ -1078,46 +1065,45 @@ NORTHERN_SHAN_CITIES = tuple(
 # name 是 id 的 ASCII slug, 中文只进 text(见 docs/reference/spec.md 的 Label).
 NORTHERN_SHAN_LABELS = (
     # 邻国/省邦注记: 旧图 label-area-<slug>.
-    Label(99.05, 24.62, "中国 云南省", role="country", font_size_pt=13.0,
+    Label(99.05, 24.62, "中国 云南省", role="country",
           id_kind="area", name="china-yunnan"),
-    Label(101.25, 20.45, "老挝", role="country", font_size_pt=12.0,
+    Label(101.25, 20.45, "老挝", role="country",
           id_kind="area", name="laos"),
-    Label(100.60, 19.35, "泰国", role="country", font_size_pt=12.0,
+    Label(100.60, 19.35, "泰国", role="country",
           id_kind="area", name="thailand"),
-    Label(96.75, 23.78, "掸邦", role="area-muted", font_size_pt=13.0,
+    Label(96.75, 23.78, "掸邦", role="area-muted",
           id_kind="area", name="shan"),
-    Label(95.72, 22.45, "曼德勒省", role="area-muted", font_size_pt=11.0,
+    Label(95.72, 22.45, "曼德勒省", role="area-muted",
           id_kind="area", name="mandalay-region"),
-    Label(97.18, 19.32, "克耶邦", role="area-muted", font_size_pt=11.0,
+    Label(97.18, 19.32, "克耶邦", role="area-muted",
           id_kind="area", name="kayah"),
-    Label(99.02, 20.30, "佤邦(南)", role="area-accent-3", font_size_pt=13.0,
+    Label(99.02, 20.30, "佤邦(南)", role="area-accent-3",
           id_kind="area", name="wa-south"),
     # 特区/区域名: 旧图 label-region-<slug>; 前端按区域家族处理, 样式仍由 role 决定.
-    Label(98.30, 23.72, "缅甸联邦第一特区", role="area-accent-1", font_size_pt=13.5,
+    Label(98.30, 23.72, "缅甸联邦第一特区", role="area-accent-1",
           id_kind="region", name="special-region-1"),
-    Label(98.25, 23.08, "MNDAA 实控区(大致范围)", role="area-accent-1", font_size_pt=9.5,
+    Label(98.25, 23.08, "MNDAA 实控区(大致范围)", role="area-accent-1",
           id_kind="region", name="mndaa-control"),
-    Label(97.00, 23.34, "德昂邦", role="area-accent-2", font_size_pt=14,
+    Label(97.00, 23.34, "德昂邦", role="area-accent-2",
           id_kind="region", name="taang"),
-    Label(97.00, 23.12, "(TNLA 控制)", role="area-accent-2", font_size_pt=9.5,
+    Label(97.00, 23.12, "(TNLA 控制)", role="area-accent-2",
           id_kind="region", name="tnla-control"),
-    Label(98.60, 24.00, "原果敢自治区", role="area-accent-1", font_size_pt=9,
+    Label(98.60, 24.00, "原果敢自治区", role="area-accent-1",
           id_kind="region", name="kokang-saz"),
-    Label(98.99, 22.60, "佤邦", role="area-accent-3", font_size_pt=16,
+    Label(98.99, 22.60, "佤邦", role="area-accent-3",
           id_kind="region", name="wa-state"),
-    Label(99.79, 21.73, "掸邦东部第四特区", role="area-accent-4", font_size_pt=10.0,
+    Label(99.79, 21.73, "掸邦东部第四特区", role="area-accent-4",
           id_kind="region", name="special-region-4"),
     # 两条大江的河名.
-    Label(95.75, 22.90, "伊洛瓦底江", role="river", font_size_pt=10.5, name="irrawaddy"),
-    Label(98.33, 21.55, "萨尔温江", role="river", font_size_pt=10.5, name="salween"),
-    # 城名: 落点跟着点位偏移; 字号按城市等级分两档, 普通城镇居中对齐.
+    Label(95.75, 22.90, "伊洛瓦底江", role="river", name="irrawaddy"),
+    Label(98.33, 21.55, "萨尔温江", role="river", name="salween"),
+    # 城名: 落点跟着点位偏移; 普通城镇居中对齐.
     *(
         Label(
             lon + dx,
             lat + dy,
             text,
             role="city",
-            font_size_pt=9.0 if kind == "town" else 10.5,
             ha="center" if kind == "town" else "left",
             name=slug,
         )

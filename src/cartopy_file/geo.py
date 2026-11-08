@@ -20,9 +20,8 @@ locator,文字 artist 的锚点,legend handles,colorbar 的 norm/cmap), 由这�
   底图 SVG 只改根标签的 viewBox/width/height 来裁到地图框, 坐标值本身不变,
   所以 geo 里的 x/y 可以直接对底图坐标使用;
 - ``labels`` 只描述语义与摆放: ``role``(样式由前端 miko_svg_editor 的
-  ``src/config/text-style.ts`` 决定),``text``,``x/y``,``anchor``,
-  ``font_size_pt`` 与 ``order``. 颜色/描边/斜体/字距/行高/折行位置都不在生成端
-  输出, 旋转也由前端处理(默认 0);
+  ``src/config/text-style.ts`` 决定),``text``,``x/y``,``anchor`` 与 ``order``. 颜色/描边/
+  斜体/字重/字距/行高/折行位置/字号都不在生成端输出, 旋转也由前端处理(默认 0);
 - ``labels[].x`` 是文字块的水平锚点(``anchor`` 为 start 时指左端, middle 指中心,
   end 指右端); ``labels[].y`` 是**文字块垂直中心**(底图坐标). ``text`` 一律单行,
   折行与行高由前端按文本块宽度处理, 生成端不写换行, 也不换算基线;
@@ -428,7 +427,6 @@ class _Label:
     x: float
     y: float
     anchor: str
-    font_size_pt: float
     order: int
 
 
@@ -475,13 +473,12 @@ class GeoDoc:
         name: str,
         index: int | None = None,
         id_kind: str | None = None,
-        font_size_pt: float,
         ha: str = "center",
     ) -> None:
         """登记一条地名候选(底图坐标), 不画文字,不存样式.
 
         text 必须单行: 折行由前端按文本块宽度处理, 生成端遇到换行直接报错;
-        x/y 是文字块的水平锚点与垂直中心, 不再换算基线. role 决定前端样式,
+        x/y 是文字块的水平锚点与垂直中心, 不再换算基线. role 决定前端样式(含字号),
         生成端只按 _ID_PREFIX 把它折成 id 前缀. name 是 id 的标识符段(ASCII slug),
         与 text 分开: text 可以随便改中文/双语, id 不变.
         """
@@ -493,8 +490,6 @@ class GeoDoc:
             raise ValueError(f"label text 必须是非空字符串, 得到 {text!r}")
         if "\n" in text or "\r" in text:
             raise ValueError(f"label text 必须单行(折行由前端负责), 得到 {text!r}")
-        if not float(font_size_pt) > 0:
-            raise ValueError(f"label font_size_pt 必须 > 0, 得到 {font_size_pt!r}")
         x, y = svg_point(ax, lon, lat)
         self.labels.append(
             _Label(
@@ -508,7 +503,6 @@ class GeoDoc:
                 x=_clean(x),
                 y=_clean(y),
                 anchor=_ANCHORS[ha],
-                font_size_pt=_clean(float(font_size_pt)),
                 order=len(self.labels),
             )
         )
@@ -692,7 +686,6 @@ class GeoDoc:
                     "x": label.x,
                     "y": label.y,
                     "anchor": label.anchor,
-                    "font_size_pt": label.font_size_pt,
                     "order": label.order,
                 }
                 for label in self.labels

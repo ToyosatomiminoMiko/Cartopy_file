@@ -344,11 +344,9 @@ REPUBLICS = (
 )
 REPUBLICS_SHOWN = REPUBLICS[:6]
 REPUBLICS_HIDDEN = frozenset(REPUBLICS[6:])
-# 轮廓小的共和国用略小字号, 防止文字宽度超出共和国范围.
-SMALL_REPUBLICS = frozenset({"Chuvash", "Mariy-El", "Mordovia", "Kalmyk"})
 
 # 共和国名称: GADM NAME_1 -> (经度, 纬度, 文字). 放在各共和国境内的空旷处,
-# 避开首府城点与主要河湖; 小共和国用略小字号, 见 SMALL_REPUBLICS.
+# 避开首府城点与主要河湖.
 # id 的 slug 用 key 的小写形式(如 tatarstan,mariy-el), 与 GADM 的 NAME_1 一一对应.
 REPUBLIC_LABELS: dict[str, tuple[float, float, str]] = {
     "Tatarstan": (50.30, 54.85, "鞑靼斯坦共和国"),
@@ -538,9 +536,9 @@ THEMES = {
 # ============================
 # 地名表(按画框过滤后写进各自的 Sheet.labels)
 # ============================
-def _label(lon, lat, text, slug, role, size, **kwargs) -> Label:
+def _label(lon, lat, text, slug, role, **kwargs) -> Label:
     """写 Label 的短辅助函数; 顺序即前端叠放顺序, slug 是 id 的 ASCII 段."""
-    return Label(lon, lat, text, role=role, font_size_pt=size, name=slug, **kwargs)
+    return Label(lon, lat, text, role=role, name=slug, **kwargs)
 
 
 def _river_labels(extent: Extent) -> tuple[Label, ...]:
@@ -556,7 +554,7 @@ def _river_labels(extent: Extent) -> tuple[Label, ...]:
             continue
         # 重复河名把序号并进 slug(与改前 add_label 的 index 产出同名 id, 如 volga-1).
         name = f"{slug}-{seen[slug]}" if counts[slug] > 1 else slug
-        labels.append(_label(lon, lat, text, name, "river", 9.8))
+        labels.append(_label(lon, lat, text, name, "river"))
     return tuple(labels)
 
 
@@ -569,17 +567,17 @@ def _labels_for(extent: Extent, theme: Theme) -> tuple[Label, ...]:
     """
     labels: list[Label] = []
     labels += [
-        _label(lon, lat, text, slug, "country", 12.0)
+        _label(lon, lat, text, slug, "country")
         for lon, lat, text, slug in COUNTRY_LABELS
         if extent.contains_point(lon, lat)
     ]
     labels += [
-        _label(lon, lat, text, slug, "sea", 11.0)
+        _label(lon, lat, text, slug, "sea")
         for lon, lat, text, slug in SEA_LABELS
         if extent.contains_point(lon, lat)
     ]
     labels += [
-        _label(lon, lat, text, slug, "highland", 10.0)
+        _label(lon, lat, text, slug, "highland")
         for lon, lat, text, slug in HIGHLAND_LABELS
         if extent.contains_point(lon, lat)
     ]
@@ -587,23 +585,20 @@ def _labels_for(extent: Extent, theme: Theme) -> tuple[Label, ...]:
     # 文字走 AREA_ANNOTATION 带给前端(图外面板).
     if theme.area_label_in_map and extent.contains_point(*BASIN_AREA_LABEL[:2]):
         lon, lat, text, slug = BASIN_AREA_LABEL
-        labels.append(_label(lon, lat, text, slug, "area-basin", 15.0))
-    # 共和国名: 字号按共和国轮廓大小分两档(小共和国 10.5, 大共和国 12.5);
-    # id_kind=republic 保留旧的 label-republic-* 前缀.
+        labels.append(_label(lon, lat, text, slug, "area-basin"))
+    # 共和国名: id_kind=republic 保留旧的 label-republic-* 前缀.
     for key in theme.republics:
         lon, lat, text = REPUBLIC_LABELS[key]
         if not extent.contains_point(lon, lat):
             continue
-        size = 10.5 if key in SMALL_REPUBLICS else 12.5
         labels.append(
-            _label(lon, lat, text, key.lower(), "area-accent-1", size, id_kind="republic")
+            _label(lon, lat, text, key.lower(), "area-accent-1", id_kind="republic")
         )
     labels += _river_labels(extent)
-    # 城市: 文字跟着点位偏移; 字号按城市等级分三档.
-    sizes = {"capital": 10.8, "rep": 9.3, "city": 8.8}
+    # 城市: 文字跟着点位偏移; 大小城市靠符号区分.
     labels += [
-        _label(lon + dx, lat + dy, text, slug, "city", sizes[kind], ha=align)
-        for lon, lat, text, slug, kind, dx, dy, align in CITIES
+        _label(lon + dx, lat + dy, text, slug, "city", ha=align)
+        for lon, lat, text, slug, _kind, dx, dy, align in CITIES
         if extent.contains_point(lon, lat)
     ]
     return tuple(labels)

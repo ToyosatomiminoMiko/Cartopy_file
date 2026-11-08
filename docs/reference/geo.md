@@ -23,9 +23,10 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
    来裁到地图框, 因此 geo 里的 `x/y` 与底图坐标逐值一致(原点为原 Figure 左上角,
    y 向下, 单位 pt). `base.view_box` 与底图根标签由同一份 `Frame` 生成.
 2. **labels 只描述语义与摆放, 不含样式**: 生成端输出 `id / role / text / x / y /
-   anchor / font_size_pt / order`, 颜色,描边,斜体,字重,字距,行高,折行位置全部由前端
+   anchor / order`, 字号/颜色/描边/斜体/字重/字距/行高/折行位置全部由前端
    `miko_svg_editor/src/config/text-style.ts` 的角色表与全局常量决定; 旋转也由前端
-   处理(默认 0). v1 的 `kind / lines / color / italic / halo / rotation_deg` 已删除.
+   处理(默认 0). v1 的 `kind / lines / color / italic / halo / rotation_deg` 已删除,
+   `font_size_pt` 也不再输出(字号属于样式, 由前端 role 表决定).
    **导出文字一律单行**: `labels[].text`,`legend.entries[].label` 与 `suggestions` 里的
    标题/注/来源都不带换行符, 折行(按文本块宽度)全由前端负责; 生成端不写换行, 也不输出
    旧产物里的扩展字段 `label_lines`(v2 契约本身没有这个键). `geo.add_label` 与
@@ -80,10 +81,10 @@ fig, ax = build_map(...)               # 只画地理要素, 不自 ax.text()
 frame = figure_frame(fig, ax)
 doc = GeoDoc(frame)
 
-# role 决定前端样式; 这里只给语义 + 位置 + 字号 + 锚点.
+# role 决定前端样式(含字号); 这里只给语义 + 位置 + 锚点.
 doc.add_label(ax, 50.30, 54.85, "鞑靼斯坦共和国",
               role="area-accent-1", id_kind="republic", name="tatarstan",
-              font_size_pt=12.5, ha="center")
+              ha="center")
 doc.add_graticule(ax, extent, lon_step=5, lat_step=2,
                   style={"stroke": "#808080", "width_pt": 0.5,
                          "dash": [0.5, 0.825], "opacity": 0.4})
@@ -107,9 +108,9 @@ save_map(fig, MAP_PATH, doc, geo_path=TEXT_PATH, dpi=args.dpi)
 
 - 脚本里**不要再用 `ax.text()` / 图例 / 色标 / 标题**: 文字只以 `doc.add_label` 的形式
   登记; 底图里出现 `<text>` 时 `save_map` 直接报错(契约 C2);
-- **不要再写颜色/描边/斜体/旋转**: 这些属于前端 `text-style.ts` 的单一真源, 生成端写
+- **不要写字号/颜色/描边/斜体/旋转**: 这些属于前端 `text-style.ts` 的单一真源, 生成端写
   了也会被忽略; 需要新样式时先在 `MAP_LABEL_ROLES` 里加一个语义角色, 不要在脚本里
-  硬编码颜色;
+  硬编码字号或颜色;
 - 地图框位置只在 `set_extent()` 之后量, `figure_frame` 会先 `apply_aspect()`, 否则拿到
   的是 aspect 修正前的矩形;
 - `suggestions.source` 由数据集清单自动生成(每个数据源一条, 带发布页 URL), 不要手写:
@@ -127,6 +128,6 @@ save_map(fig, MAP_PATH, doc, geo_path=TEXT_PATH, dpi=args.dpi)
   报错, 不做「同级找同名 geo」的回退;
 - 产物不入库: `.gitignore` 忽略 `*.svg` 与 `*.geo.json`, 需要时按图种页的命令生成;
 - 出图后跑 `python tools/check_geo.py <子项目>/map/<产物>.svg`(或直接无参检查全部产物):
-  定位「根标签没裁,残留 `<text>`,sha 没更新,字段/枚举不合法,v1 旧字段/`label_lines` 残留,
-  文字带换行」这类结构错误;
+  定位「根标签没裁,残留 `<text>`,sha 没更新,字段/枚举不合法,v1 旧字段/`label_lines`/`font_size_pt`
+  残留,文字带换行」这类结构错误;
   它不做视觉判断, 前端标准校验仍以 miko 的 `mapdoc-geo` 实现为准.

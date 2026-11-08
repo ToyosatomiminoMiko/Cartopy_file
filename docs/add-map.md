@@ -126,8 +126,8 @@ if __name__ == "__main__":
 - 绘图模块**不写任何文字**: 地名/标题/图例/色标/刻度/注与来源都由 `miko_svg_editor` 的前端
   排版接管; 模块只画地理图形, 把这些信息往 `GeoDoc` 里登记(见
   [reference/geo.md](reference/geo.md) 与 [reference/layers.md](reference/layers.md));
-- 新增标注时只选一个 role, 再给单行 text/坐标/字号(text 里不写换行, 折行由前端负责);
-  **不要写**颜色/描边/斜体/旋转(样式唯一真源
+- 新增标注时只选一个 role, 再给单行 text/坐标(text 里不写换行, 折行由前端负责);
+  **不要写**字号/颜色/描边/斜体/旋转(样式唯一真源
   是 `miko_svg_editor` 的 `src/config/text-style.ts`);
 - 地形/晕渲/海陆底色不要复制: 用 [reference/layers.md](reference/layers.md) 与
   [reference/relief.md](reference/relief.md) 的函数; 边界重合剪枝用

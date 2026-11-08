@@ -11,7 +11,8 @@
 为什么: 前端(miko_svg_editor)按同一份契约解析产物, 字段写错了要到合成阶段才报;
 出图后先跑一遍这个检查, 能在本仓内定位问题. 完整契约见
 ``docs/reference/geo.md`` 与 miko 的 PAGE-EDITOR.md §3(``mapdoc-geo`` v2); 这里只做
-结构级校验, 不判断标注位置是否美观, 也不校验文字样式(样式由前端 role 表决定);
+结构级校验, 不判断标注位置是否美观, 也不校验文字样式(样式由前端 role 表决定,
+labels 里不再输出 font_size_pt);
 文字只要求单行--折行与排版由前端负责, 带换行符或旧 ``label_lines`` 的产物直接拒绝.
 
 用法:
@@ -56,6 +57,8 @@ LABEL_ROLES = (
 LABEL_ROLE_SET = frozenset(LABEL_ROLES)
 # v2 已删除的 v1 字段: 出现即说明产物没重新生成(旧契约的产物要拒绝).
 REMOVED_LABEL_KEYS = ("kind", "lines", "color", "italic", "halo", "rotation_deg")
+# 生成端之后又删掉的字段: 字号属于样式, 由前端 role 表决定, labels 里不允许出现.
+DROPPED_LABEL_KEYS = ("font_size_pt",)
 TEXT_ANCHORS = {"start", "middle", "end"}
 SIDES_LON = {"bottom", "top"}
 SIDES_LAT = {"left", "right"}
@@ -199,12 +202,15 @@ def check_product(svg_path: Path, geo_path: Path) -> list[str]:
             if not isinstance(label, dict):
                 errors.append(f"{path} 必须是对象")
                 continue
-            for key in ("id", "role", "text", "x", "y", "anchor", "font_size_pt", "order"):
+            for key in ("id", "role", "text", "x", "y", "anchor", "order"):
                 if key not in label:
                     errors.append(f"{path} 缺少 {key}")
             for key in REMOVED_LABEL_KEYS:
                 if key in label:
                     errors.append(f"{path}.{key} 是 v1 字段, v2 已删除(产物需重新生成)")
+            for key in DROPPED_LABEL_KEYS:
+                if key in label:
+                    errors.append(f"{path}.{key} 已删除(字号由前端 role 表决定, 产物需重新生成)")
             if not isinstance(label.get("id"), str) or not label.get("id"):
                 errors.append(f"{path}.id 必须是非空字符串")
             else:
@@ -224,11 +230,9 @@ def check_product(svg_path: Path, geo_path: Path) -> list[str]:
                 errors.append(f"{path}.text 必须是字符串")
             elif "\n" in text or "\r" in text:
                 errors.append(f"{path}.text 必须单行(折行由前端负责), 行内含换行符")
-            for key in ("x", "y", "font_size_pt"):
+            for key in ("x", "y"):
                 if not _number(label.get(key)):
                     errors.append(f"{path}.{key} 必须是数字")
-            if _number(label.get("font_size_pt")) and not label["font_size_pt"] > 0:
-                errors.append(f"{path}.font_size_pt 必须 > 0")
             if label.get("anchor") not in TEXT_ANCHORS:
                 errors.append(f"{path}.anchor 必须是 start|middle|end")
             order = label.get("order")
