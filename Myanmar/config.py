@@ -484,26 +484,26 @@ ADMIN_UNITS_BY_KEY = {info[0]: info for info in ADMIN_INFO.values()}
 # 行政区颜色. 冷色 = 邦, 暖色 = 省; 色相分散, 保证相邻单元也能区分.
 # 透明度在绘制时统一加, 这样底纹和地形仍能透出一点, 不至于变成纯色拼图.
 STATE_COLORS = {
-    "kachin": "#1e88e5",
-    "kayah": "#81d4fa",
-    "kayin": "#2e7d32",
-    "chin": "#8e24aa",
+    "kachin": "#0088e5",
+    "kayah": "#00d4fa",
+    "kayin": "#007d32",
+    "chin": "#0024aa",
     "mon": "#00acc1",
     "rakhine": "#00897b",
-    "shan": "#5c6bc0",
+    "shan": "#006bc0",
 }
 REGION_COLORS = {
     # 伊洛瓦底省与勃固省有很长的公共边界, 旧色 #ffb74d(浅橙) 与勃固省的
     # #f9a825(琥珀) 色相几乎相同(约 36°),亮度也接近, 半透明叠在米色地形上
     # 几乎分不出界线; 改用 #ff8a65(deep orange 300) 把色相拉到橙红一侧,
     # 两者色差放大到约 3 倍, 同时与相邻的仰光省品红,若开邦青绿仍保持足够区分.
-    "ayeyarwady": "#ff8a65",
-    "bago": "#f9a825",
-    "magway": "#d84315",
+    "ayeyarwady": "#ff8a00",
+    "bago": "#f9a800",
+    "magway": "#d84300",
     "mandalay": "#ef6c00",
-    "sagaing": "#b71c1c",
-    "tanintharyi": "#e64a19",
-    "yangon": "#c2185b",
+    "sagaing": "#b71c00",
+    "tanintharyi": "#e64a00",
+    "yangon": "#c21800",
 }
 UNION_COLOR = "#f3e5ab"
 FILL_ALPHA = 0.58
