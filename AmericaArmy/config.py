@@ -22,6 +22,65 @@ ROOT = Path(__file__).resolve().parent
 # 仓库自带的点位数据(不入 data/raw, 也不下载), 见 docs/data-preparation.md.
 BASES = json.loads((ROOT / "data.geojson").read_text(encoding="utf-8"))["features"]
 
+# 演示图直接用 cartopy 的固定分辨率要素; 这些层必须登记, 否则根目录 download_data.py
+# 不会预取,清单 --check 也发现不了, 出图时才联网下载(违反"出图不联网"), 或者离线直接失败.
+NE_BASEMAP = (
+    Dataset(
+        id="ne-110m-land",
+        kind="cartopy-ne",
+        source_id="natural-earth",
+        resolution="110m",
+        category="physical",
+        name="land",
+        note="Natural Earth 110m 陆地(演示底图)",
+    ),
+    Dataset(
+        id="ne-110m-ocean",
+        kind="cartopy-ne",
+        source_id="natural-earth",
+        resolution="110m",
+        category="physical",
+        name="ocean",
+        note="Natural Earth 110m 海洋(演示底图)",
+    ),
+    Dataset(
+        id="ne-110m-coastline",
+        kind="cartopy-ne",
+        source_id="natural-earth",
+        resolution="110m",
+        category="physical",
+        name="coastline",
+        note="Natural Earth 110m 海岸线(演示底图)",
+    ),
+    Dataset(
+        id="ne-110m-borders",
+        kind="cartopy-ne",
+        source_id="natural-earth",
+        resolution="110m",
+        category="cultural",
+        name="admin_0_boundary_lines_land",
+        note="Natural Earth 110m 国界(演示底图)",
+    ),
+    Dataset(
+        id="ne-110m-lakes",
+        kind="cartopy-ne",
+        source_id="natural-earth",
+        resolution="110m",
+        category="physical",
+        name="lakes",
+        note="Natural Earth 110m 湖泊(演示底图)",
+    ),
+    Dataset(
+        id="ne-110m-rivers",
+        kind="cartopy-ne",
+        source_id="natural-earth",
+        resolution="110m",
+        category="physical",
+        name="rivers_lake_centerlines",
+        note="Natural Earth 110m 河流(演示底图)",
+    ),
+)
+
 DATASETS = dataset_set(
     "美军基地",
     ROOT,
@@ -31,7 +90,8 @@ DATASETS = dataset_set(
             kind="local",
             dest="data.geojson",
             note="基地点位 GeoJSON(仓库自带)",
-        )
+        ),
+        *NE_BASEMAP,
     ],
 )
 
@@ -55,7 +115,7 @@ SHEET_WORLD = Sheet(
     ),
     relief=None,
     basemap=False,
-    dataset_ids=("bases-geojson",),
+    dataset_ids=("bases-geojson", *(item.id for item in NE_BASEMAP)),
     labels=tuple(
         Label(
             feature["geometry"]["coordinates"][0],

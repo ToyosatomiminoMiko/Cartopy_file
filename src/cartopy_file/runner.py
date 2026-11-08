@@ -35,6 +35,31 @@ DrawHook = Callable[["RenderContext"], None]
 CollectHook = Callable[[GeoDoc, "RenderContext"], None]
 
 
+def _require_shared_layers(sheet: Sheet, catalog: DatasetSet) -> None:
+    """出图前确认 sheet 声明用到的 Natural Earth 图层都在本地缓存里.
+
+    为什么必须在画图前失败: ``layers.countries_frame()`` / ``relief.load_ne_layer()``
+    缺层时静默返回 None, 各 draw 回调只会跳过该图层, 产物看起来"成功"但缺海陆底色/
+    国界(``check_geo`` 也查不出来); 这里把缺失变成明确的 FileNotFoundError, 且失败发生
+    在 save_map 之前, 不会写出半成品底图.
+
+    只检查 ``sheet.dataset_ids`` 里声明为 ``cartopy-ne`` 的数据: 未登记却直接读共享图层的
+    图种属于数据清单漏登记(另一个问题), 由对应 config 修复, 不在这里猜.
+    """
+    missing = [
+        dataset
+        for dataset_id in sheet.dataset_ids
+        if (dataset := catalog.get(dataset_id)).kind == "cartopy-ne"
+        and not catalog.exists(dataset)
+    ]
+    if missing:
+        lines = "\n".join(f"  {item.resolution}/{item.category}/{item.name}" for item in missing)
+        raise FileNotFoundError(
+            f"缺少共享 Natural Earth 图层(Sheet {sheet.id}):\n{lines}\n"
+            "请先在仓库根运行: python download_data.py"
+        )
+
+
 @dataclass
 class RenderContext:
     """回调拿到的全部上下文; 图种图层函数从这里的 ax/数据/目录取参数."""
@@ -94,10 +119,17 @@ def render(
     图层都画完之后量才等于最终裁剪框; 提前量会与产物错位.
     """
     root = Path(root)
+    _require_shared_layers(sheet, catalog)
     fig, ax = layers.figure_axes(sheet)
     covered = layers.covered_extent(ax)
 
     world = layers.countries_frame() if sheet.basemap else None
+    if sheet.basemap and world is None:
+        # 兜底: 声明了 basemap 但共享缓存缺 10m 国界; 不能当成"没开底图"继续出图.
+        raise FileNotFoundError(
+            "缺少共享 Natural Earth 底图(10m/cultural/admin_0_countries); "
+            "请先在仓库根运行: python download_data.py"
+        )
     if sheet.basemap:
         layers.add_base_map(ax, sheet, world)
 

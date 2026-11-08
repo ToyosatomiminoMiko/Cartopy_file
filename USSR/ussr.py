@@ -79,6 +79,8 @@ def draw_ussr_border(ax, world) -> None:
     轮廓与红星色是改前成品的口径.
     """
     if world is None:
+        # 缺共享 10m 国界时不能静默跳过: 红色苏联轮廓会消失, 产物仍"成功"且 check_geo 通过.
+        print("警告: 缺少 Natural Earth 10m 国界缓存, 跳过红色苏联轮廓.")
         return
 
     # Natural Earth 字段因版本不同可能是 NAME/NAME_EN/ADMIN, 只保留实际存在的字段.

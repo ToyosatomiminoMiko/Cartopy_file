@@ -35,7 +35,7 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
   `black-sea`). 为什么分开: id 会被前端和旧布局文件当键引用, 不能随显示文案漂移,
   也不允许中文(旧产物的 `label-country-白俄罗斯` 就是在 text 兜底进 id 时产生的);
   `id_kind` 覆盖 id 的角色家族(如共和国名要 `republic`), 同样是 slug; 字号/颜色/描边等
-  样式一律由前端 role 表决定, 生成端不存字号;
+  样式一律由前端 role 表决定, 生成端不存字号(字号是前端纸张 mm 设计值, 与底图尺寸无关);
 - `LegendEntry`: 一条图例, `label`/`shape(line|rect|point)` 必填, 其余 `stroke`/`fill`
   (`#rrggbb`),`width_pt`,`opacity`,`dash`,`marker`(point 专用),`hatch` 可选; `label`
   必须单行, 折行/排版由前端负责; 字段与 geo 的 `legend.entries` 一一对应;

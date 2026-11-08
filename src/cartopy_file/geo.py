@@ -21,7 +21,8 @@ locator,文字 artist 的锚点,legend handles,colorbar 的 norm/cmap), 由这�
   所以 geo 里的 x/y 可以直接对底图坐标使用;
 - ``labels`` 只描述语义与摆放: ``role``(样式由前端 miko_svg_editor 的
   ``src/config/text-style.ts`` 决定),``text``,``x/y``,``anchor`` 与 ``order``. 颜色/描边/
-  斜体/字重/字距/行高/折行位置/字号都不在生成端输出, 旋转也由前端处理(默认 0);
+  斜体/字重/字距/行高/折行位置/字号都不在生成端输出, 旋转也由前端处理(默认 0); 字号是前端
+  role 表的纸张 mm 设计值, 与底图尺寸/地图缩放无关, 生成端不参与换算;
 - ``labels[].x`` 是文字块的水平锚点(``anchor`` 为 start 时指左端, middle 指中心,
   end 指右端); ``labels[].y`` 是**文字块垂直中心**(底图坐标). ``text`` 一律单行,
   折行与行高由前端按文本块宽度处理, 生成端不写换行, 也不换算基线;

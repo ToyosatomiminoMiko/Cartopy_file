@@ -25,7 +25,9 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
 2. **labels 只描述语义与摆放, 不含样式**: 生成端输出 `id / role / text / x / y /
    anchor / order`, 字号/颜色/描边/斜体/字重/字距/行高/折行位置全部由前端
    `miko_svg_editor/src/config/text-style.ts` 的角色表与全局常量决定; 旋转也由前端
-   处理(默认 0). v1 的 `kind / lines / color / italic / halo / rotation_deg` 已删除,
+   处理(默认 0). 字号是前端 role 表的**纸张 mm 设计值**, 与底图的 `viewBox`/尺寸和地图
+   缩放都无关--生成端既不输出字号, 也不参与字号换算. v1 的
+   `kind / lines / color / italic / halo / rotation_deg` 已删除,
    `font_size_pt` 也不再输出(字号属于样式, 由前端 role 表决定).
    **导出文字一律单行**: `labels[].text`,`legend.entries[].label` 与 `suggestions` 里的
    标题/注/来源都不带换行符, 折行(按文本块宽度)全由前端负责; 生成端不写换行, 也不输出
@@ -81,7 +83,7 @@ fig, ax = build_map(...)               # 只画地理要素, 不自 ax.text()
 frame = figure_frame(fig, ax)
 doc = GeoDoc(frame)
 
-# role 决定前端样式(含字号); 这里只给语义 + 位置 + 锚点.
+# role 决定前端的样式分类; 字号由前端 role 表给纸张 mm 设计值, 这里只给语义 + 位置 + 锚点.
 doc.add_label(ax, 50.30, 54.85, "鞑靼斯坦共和国",
               role="area-accent-1", id_kind="republic", name="tatarstan",
               ha="center")
