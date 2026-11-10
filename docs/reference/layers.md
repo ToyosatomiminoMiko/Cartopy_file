@@ -60,8 +60,8 @@ def collect(doc, ctx):
 
 - 图例/文案是**声明**不是代码: 颜色,条目顺序,文案都写进 `config.py` 的 `Sheet`,
   渲染模块只画图; 改图例时不要再回模块里找 `set_legend`;
-- `add_gridlines` 的位置必须与改前产物的 locator 取值逐条一致: 多一条网线就会在 SVG 里多
-  一条被裁剪的路径, 产物字节就变了;
+- `add_gridlines` 的位置必须与 `Sheet.graticule` 的 `lon_ticks`/`lat_ticks` 逐条一致: 多一条
+  网线就会在 SVG 里多一条被裁剪的路径, 产物字节就变了;
 - `countries_frame()` 读的是**具体图层**(`admin_0_countries`), 不要把共享缓存的类别目录
   传进去按 `*.shp` 排序取第一个--同一目录下有几十个图层, 取错就是另一张图;
 - 经纬网颜色按 `Graticule.color` 原样传给 `ax.gridlines`(`"gray"` 与 `"#808080"` 在

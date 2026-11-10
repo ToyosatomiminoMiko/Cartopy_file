@@ -52,28 +52,28 @@ SHEET = config.SHEET_UKRAINE
 CATALOG = catalog_for(config.DATA_GROUP)
 
 # ============================
-# 数据路径(派生 GeoJSON 由 prepare_data.py 生成, 见 config.py)
+# 数据路径(派生 GeoJSON 由本仓 prepare.py 生成, 见 config.py)
 # ============================
-OBLASTS_PATH = CATALOG.path("ukraine-oblasts")
-BORDER_1991_PATH = CATALOG.path("ukraine-border-1991")
-CRIMEA_LINE_PATH = CATALOG.path("crimea-2014-line")
-OCCUPIED_2014_PATH = CATALOG.path("occupied-2014")
-CONTACT_2014_PATH = CATALOG.path("contact-2014")
-CLAIMED_2022_PATH = CATALOG.path("claimed-2022")
-# 德左区域面: 由 prepare_data.py 用 OSM 的 PMR 边界面按"德涅斯特河心线 +
+OBLASTS_PATH = config.OBLASTS_GEOJSON
+BORDER_1991_PATH = config.BORDER_1991_GEOJSON
+CRIMEA_LINE_PATH = config.CRIMEA_LINE_GEOJSON
+OCCUPIED_2014_PATH = config.OCCUPIED_2014_GEOJSON
+CONTACT_2014_PATH = config.CONTACT_2014_GEOJSON
+CLAIMED_2022_PATH = config.CLAIMED_2022_GEOJSON
+# 德左区域面: 由 prepare.py 用 OSM 的 PMR 边界面按"德涅斯特河心线 +
 # 1991 国界"裁切得到; 只用于灰色参照填色, 不参与任何边界口径.
-TRANSNISTRIA_PATH = CATALOG.path("transnistria")
-DNIEPER_RIVER_PATH = CATALOG.path("dnieper-river")
-DNIEPER_WATER_PATH = CATALOG.path("dnieper-water")
+TRANSNISTRIA_PATH = config.TRANSNISTRIA_GEOJSON
+DNIEPER_RIVER_PATH = config.DNIEPER_RIVER_GEOJSON
+DNIEPER_WATER_PATH = config.DNIEPER_WATER_GEOJSON
 # 德涅斯特河中心线(OSM): NE 10m 版本在德左一段平均 ~1 km 一个顶点, 而德左参照面
 # 的西缘就压在这条河上, 两者必须同源同精度.
-DNIESTER_RIVER_PATH = CATALOG.path("dniester-river")
-# 南布格河/顿河中心线: NE 10m 在河口前收笔, prepare_data.py 用 OSM 补了下游段,
+DNIESTER_RIVER_PATH = config.DNIESTER_RIVER_GEOJSON
+# 南布格河/顿河中心线: NE 10m 在河口前收笔, prepare.py 用 OSM 补了下游段,
 # 并与 NE 上段在接缝处拼成一条线(文件里含 NE + OSM 两段, 属性 replaces_ne_id
 # 标出被替换的 NE 要素).
 RIVER_EXTENSION_PATHS = (
-    CATALOG.path("southern-bug-river"),
-    CATALOG.path("don-river"),
+    config.SOUTHERN_BUG_GEOJSON,
+    config.DON_GEOJSON,
 )
 
 # ============================
@@ -104,9 +104,13 @@ CRIMEA_BOX = (32.0, 44.3, 37.0, 46.5)
 def _require(path: Path) -> Path:
     """缺少数据时给出明确修复命令, 而不是让后面的读取抛难懂的错."""
     if not path.exists():
+        if "build" in path.parts:
+            raise FileNotFoundError(
+                f"未找到派生数据: {path}\n请先运行: python Ukraine/main.py prepare"
+            )
         raise FileNotFoundError(
-            f"未找到数据: {path}\n请先到数据项目 miko_gis_data 运行: "
-            "python main.py download --group ukraine && python main.py prepare --group ukraine"
+            f"未找到原始数据: {path}\n请到数据项目 miko_gis_data 运行: "
+            "python main.py download --group ukraine"
         )
     return path
 
@@ -126,7 +130,7 @@ def load_reference_region():
     """读取德左参照区域面(OSM PMR 边界, 按德涅斯特河心线与 1991 国界裁切).
 
     单独一个函数而不是并进 load_vectors: 这张面不参与任何边界口径计算,
-    只用来填一层灰色; 缺文件时直接报错(数据由 prepare_data.py 准备),
+    只用来填一层灰色; 缺文件时直接报错(数据由本仓 prepare.py 准备),
     避免悄悄少一个图层. 面的西缘与 DNIESTER_RIVER_PATH 是同一条几何,
     所以填色边缘与蓝线严格重合.
     """
@@ -135,7 +139,7 @@ def load_reference_region():
 
 
 def load_dnieper() -> tuple:
-    """读取第聂伯河干流中心线与梯级水库水面(由 prepare_data.py 从 OSM 派生).
+    """读取第聂伯河干流中心线与梯级水库水面(由本仓 prepare.py 从 OSM 派生).
 
     干流与水库分开存: 干流是线, 水库是面, 绘图时用不同样式, 且水面要盖住
     穿过水库的那段中心线(水面内不该再看到河道线).
@@ -146,7 +150,7 @@ def load_dnieper() -> tuple:
 
 
 def load_dniester():
-    """读取德涅斯特河干流中心线(由 prepare_data.py 从 OSM main_stream 派生).
+    """读取德涅斯特河干流中心线(由本仓 prepare.py 从 OSM main_stream 派生).
 
     单独读,单独画的原因: NE 10m 河网里那条同名河已被剔除, 否则同一条河会出现
     两条位置略有差异的线; 而德左参照面的西缘用的正是这条 OSM 线, 绘图也用同
@@ -398,7 +402,7 @@ def draw_basemap_layers(
     水库 3~15 km).
 
     ``river_extensions`` 是南布格河/顿河的整条中心线(NE 上段 + OSM 下段拼好,
-    见 prepare_data.py): 与一般河流同一图层,同一线型画.
+    见本仓 prepare.py): 与一般河流同一图层,同一线型画.
 
     ``dniester_river`` 是 OSM 的德涅斯特河中心线, 也并入一般河流图层画: NE 的
     同名要素已在 _load_vectors 里剔除.

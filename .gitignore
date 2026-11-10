@@ -1,8 +1,10 @@
 prompt.md
 **/__pycache__
 **/data
+/config.toml
 *.png
 *.svg
 *.geo.json
 *.PNG
 *.SVG
+**/build/

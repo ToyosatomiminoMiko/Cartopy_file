@@ -129,7 +129,6 @@ def check_source_pointers(errors: list[str]) -> int:
         if (
             ".venv" in rel.parts
             or "data" in rel.parts
-            or "miko_gis_data" in rel.parts
             or rel.as_posix() in NO_POINTER
         ):
             continue

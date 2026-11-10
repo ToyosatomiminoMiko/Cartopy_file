@@ -25,8 +25,9 @@
 # 图名 (脚本路径)
 
 - 源码: [`Myanmar/xxx.py`](../../Myanmar/xxx.py)
-- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)
-- 产物: `<子项目>/map/xxx.svg`(地图) 与 `<子项目>/text/xxx.geo.json`(文字信息)
+- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(子命令见"运行")
+- 产物: `<子项目>/map/xxx.svg`(地图) 与 `<子项目>/text/xxx.geo.json`(文字信息);
+  有派生数据时另写 `<子项目>/build/xxx.geojson`
 
 ## 是什么
 ## 设计要点
@@ -36,11 +37,14 @@
 ## 注意事项
 ```
 
-- 元信息三行必填: `源码`(绘图模块),`入口`(子项目 `main.py`),`产物`;
+- 元信息三行必填: `源码`(绘图模块, 有派生数据时也写 `prepare.py`),`入口`(子项目
+  `main.py`),`产物`;
 - 节序固定为 是什么 -> 设计要点 -> 数据 -> 运行 -> 注意事项, 整节可省略, 不可调换或自创;
 - 设计要点内部用 `### 1. 主题` 编号, 便于正文里互相引用;
-- "数据"写数据根相对路径与数据项目命令; "运行"只写 `render`, 数据准备命令指向数据项目;
-- 同一图种只有绘图模块, 不再有 `download_*.py` / `prepare_*.py` 页或小节.
+- "数据"写原始数据(`<数据根>/.../raw/...`)与本仓派生文件(`<子项目>/build/...`)的位置, 以及
+  数据项目的 `download` 命令; "运行"写 `<子项目>/main.py prepare`(有派生数据时)与 `render`;
+- 同一图种只写绘图模块与 `prepare.py` 两类源码小节; 数据项目侧的下载不在本仓文档里. 派生流程
+  统一写 [reference/prepare.md](reference/prepare.md).
 
 ## 参考页模板
 
@@ -57,6 +61,8 @@
 ```
 
 - 节序固定, 整节可省略; `关键行为` 按函数/参数逐条写, `用法` 给可直接复制的代码块;
+- 跨模块的流程页(`reference/prepare.md`)也按这套模板写, `源码` 列相关文件, `导入` 写实际
+  使用方式(如 `python <子项目>/main.py prepare`);
 - 包入口(`__init__.py`)的说明并入 [overview.md](overview.md), 不单列页面;
 - 只被某个图种使用的兼容 shim 不建页, 在对应参考页里用一段说明;
 - 数据清单契约不是某个模块的 API, 单独一页 [reference/manifest.md](reference/manifest.md).
@@ -80,10 +86,12 @@
 
 - 仓库内路径一律写成仓库根相对: `Myanmar/xxx.py`,`src/cartopy_file/...`,`docs/...`; 不写裸
   `data/`(容易和别的图种目录混淆).
-- **数据路径写"数据根相对"**: `<数据根>/<region>/raw/...`,`<数据根>/<region>/derived/...`,
-  共享 Natural Earth 图层写 `<数据根>/cartopy/...`; 不写 `<子项目>/data/...`(本仓已没有
-  子项目私有数据目录), 也不写任何绝对路径.
+- **原始数据写"数据根相对"**: `<数据根>/<region>/raw/...`, 共享 Natural Earth 图层写
+  `<数据根>/cartopy/...`; 不写 `<子项目>/data/...`(子项目没有私有数据目录), 也不写
+  任何绝对路径.
 - 清单里的 `dest`/`files` 是相对 `<数据根>/<region>/` 的路径, 文档引用时补全到数据根口径.
+- 派生数据写仓库根相对路径: 在 `<子项目>/build/`(由 `config.py` 的 `build_path(...)` 声明),
+  不进数据根, 也不进清单.
 - 产物写仓库根相对路径: 地图在 `<子项目>/map/`, 文字信息在 `<子项目>/text/`(同 stem).
 - 页间链接用相对路径; 外部链接只出现在 [data-preparation.md](data-preparation.md) 的数据
   来源处.
@@ -126,7 +134,9 @@
   注释里只留指针;
 - 不复述文档页的设计段落: 同一段理由只写在文档页, 代码注释写"见 docs/...";
 - 改实现时如果理由变了, 文档页与注释一起改;
-- 数据获取/下载/派生相关代码的指针指向数据项目的文档, 不指向本仓的图种页.
+- 绘图模块的指针指向图种页; 派生模块(`prepare.py`)与共享几何工具指向
+  [reference/prepare.md](reference/prepare.md) / [reference/geometry.md](reference/geometry.md)
+  与图种页; 数据下载相关代码**不在本仓**, 要改数据源就改数据项目并同步两边的数据说明页.
 
 ## 文档指针
 
@@ -134,26 +144,28 @@
 `docs/...md` 指针, 且该页面必须存在; 指针写错或页面被删都会让检查失败. 指向规则:
 
 - 绘图模块与子项目 `main.py` -> 对应的 `docs/maps/<slug>.md`;
-- 共享模块 -> 对应的 `docs/reference/<module>.md`;
-- 数据获取/派生/清单相关代码 -> 数据项目自己的 `docs/`, 不要指向本仓页面;
+- `prepare.py` -> `docs/reference/prepare.md` + 对应图种页;
+- 共享模块 -> 对应的 `docs/reference/<module>.md`(几何工具见 `geometry.md`);
+- 数据下载/清单**写出侧**在数据项目, 相关代码指针指向数据项目自己的 `docs/`;
 - 一个模块只留一处"完整说明: `docs/...`"式完整指针, 其余引用写短路径或只写文件名.
 
 ## 脚本入口
 
-- 每个子项目**只有一个可执行文件** `<子项目>/main.py`, 且只有 `render` 子命令; 文档里的
-  出图命令一律从这个入口写, 不写绘图模块文件名;
+- 每个子项目**只有一个可执行文件** `<子项目>/main.py`: 有派生数据的子项目有 `prepare` 与
+  `render` 两个子命令, 没有派生数据的(苏联/美军基地演示)只有 `render`; 文档里的派生/出图
+  命令一律从这个入口写, 不写模块文件名;
 - 其余 `.py` 都是模块: 只导出 `run(...)`, 不写 argparse/main; 直接执行时报错并指向入口;
-- 数据准备(下载/派生/发布清单)不在本仓: 统一走独立数据项目 `miko_gis_data/main.py` 的
-  `check` / `download` / `prepare` / `publish` / `all`;
+- 数据下载/入库/解压与发布清单不在本仓: 统一走独立数据项目 `miko_gis_data/main.py` 的
+  `check` / `download` / `publish` / `all`; 清洗/派生/裁剪在本仓各子项目的 `prepare.py`;
 - 框架层脚本(`tools/*.py`,`global.py`)不受此约束, 仍可独立运行;
 - 新增子命令时同步本页与该图种页的"运行"节.
 
 ## 维护流程
 
 1. 改实现,参数或数据源 -> 同步改对应页, 同一个 commit 或紧邻 commit;
-2. 改数据源/版本/下载范围 -> 同时改数据项目的 `sources.py` / 区域 `config.py`, 重新
+2. 改原始数据源/版本/下载范围 -> 同时改数据项目的 `sources.py` / 区域 `config.py`, 重新
    `publish`, 并同步两边的数据说明页(本仓 [data-preparation.md](data-preparation.md) 与数据
-   项目的 `docs/`);
+   项目的 `docs/`); 改派生逻辑 -> 重跑本仓 `<子项目>/main.py prepare` 再重出图;
 3. 新增图种或共享模块 -> 按 [add-map.md](add-map.md) 的清单逐项补;
 4. 提交前跑 `uv run python tools/check_all.py`(含 `check_docs`): 死链,元信息,节序,索引
    覆盖,源码指针五类全绿再提交.

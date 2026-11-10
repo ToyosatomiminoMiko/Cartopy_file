@@ -2,8 +2,9 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Ukraine subproject: the render spec of the Ukraine overview map.
 
-是什么: 乌克兰全图的规格(画框,投影,双色带,经纬网,图例,文案). 数据清单与下载范围已
-拆到数据项目 miko_gis_data, 这里只留绘图需要的数值.
+是什么: 乌克兰全图的规格(画框,投影,双色带,经纬网,图例,文案), 以及 ``prepare`` 生成的
+12 份派生数据在本子项目 ``build/`` 下的位置. 原始数据清单与下载范围在数据项目
+miko_gis_data; 清洗/裁剪口径在本子项目的 prepare.py.
 完整说明见 ``docs/reference/spec.md``; 设计取舍(边界口径,河流补段,色带)见
 ``docs/maps/ukraine.md``.
 """
@@ -21,12 +22,31 @@ from cartopy_file.spec import (
     Projection,
     Relief,
     Sheet,
+    build_path,
 )
 
 ROOT = Path(__file__).resolve().parent
 
 # 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
 DATA_GROUP = "ukraine"
+
+# ============================
+# 派生产物(本仓 prepare.py 生成, 目录布局见 docs/reference/spec.md)
+# ============================
+# 清洗/裁剪后的 GeoJSON 放在本子项目 build/ 下: 它是图种口径的中间产物, 不属于数据根;
+# 删掉后重跑 ``python Ukraine/main.py prepare`` 即可恢复(不会重新联网).
+OBLASTS_GEOJSON = build_path(ROOT, "ukraine_oblasts.geojson")
+BORDER_1991_GEOJSON = build_path(ROOT, "ukraine_1991.geojson")
+CRIMEA_LINE_GEOJSON = build_path(ROOT, "crimea_2014_line.geojson")
+OCCUPIED_2014_GEOJSON = build_path(ROOT, "occupied_2014.geojson")
+CONTACT_2014_GEOJSON = build_path(ROOT, "contact_line_2014.geojson")
+CLAIMED_2022_GEOJSON = build_path(ROOT, "claimed_2022.geojson")
+TRANSNISTRIA_GEOJSON = build_path(ROOT, "transnistria.geojson")
+DNIEPER_RIVER_GEOJSON = build_path(ROOT, "dnieper_river_osm.geojson")
+DNIEPER_WATER_GEOJSON = build_path(ROOT, "dnieper_water_osm.geojson")
+DNIESTER_RIVER_GEOJSON = build_path(ROOT, "dniester_river_osm.geojson")
+SOUTHERN_BUG_GEOJSON = build_path(ROOT, "southern_bug_river_osm.geojson")
+DON_GEOJSON = build_path(ROOT, "don_river_osm.geojson")
 
 # ============================
 # 画框

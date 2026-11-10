@@ -150,7 +150,7 @@ def render(
         _warn_coverage(sheet, dataset, covered)
         path = Path(dem_path) if dem_path is not None else catalog.path(dataset)
         if not path.exists():
-            hint = dataset.note or "数据项目 miko_gis_data 的 download/prepare"
+            hint = dataset.note or "数据项目 miko_gis_data 的 download"
             raise FileNotFoundError(f"未找到高程数据: {path}\n请先准备数据({hint})")
         ctx.lon, ctx.lat, ctx.z = relief_helpers.load_elevation(path)
         if sheet.relief is None:

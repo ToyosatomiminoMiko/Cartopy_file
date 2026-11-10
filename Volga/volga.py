@@ -93,12 +93,18 @@ def _data() -> VolgaData:
 
 
 def _require(path: Path) -> Path:
-    """检查数据文件存在, 缺失时按 raw/derived 给出对应的准备子命令."""
+    """检查数据文件存在, 缺失时按原始数据/派生数据给出对应的准备命令."""
     if not path.exists():
-        # raw/ 由 download 子命令准备, derived/ 由 prepare 子命令准备,
+        # build/ 下的 GeoJSON 由本仓 prepare 生成; 其余是数据仓 download 的原始数据,
         # 见 docs/maps/volga.md 运行一节.
-        command = "download" if "raw" in path.parts else "prepare"
-        raise FileNotFoundError(f"未找到数据: {path}\n请先运行: python Volga/main.py {command}")
+        if "build" in path.parts:
+            raise FileNotFoundError(
+                f"未找到派生数据: {path}\n请先运行: python Volga/main.py prepare"
+            )
+        raise FileNotFoundError(
+            f"未找到原始数据: {path}\n请到数据项目 miko_gis_data 运行: "
+            "python main.py download --group volga"
+        )
     return path
 
 
@@ -138,8 +144,8 @@ def load_vectors(extent) -> tuple[gpd.GeoDataFrame, object, object]:
     来自仓库 data/cartopy 里已缓存的 Natural Earth 10m 图层(见 add_rivers /
     add_water), 不需要各图种再下载一份.
     """
-    subjects = gpd.read_file(_require(CATALOG.path("volga-subjects")))
-    basin = unary_union(gpd.read_file(_require(CATALOG.path("volga-basin"))).geometry)
+    subjects = gpd.read_file(_require(config.VOLGA_SUBJECTS_GEOJSON))
+    basin = unary_union(gpd.read_file(_require(config.VOLGA_BASIN_GEOJSON)).geometry)
     # 流域面裁到俄罗斯陆地: HydroBASINS 的单元边界在里海岸边比 GADM 岸线
     # 略靠外, 不裁的话浅蓝填色会在海面上多出一圈岸线误差(约 1500 km²);
     # 行政区的陆地并集与国界同源, 裁完岸线才与国界对齐.
@@ -151,7 +157,7 @@ def load_vectors(extent) -> tuple[gpd.GeoDataFrame, object, object]:
     if ocean is not None:
         land = land.difference(ocean.intersection(_view_box(extent, pad=1.0)))
     basin = unary_union(polygon_parts(basin.intersection(land)))
-    border = unary_union(gpd.read_file(_require(CATALOG.path("russia-border"))).geometry)
+    border = unary_union(gpd.read_file(_require(config.RUSSIA_BORDER_GEOJSON)).geometry)
     return subjects, basin, border
 
 

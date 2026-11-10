@@ -16,7 +16,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from .data import DATA_ROOT_ENV, data_root, manifest_path, natural_earth_paths
+from .data import CONFIG_FILE, data_root, manifest_path, natural_earth_paths
 from .spec import Extent
 
 __all__ = ["Catalog", "DatasetView", "SourceInfo", "catalog_for"]
@@ -101,13 +101,12 @@ class Catalog:
 
     @property
     def raw_dir(self) -> Path:
-        """原始数据目录(下载原样); 渲染侧按文件名挑 ETOPO 步长时用."""
-        return self.root / "raw"
+        """原始数据目录(下载原样); 渲染侧按文件名挑 ETOPO 步长时用.
 
-    @property
-    def derived_dir(self) -> Path:
-        """派生数据目录(脚本生成物)."""
-        return self.root / "derived"
+        注意: 派生数据不在数据根里, 而是各子项目 ``build/`` 下(见 prepare 子命令与
+        docs/reference/prepare.md), 所以这里不再提供 derived_dir.
+        """
+        return self.root / "raw"
 
     def patterns(self, dataset: DatasetView | str) -> tuple[str, ...]:
         """判定"已就位"用的 glob(相对区域数据目录)."""
@@ -234,7 +233,7 @@ def _load() -> _Manifest:
         raise FileNotFoundError(
             f"数据清单不存在: {path}\n"
             "请先准备数据: 到数据项目 miko_gis_data 运行 `python main.py all`, "
-            f"或把环境变量 {DATA_ROOT_ENV} 指向已就绪的数据根."
+            f"再确认仓根 {CONFIG_FILE} 的 data_root 指向那个数据根."
         )
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("format") != MANIFEST_FORMAT:

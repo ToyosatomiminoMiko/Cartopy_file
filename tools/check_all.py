@@ -23,9 +23,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ("tools/check_docs.py", "tools/check_geo.py")
-# 不参与语法编译的目录: 依赖由 uv 管理, 数据与产物不归本仓源码维护;
-# miko_gis_data 是独立数据项目(会被整体移走), 由它自己的 tools/check_all.py 负责.
-SKIP_DIRS = frozenset({".git", ".venv", "__pycache__", "data", "miko_gis_data"})
+# 不参与语法编译的目录: 依赖由 uv 管理, 数据根与产物不归本仓源码维护.
+SKIP_DIRS = frozenset({".git", ".venv", "__pycache__", "data"})
 
 
 def run_script(relative: str) -> bool:

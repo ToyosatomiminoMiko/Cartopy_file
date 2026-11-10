@@ -25,7 +25,7 @@
 2. 若 `sheet.basemap`, 读共享 Natural Earth 国家多边形并铺海陆底色;
 3. 若 `sheet.dem_id`, 按 `catalog.get(dem_id)` 取数据集, 核对它的 `bbox` 是否盖住 `covered`
    (盖不住打印警告), 读高程, 按 `Sheet.relief` 铺晕渲; `dem_path` 传入时直接用那个文件;
-4. 调 `draw(ctx)` -- 图种特有的图层, 包括城市点,经纬网, 顺序与改前成品一致;
+4. 调 `draw(ctx)` -- 图种特有的图层, 包括城市点,经纬网; 叠放顺序由 `draw` 决定;
 5. 若 `sheet.tight_layout`, 先 `plt.tight_layout()`;
 6. `GeoDoc(figure_frame(fig, ax))`, 调 `collect(doc, ctx)` 登记 geo; `collect=None` 时调
    `layers.standard_collect(doc, ax, sheet, catalog)`;
@@ -38,13 +38,13 @@
 `render` 的其它参数:
 
 - `catalog`(必填): 该子项目的 [`Catalog`](catalog.md), 由入口或绘图模块用
-  `catalog_for(config.DATA_GROUP)` 取; `runner` 不再接受旧的 `DatasetSet`;
+  `catalog_for(config.DATA_GROUP)` 取;
 - `collect=None`: 用默认收集(见上); 只有在图种有动态数据(图例按主题变化,图上有算出来的
   数值)时才自己写 `collect`, 并且仍建议在里面调 `layers.standard_collect` 再补字段;
 - `label_vars`: 地名 `text`,`notes`,`area_annotation` 里的 `{name:.0f}` 占位符取值,
   出图时才知道的数(如流域面积)走这里, 不要让 `config.py` 去读数据;
 - `area_annotation`: 图外面积注记(geo.suggestions 的对应字段), 同样是出图时才知道的数;
-- `close` / `dpi` / `show`: 关窗,内嵌栅格密度,保存后弹窗, 与之前一致.
+- `close` / `dpi` / `show`: 关窗,内嵌栅格密度,保存后弹窗.
 
 命令行参数(`--dpi` / `--show` / `--stride` 等)由子项目入口 `main.py` 解析, 本模块只接收
 解析好的值; 入口与绘图模块的分工见 [reference/spec.md](spec.md) 与
@@ -83,8 +83,8 @@ def run(*, stride=None, dpi=None, show=False) -> int:
 - 不要用 `bbox_inches="tight"`: 它会把几何再平移缩放一次, 引入第二套坐标, 让 geo 的锚点
   对不上底图; 裁剪只改根标签的 viewBox;
 - 不要用 `constrained_layout`/`tight_layout` 去「顺手修版面」: cartopy 0.25 在非矩形投影上
-  会让 gridliner 用未闭合顶点构造多边形而抛 `GEOSException`. 只有原来就用 `tight_layout`
-  的图(苏联)通过 `Sheet.tight_layout=True` 保留该行为;
+  会让 gridliner 用未闭合顶点构造多边形而抛 `GEOSException`. 需要 `tight_layout` 的图(苏联)
+  通过 `Sheet.tight_layout=True` 启用该行为;
 - 覆盖不足只打印警告不报错: 画框角落本来就有底图颜色兜底, 但看到警告应当回数据项目核对区域
   配置的 `bbox`(它写进 manifest, 出图时与画框比对), 那说明下载范围和绘图范围又分叉了;
 - 共享图层缺失是**硬失败**: `_require_shared_layers` 在画图前抛错, 提示到数据项目跑

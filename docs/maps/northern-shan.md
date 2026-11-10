@@ -1,7 +1,7 @@
 # 掸邦/特区地形图 (Myanmar/northern_shan.py)
 
 - 源码: [`Myanmar/northern_shan.py`](../../Myanmar/northern_shan.py)
-- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(唯一入口, 只有 `render` 子命令)
+- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(唯一入口: `prepare` 派生 + `render` 出图)
 - 产物: `Myanmar/map/northern_shan_topography_etopo2022_lambert_conformal.svg`(地图) 与
   `Myanmar/text/northern_shan_topography_etopo2022_lambert_conformal.geo.json`(文字信息)
 
@@ -21,7 +21,7 @@ role(如 `area-accent-1` ~ `area-accent-4`)决定, 样式由前端 role 表统�
 
 - 范围 95.3~101.5°E, 19.0~24.75°N: 北到果敢/勐古的中缅边界, 东到湄公河(老挝边界),
   西到曼德勒省/勃固省一带;
-- 南界取 19.0°N: 佤邦(南)最南到 19.67°N, 原先的 21.0°N 会把它拦腰截断; 19.0°N 还能
+- 南界取 19.0°N: 佤邦(南)最南到 19.67°N, 取 21.0°N 会把它拦腰截断; 19.0°N 还能
   带出克耶邦北部与南掸邦军活动区的一部分;
 - 投影: 兰勃特等角圆锥投影, 中央经线 98.4°E, 标准纬线 20.0°N / 24.0°N. 区域东西约
   6.2°,南北约 5.75°, 投影后约 653 × 636 km, 接近正方形, 画布也接近方形.
@@ -52,8 +52,8 @@ Ukraine 图一致: 下面的地形与区域填色透出来, 与它重合的区�
   自己公布的图基本一致, 比手工描点精确得多;
 - 国界也从 OSM 取, 与区域边界共享同一批 way/节点, 严丝合缝(理由见上一条);
 - 在本地拼装: Overpass 只返回 relation + 成员 way, 一个多边形往往由几十段 way 首尾相接;
-  脚本用 shapely 拼成线段后 `polygonize`, 再按 outer/inner 挖洞得到标准 GeoJSON 多边形,
-  国界按 way 缓存成 MultiLineString.
+  本仓 `Myanmar/prepare.py` 用 shapely 拼成线段后 `polygonize`, 再按 outer/inner 挖洞得到
+  标准 GeoJSON 多边形, 国界按 way 拼成 MultiLineString.
 
 数据来源: OpenStreetMap 贡献者, ODbL 1.0(许可见 [`data-preparation.md`](../data-preparation.md)).
 
@@ -61,34 +61,37 @@ Ukraine 图一致: 下面的地形与区域填色透出来, 与它重合的区�
 
 两条干流是本图最主要的自然地理参照, 从一般河流图层里单独强调: 先用 4.2 pt 浅色描边,再用
 1.9 pt 深蓝画线, 颜色与行政图同源; 一般河流保持 0.7 pt, 不抢层级. Natural Earth 10m 把两条
-江拆成多段(Salween 上游 `Nu` + 下游 `Salween`, Irrawaddy 另有三角洲段), 按 `name_en` 全部
+江分成多段(Salween 上游 `Nu` + 下游 `Salween`, Irrawaddy 另有三角洲段), 按 `name_en` 全部
 选出再画, 河线才不会在 20.95°N 的分段点断开. 数据取自共享的 Natural Earth 缓存
 (`<数据根>/cartopy/`, 数据项目统一预取), 不需要额外准备.
 
 ### 6. 图例与标注口径
 
 图例是数据不是代码: 10 个条目(4 个区域色块,原果敢自治区,MNDAA 斜线,国界,省/邦界,
-河流,特区首府)按旧面板顺序声明在 `Myanmar/config.py` 的 `NORTHERN_SHAN_LEGEND`, 标题是
-`NORTHERN_SHAN_LEGEND_TITLE`; `geo.legend` 由 `layers.standard_collect` 写入, 模块不再手拼
-`set_legend`. 区域填充/边界色,国界线型,河流与首府符号色也一并从模块搬到 config, 图例与
+河流,特区首府)按面板顺序声明在 `Myanmar/config.py` 的 `NORTHERN_SHAN_LEGEND`, 标题是
+`NORTHERN_SHAN_LEGEND_TITLE`; `geo.legend` 由 `layers.standard_collect` 写入, 模块不手拼
+`set_legend`. 区域填充/边界色,国界线型,河流与首府符号色也都声明在 config, 图例与
 地图共用同一份(`REGION_STYLES`,`KOKANG_SAZ_FILL`,`MNDAA_HATCH_COLOR`,`COLOR_BORDER` 等),
 改色时两边一起变.
 
 地名表同样声明在 config, 顺序就是前端叠放顺序(邻国/省邦 -> 特区/区域名 -> 河名 -> 城名);
-id 前缀沿用旧版(area/region/river/city), 由 `id_kind`/`role` 决定, `name` 是 ASCII slug.
-旧产物的 `suggestions.area_annotation` 是空数组, `standard_collect` 缺省不写这个键, 所以
-`run()` 显式传 `area_annotation=()` 保持产物不变(本图没有图外的面积注记).
+id 前缀是 area/region/river/city, 由 `id_kind`/`role` 决定, `name` 是 ASCII slug.
+本图没有图外的面积注记: `suggestions.area_annotation` 保持空数组, `standard_collect` 缺省
+不写这个键, 所以 `run()` 显式传 `area_annotation=()`.
 
 ## 数据
 
-数据由独立数据项目 `miko_gis_data` 准备, 路径相对数据根(数据根定位见
-[data-preparation.md](../data-preparation.md)):
+原始数据(ETOPO 与 Overpass 原始响应)由独立数据项目 `miko_gis_data` 下载, 派生文件由本仓
+`prepare` 拼装; 数据根定位见 [data-preparation.md](../data-preparation.md), 派生流程见
+[reference/prepare.md](../reference/prepare.md):
 
 | 文件 | 内容 | 准备方式 |
 | --- | --- | --- |
 | `<数据根>/myanmar/raw/ETOPO_2022_v1_15s_northern_shan_stride1.nc` | 15 弧秒高程子集 | 数据项目 `python main.py download --group myanmar --region northern-shan` |
-| `<数据根>/myanmar/raw/regions/shan_north_boundaries.geojson` | 特区/自治区域多边形(OSM) | 同上 |
-| `<数据根>/myanmar/raw/regions/osm_country_borders.geojson` | 画框附近 OSM 国界线 | 同上 |
+| `<数据根>/myanmar/raw/regions/osm_shan_relations/group_XX.json` | OSM 特区/自治区域 relation 的 Overpass 原始响应(按查询分组) | 数据项目 `python main.py download --group myanmar --region northern-shan` |
+| `<数据根>/myanmar/raw/regions/osm_country_borders.json` | 画框附近 OSM 国界的 Overpass 原始响应 | 同上 |
+| `Myanmar/build/shan_north_boundaries.geojson` | 拼装后的特区/自治区域多边形 | 本仓 `python Myanmar/main.py prepare` |
+| `Myanmar/build/osm_country_borders.geojson` | 拼装后的画框附近国界线 | 本仓 `python Myanmar/main.py prepare` |
 | `<数据根>/cartopy/shapefiles/natural_earth/...` | 共享缓存的 Natural Earth 10m 国界(海陆底图)/河流/湖泊 | 数据项目 `python main.py download` 统一预取 |
 
 ETOPO 子集范围 94.6~102.1°E, 18.8~25.2°N: 画框南界是 19.0°N, 子集下探到 18.8°N 并留 0.2°
@@ -99,26 +102,26 @@ ETOPO 子集范围 94.6~102.1°E, 18.8~25.2°N: 画框南界是 19.0°N, 子集�
 唯一入口是 `Myanmar/main.py`, 其余 `Myanmar/*.py` 都是模块(直接运行会报错并提示入口):
 
 ```bash
-# 数据项目根目录: 首次准备(已就位则跳过)
-cd miko_gis_data
-python main.py download --group myanmar --region northern-shan
-python main.py publish
-cd ..
+# 数据项目根(与本仓平级时: ../miko_gis_data): 下载原始数据 + 发布清单(已就位则跳过)
+(cd ../miko_gis_data && python main.py download --group myanmar --region northern-shan)
+(cd ../miko_gis_data && python main.py publish)
 
-# 渲染仓: 出图
+# 渲染仓: 把 Overpass 原始响应拼成绘图用 GeoJSON, 再出图
+python Myanmar/main.py prepare
 python Myanmar/main.py render --sheet northern-shan
 ```
 
 数据项目的 `download --region northern-shan` 下掸邦的 ETOPO 子集(该区域登记 stride 1, 可用
-`--stride` 覆盖)并抓取 OSM 区域/国界; 加 `--skip-regions` 可跳过后者. 同一条命令还会准备
-行政区图的 GADM/NE 河流/OSM 内比都原始数据(文件已就位时只跳过,不联网). `render` 的选项:
+`--stride` 覆盖)并抓取 OSM 原始响应; 加 `--skip-regions` 可跳过后者. 同一条命令还会准备
+行政区图的 GADM/NE 河流/OSM 内比都原始数据(文件已就位时只跳过,不联网). 本仓 `prepare` 负责
+把 relation + 成员 way 拼成多边形/折线, 不联网. `render` 的选项:
 `--stride`(指定 `<数据根>/myanmar/raw/` 下的采样步长), `--dpi`(内嵌晕渲像素密度, 默认 300),
 `--show`(保存后弹窗).
 
 ## 注意事项
 
-- ETOPO 与 OSM 边界都要先在数据项目准备好(一条 `download` 同时跑两步), 缺文件时绘图报错并
-  提示对应命令;
+- ETOPO 与 OSM 原始响应都要先在数据项目准备好(一条 `download` 同时跑两步), 缺文件时绘图报错
+  并提示对应命令; 本仓 `prepare` 再把这些响应拼成 `build/` 下的 GeoJSON;
 - 数据项目的下载都是"文件已存在就跳过", 刷新加 `--force`;
 - Overpass 公共实例常满负荷(502): 数据项目的下载脚本分批请求(佤邦整体单独一组, 否则与 5 个
   县关系合在一起容易 504), 并在多个镜像间轮换重试;

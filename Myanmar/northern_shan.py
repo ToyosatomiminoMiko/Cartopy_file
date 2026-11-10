@@ -59,9 +59,10 @@ plt.rcParams["hatch.linewidth"] = 0.45
 SHEET = config.SHEET_NORTHERN_SHAN
 CATALOG = catalog_for(config.DATA_GROUP)
 
-# 缓存路径由数据清单 manifest 给出(目录约定见 docs/reference/data.md).
-REGION_GEOJSON = CATALOG.path("osm-shan-regions")
-BORDER_GEOJSON = CATALOG.path("osm-country-borders")
+# 特区/国界 GeoJSON 由本仓 prepare.py 从数据仓的 Overpass 原始响应拼装到 build/
+# (目录布局见 docs/reference/spec.md).
+REGION_GEOJSON = config.SHAN_GEOJSON
+BORDER_GEOJSON = config.BORDER_GEOJSON
 
 # ============================
 # 本图特有图层
@@ -82,14 +83,13 @@ MAIN_RIVERS = ("Irrawaddy", "Salween")
 # 数据读取
 # ============================
 def load_regions(path: Path) -> dict[str, list]:
-    """读取 download_regions.py 缓存的 GeoJSON, 按图层分组返回 Shapely 几何.
+    """读取本仓 prepare.py 拼装的特区边界 GeoJSON, 按图层分组返回 Shapely 几何.
 
-    返回 {layer: [(properties, geometry), ...]}; layer 见 download_regions.py.
+    返回 {layer: [(properties, geometry), ...]}; layer 见 prepare.py 的 RELATIONS.
     """
     if not path.exists():
         raise FileNotFoundError(
-            f"未找到区域边界: {path}\n请先到数据项目 miko_gis_data 运行: "
-            "python main.py download --group myanmar"
+            f"未找到区域边界: {path}\n请先运行: python Myanmar/main.py prepare"
         )
     data = json.loads(path.read_text(encoding="utf-8"))
     grouped: dict[str, list] = {}
@@ -102,11 +102,10 @@ def load_regions(path: Path) -> dict[str, list]:
 
 
 def load_borders(path: Path):
-    """读取 download_regions.py 缓存的国界折线, 合并成一个 MultiLineString."""
+    """读取本仓 prepare.py 拼装的国界折线, 合并成一个 MultiLineString."""
     if not path.exists():
         raise FileNotFoundError(
-            f"未找到国界数据: {path}\n请先到数据项目 miko_gis_data 运行: "
-            "python main.py download --group myanmar"
+            f"未找到国界数据: {path}\n请先运行: python Myanmar/main.py prepare"
         )
     data = json.loads(path.read_text(encoding="utf-8"))
     return unary_union([shape(feature["geometry"]) for feature in data["features"]])
@@ -280,7 +279,7 @@ def add_special_regions(ax: plt.Axes, regions: dict[str, list], border_zone) -> 
 
     # MNDAA 实控区: 与第一特区辖区大体重合, 用斜线叠加表示"实际控制".
     # 说明: 2026 年公开报道与 OSM 边界显示实控区已基本覆盖特区辖区;
-    # 若将来边界变化, 重跑 download_regions.py 即可.
+    # 若将来边界变化, 重跑 Myanmar/main.py prepare 即可.
     sr1_geom = unary_union([g for _, g in regions["sr1"]])
     ax.add_geometries(
         [sr1_geom],

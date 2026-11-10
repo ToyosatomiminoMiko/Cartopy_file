@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Myanmar subproject entry point: render the three Myanmar maps.
+"""Myanmar subproject entry point: prepare derived data and render the three maps.
 
-是什么: 缅甸子项目的唯一可执行入口. ``render`` 按 ``--sheet`` 出一到三张图, 地图进
-``Myanmar/map/``,文字信息进 ``Myanmar/text/``. 数据(EToPo 高程, OSM 特区边界, 行政区
-GeoJSON 等)由独立数据项目 miko_gis_data 准备, 本入口不再提供 download/prepare.
+是什么: 缅甸子项目的唯一可执行入口. ``prepare`` 读数据仓的原始数据, 按本图口径清洗/裁剪/
+拼装后写到 ``Myanmar/build/``; ``render`` 按 ``--sheet`` 出一到三张图, 地图进
+``Myanmar/map/``, 文字信息进 ``Myanmar/text/``.
 为什么只有一个入口: 全项目约定「一个子项目一个可执行文件, 其余 .py 只导出 run()」;
 参数解析与退出码归这里, 模块不再各自解析命令行. 子命令分派用懒导入, 只有真正出图时
-才加载 matplotlib/cartopy.
-完整说明(三张图的投影/数据源/运行方式)见 ``docs/maps/myanmar.md``,
-``docs/maps/myanmar-admin.md`` 与 ``docs/maps/northern-shan.md``.
+才加载 matplotlib/cartopy, 只有 prepare 时才加载 shapely/geopandas.
+完整说明(三张图的投影/数据源/运行方式)见 ``docs/reference/prepare.md``,
+``docs/maps/myanmar.md``, ``docs/maps/myanmar-admin.md`` 与 ``docs/maps/northern-shan.md``.
 """
 
 from __future__ import annotations
@@ -31,12 +31,17 @@ RENDER_MODULES = {
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """构造命令行: 只有 render 子命令(数据准备在 miko_gis_data)."""
+    """构造命令行: prepare(派生) 与 render(出图) 两个子命令."""
     parser = argparse.ArgumentParser(
         prog="python Myanmar/main.py",
-        description="缅甸子项目统一入口: 出图(数据由 miko_gis_data 准备).",
+        description="缅甸子项目统一入口: 派生数据(prepare)与出图(render).",
     )
     subparsers = parser.add_subparsers(dest="command", required=True, metavar="<子命令>")
+
+    subparsers.add_parser(
+        "prepare",
+        help="读数据仓原始数据, 重建 Myanmar/build/ 下的派生 GeoJSON",
+    )
 
     render = subparsers.add_parser("render", help="出图(地图 SVG + 同名 geo.json)")
     render.add_argument(
@@ -59,6 +64,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     render.add_argument("--show", action="store_true", help="保存后弹出交互窗口(需要图形界面)")
     return parser
+
+
+def prepare() -> int:
+    """全量重建本子项目的派生数据; 返回进程退出码."""
+    from importlib import import_module
+
+    return import_module("prepare").run()
 
 
 def render(
@@ -97,6 +109,8 @@ def render(
 def run(argv: list[str] | None = None) -> int:
     """解析命令行并分派; 返回进程退出码(0 成功)."""
     args = build_parser().parse_args(argv)
+    if args.command == "prepare":
+        return prepare()
     return render(sheet=args.sheet, stride=args.stride, dpi=args.dpi, show=args.show)
 
 

@@ -3,11 +3,10 @@
 """Myanmar subproject: per-sheet render config.
 
 是什么: 缅甸子项目的唯一配置入口--每张图的规格(画框,投影,色带,经纬网,地名,图例,
-图面配色,文案). 数据清单与下载范围已拆到数据项目 miko_gis_data, 这里只留绘图需要的
-数值; 图例与地图共用同一份颜色, 改色时图例跟着变.
+图面配色,文案), 以及 ``prepare`` 生成的三份派生数据在本子项目 ``build/`` 下的位置.
+原始数据清单与下载范围在数据项目 miko_gis_data; 清洗/裁剪口径在本子项目的 prepare.py.
 完整说明(实例规格层怎么分工)见 ``docs/reference/spec.md``; 各图种的设计取舍见
-``docs/maps/myanmar.md`` 等页面; 数据从哪来见数据项目 miko_gis_data 的
-``docs/data-preparation.md``.
+``docs/maps/myanmar.md`` 等页面; 数据从哪来见 ``docs/data-preparation.md``.
 """
 
 from __future__ import annotations
@@ -23,12 +22,22 @@ from cartopy_file.spec import (
     Projection,
     Relief,
     Sheet,
+    build_path,
 )
 
 ROOT = Path(__file__).resolve().parent
 
 # 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
 DATA_GROUP = "myanmar"
+
+# ============================
+# 派生产物(本仓 prepare.py 生成, 目录布局见 docs/reference/spec.md)
+# ============================
+# 清洗/裁剪后的 GeoJSON 放在本子项目 build/ 下: 它是图种口径的中间产物, 不属于数据根;
+# 删掉后重跑 ``python Myanmar/main.py prepare`` 即可恢复(不会重新联网).
+ADMIN_GEOJSON = build_path(ROOT, "myanmar_admin1.geojson")
+SHAN_GEOJSON = build_path(ROOT, "shan_north_boundaries.geojson")
+BORDER_GEOJSON = build_path(ROOT, "osm_country_borders.geojson")
 
 # ============================
 # 画框
@@ -169,10 +178,8 @@ SHEET_MYANMAR = Sheet(
 # 行政区划图 (myanmar_admin.py)
 # ============================
 # 行政区属性表: GADM 名称 -> (键名, 中文名, 英文名, 类型, 行政中心中文, 行政中心英文,
-# 中心经度, 中心纬度). 本表用于图例/标注排序/样式; 数据项目 miko_gis_data 的
-# regions/myanmar/config.py 有一份同名表, 用来给派生 GeoJSON 打 key/名称. 两份必须同步:
-# 只改这里只影响图面, 只改那边只影响派生数据, 两边同时改并重跑 prepare + render 才一致
-# (见 docs/data-preparation.md).
+# 中心经度, 中心纬度). 本表既用于图例/标注排序/样式, 也被本子项目 prepare.py 用来给
+# 派生 GeoJSON 打 key/名称: 图面与派生数据同源, 不会出现"改了名字但 GeoJSON 没跟上".
 # 行政中心坐标来自 Natural Earth 10m populated places, 实皆省的行政中心按现行建制
 # 改用蒙育瓦(Monywa), 不用 Natural Earth 里过时的实皆(Sagaing).
 # 类型: state=邦, region=省, union=联邦区.
@@ -667,7 +674,6 @@ SHEET_ADMIN = Sheet(
         "ne-rivers-10m",
         "gadm41-mmr",
         "osm-naypyidaw",
-        "myanmar-admin1",
     ),
     labels=ADMIN_LABELS,
     legend=ADMIN_LEGEND,

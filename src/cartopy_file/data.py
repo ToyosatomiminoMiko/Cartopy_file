@@ -2,21 +2,21 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Locate the data root, the manifest and cartopy's Natural Earth cache.
 
-是什么: 渲染仓唯一的"数据在哪"入口. 数据由独立项目 miko_gis_data 准备, 本仓只读:
-``CARTOPY_FILE_DATA`` 指向数据根(默认仓内 ``data/``, 其次仓内 ``miko_gis_data/data/``),
-数据根里的 ``manifest.json`` 由 ``catalog.py`` 解析, ``cartopy/`` 是共享底图缓存.
-本模块不下载任何东西; 数据根里没有清单时渲染会明确报错并指向数据项目.
-完整说明(目录约定,环境变量,为什么缓存要落在可写磁盘)见 ``docs/reference/data.md``.
+是什么: 渲染仓唯一的"数据在哪"入口. 数据根写在本仓根目录的 ``config.toml``
+(本机配置, 不进 git) 的 ``data_root`` 字段里; 本模块不读环境变量, 也不猜默认路径:
+没有配置就直接报错并说明怎么建. 数据根里的 ``manifest.json`` 由 ``catalog.py`` 解析,
+``cartopy/`` 是共享底图缓存. 本模块不下载任何东西.
+完整说明(配置格式,目录约定,为什么缓存要落在可写磁盘)见 ``docs/reference/data.md``.
 """
 
 from __future__ import annotations
 
 import os
+import tomllib
 from pathlib import Path
 
 __all__ = [
-    "DATA_ROOT_ENV",
-    "ROOT_ENV",
+    "CONFIG_FILE",
     "configure_cartopy",
     "data_root",
     "local_data_dir",
@@ -27,24 +27,16 @@ __all__ = [
     "subproject_dirs",
 ]
 
-# 与数据项目 miko_gis_data 共用的数据根环境变量: 两边读同一个值, 谁都不猜绝对路径.
-DATA_ROOT_ENV = "CARTOPY_FILE_DATA"
-# 手动指定渲染仓根目录(仅当无法由包安装路径推断时使用).
-ROOT_ENV = "CARTOPY_FILE_ROOT"
-# 数据项目暂放在本仓内时的默认位置(用户把 miko_gis_data 移走后不再适用).
-_NESTED_DATA_PROJECT = "miko_gis_data"
+# 本机配置文件: 只在仓库根, 不进 git; 机器相关的路径(数据根)只存在这里.
+CONFIG_FILE = "config.toml"
 
 
 def project_root() -> Path:
-    """返回渲染仓根目录.
+    """返回渲染仓根目录(``pyproject.toml`` 所在目录).
 
-    优先级: 环境变量 ``CARTOPY_FILE_ROOT`` > 由本文件位置推断 > 当前工作目录.
-    可编辑安装时本文件位于 ``<repo>/src/cartopy_file/data.py``, 上三级就是仓库根.
+    可编辑安装时本文件位于 ``<repo>/src/cartopy_file/data.py``, 上三级就是仓库根;
+    推断失败时退回当前工作目录.
     """
-    override = os.environ.get(ROOT_ENV)
-    if override:
-        return Path(override).expanduser().resolve()
-
     candidate = Path(__file__).resolve().parents[2]
     if (candidate / "pyproject.toml").is_file():
         return candidate
@@ -54,8 +46,7 @@ def project_root() -> Path:
         return cwd
 
     raise RuntimeError(
-        "无法定位项目根目录: 请用 `uv pip install -e .` 安装本项目, "
-        f"或设置环境变量 {ROOT_ENV} / {DATA_ROOT_ENV}."
+        "无法定位项目根目录: 请在仓库根运行, 或用 `uv pip install -e .` 安装本项目."
     )
 
 
@@ -66,34 +57,35 @@ def local_data_dir() -> Path:
     return base
 
 
-def _has_manifest(path: Path) -> bool:
-    """数据根是否已经发布过清单(用来区分"数据项目在哪")."""
-    return (path / "manifest.json").is_file()
+def _configured_root() -> Path | None:
+    """读仓根 ``config.toml`` 的 ``data_root``(相对路径按仓根解析); 缺配置/非法返回 None."""
+    conf = project_root() / CONFIG_FILE
+    if not conf.is_file():
+        return None
+    try:
+        config = tomllib.loads(conf.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        raise RuntimeError(f"{conf} 不是合法 TOML: {exc}") from exc
+    value = config.get("data_root")
+    if not isinstance(value, str) or not value.strip():
+        return None
+    path = Path(value.strip()).expanduser()
+    return (path if path.is_absolute() else project_root() / path).resolve()
 
 
 def data_root() -> Path:
-    """返回数据根目录(会自动建目录).
+    """返回数据根目录(唯一来源: 仓根 ``config.toml`` 的 ``data_root``).
 
-    优先级:
-    1. ``CARTOPY_FILE_DATA`` -- 数据项目被移出本仓后的唯一方式;
-    2. ``<仓根>/data`` -- 数据根就放在渲染仓里;
-    3. ``<仓根>/miko_gis_data/data`` -- 数据项目暂放在本仓内(未移走)时的默认位置.
+    配置缺失或非法时抛 ``RuntimeError`` 并说明怎么建: 不读环境变量, 也不设隐式默认
+    路径, 免得数据项目换了位置却静默读到别处的旧数据.
     """
-    override = os.environ.get(DATA_ROOT_ENV)
-    if override:
-        base = Path(override).expanduser().resolve()
-        base.mkdir(parents=True, exist_ok=True)
-        return base
-
-    repo = project_root()
-    candidates = (repo / "data", repo / _NESTED_DATA_PROJECT / "data")
-    for candidate in candidates:
-        if _has_manifest(candidate):
-            return candidate
-    # 都还没发布清单时退回仓内 data/, 让后续报错信息指向一个具体位置.
-    base = candidates[0]
-    base.mkdir(parents=True, exist_ok=True)
-    return base
+    configured = _configured_root()
+    if configured is None:
+        raise RuntimeError(
+            f"没有数据根配置: 在 {project_root() / CONFIG_FILE} 里写一行 "
+            'data_root = "<数据项目>/data"(本机路径, 不进 git), 格式见 docs/reference/data.md.'
+        )
+    return configured
 
 
 def manifest_path() -> Path:

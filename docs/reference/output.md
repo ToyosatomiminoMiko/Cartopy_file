@@ -5,15 +5,15 @@
 
 ## 是什么
 
-项目统一的 SVG 出口: 把 Figure 保存为**单个自包含的纯几何 SVG**, 不再输出 PNG. 本模块只做
+项目统一的 SVG 出口: 把 Figure 保存为**单个自包含的纯几何 SVG**, 只输出 SVG. 本模块只做
 三件事: 固定 SVG 相关的 rcParams,强制 `.svg` 后缀,把 Figure 写成一个文件.
 
 - `apply_svg_output()`: 导入 matplotlib 之后调用一次, 固定 `svg.image_inline`,`svg.hashsalt`
   与 `savefig.format`;
 - `save_svg()`: 把 Figure 保存为 `.svg`, 返回写入的路径; 后缀不是 `.svg` 时直接报错.
 
-本模块**不再处理文字/字体/标签布局**: 文字外置,字体子集与 `@font-face` 内嵌,手工标签布局
-(`labels.json`)与新增标注都已移除, 也不再读 `fonttools`. 产物里是否出现文字只取决于调用方,
+本模块**不处理文字/字体/标签布局**: 文字外置,字体子集与 `@font-face` 内嵌,手工标签布局
+(`labels.json`)与新增标注不属于本模块职责, 也不读 `fonttools`. 产物里是否出现文字只取决于调用方,
 绘图模块的约定是**不写任何文字**--地名,标题,图例,色标,刻度,注与来源由 `miko_svg_editor`
 的前端排版接管. 绘图模块不直接调 `save_svg()`, 而是走
 [`cartopy_file.geo.save_map()`](geo.md): 它先调本模块写出整张 Figure, 再把根标签裁到地图框,
@@ -60,12 +60,12 @@ save_map(fig, map_path(ROOT, SHEET.out), doc,
 ## 注意事项
 
 - 本模块不设置 `MPLCONFIGDIR`: 调用方仍必须在导入 matplotlib 之前调用
-  [`cartopy_file.data.prepare_matplotlib_env()`](data.md), 否则本机只读的 `~/.config` 会让
-  matplotlib 每次重建字体缓存;
+  [`cartopy_file.data.prepare_matplotlib_env()`](data.md), 否则默认落在 HOME 下的 `~/.config`,
+  matplotlib 会每次重建字体缓存;
 - 产物不入库: `.gitignore` 忽略 `*.svg`, `save_svg()` 只负责写文件, 成品按需生成,不随仓库提交;
 - 产物是纯几何地图是项目约定, 不是本模块自动剥离文字: 模块不要调用 `ax.text()`, 也不要画
   图例,色标,标题,刻度文字,比例尺或指北针; 这些信息的「该在哪/是什么」改由
   [`cartopy_file.geo`](geo.md) 登记进 geo.json;
-- `save_svg()` 不再接受文字/字体/标签布局相关的参数(如 `embed_text`,`placements`), 这些能力
-  已随 `labels.py`,`svgtext.py`,`fonts.py` 一起删除;
+- `save_svg()` 不接受文字/字体/标签布局相关的参数(如 `embed_text`,`placements`), 这些能力
+  不属于本模块;
 - 确定性以同一环境为前提: 换 matplotlib 版本或改 rcParams 后, 同样的数据可能写出不同的字节.

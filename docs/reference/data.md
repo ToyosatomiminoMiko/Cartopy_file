@@ -10,11 +10,12 @@
 
 - `project_root()`: 渲染仓根目录;
 - `local_data_dir()`: 渲染仓自己的可写缓存目录(`<仓根>/data`, 自动创建);
-- `data_root()`: 数据根目录, 数据项目发布 `manifest.json` 与各区域数据的那个目录;
+- `data_root()`: 数据根目录, 取自仓根 `config.toml` 的 `data_root`, 是数据项目发布
+  `manifest.json` 与各区域数据的那个目录;
 - `manifest_path()`: 数据清单的固定位置(`<数据根>/manifest.json`);
 - `prepare_matplotlib_env()`: 在导入 matplotlib 之前把 `MPLCONFIGDIR` 指到可写目录;
-- `configure_cartopy()`: 把 cartopy 的下载缓存定位到 `<数据根>/cartopy/`, 并登记旧缓存供只读
-  复用;
+- `configure_cartopy()`: 把 cartopy 的下载缓存定位到 `<数据根>/cartopy/`, 并把 HOME 下已有的
+  缓存登记为只读复用来源;
 - `natural_earth_paths()`: 查某个 Natural Earth 要素落在哪个缓存, 目标路径是哪, 不联网;
 - `subproject_dirs()`: 渲染仓里的子项目目录名(判定标准是目录里有 `config.py`), 供
   `tools/check_geo.py` 自动枚举产物.
@@ -24,32 +25,35 @@
 
 ## 关键行为
 
-| 内容 | 位置(缺省) | 覆盖方式 |
+| 内容 | 位置(缺省) | 说明 |
 | --- | --- | --- |
-| 数据根 | `<仓根>/data` 或 `<仓根>/miko_gis_data/data`(有 manifest 的那个) | 环境变量 `CARTOPY_FILE_DATA` |
+| 数据根 | 仓根 `config.toml` 的 `data_root` | 本机配置, 不进 git; 没有它 `data_root()` 直接报错 |
 | 数据清单 | `<数据根>/manifest.json` | 随数据根 |
-| matplotlib 配置缓存 | `<仓根>/data/.mplcache` | 可自己先设 `MPLCONFIGDIR`(函数用 `setdefault`) |
+| matplotlib 配置缓存 | `<仓根>/data/.mplcache` | 由 `prepare_matplotlib_env()` 在导入 matplotlib 前设好 |
 | cartopy 下载缓存 | `<数据根>/cartopy` | 由 `configure_cartopy()` 重定向 |
-| cartopy 旧缓存(只读复用) | 原 `~/.local/share/cartopy` 或 `CARTOPY_DATA_DIR` 指向的目录 | 环境变量 `CARTOPY_DATA_DIR` |
-| 渲染仓根目录 | 由本文件位置推断(可编辑安装时上三级即仓库根) | 环境变量 `CARTOPY_FILE_ROOT` |
+| cartopy 已有缓存(只读复用) | `~/.local/share/cartopy` | 只登记为 `pre_existing_data_dir`, 不写入 |
+| 渲染仓根目录 | 由本文件位置推断(可编辑安装时上三级即仓库根) | 推断失败退回当前工作目录 |
 | 子项目名单 | 仓库根下有 `config.py` 的目录 | 目录结构本身 |
 
-- 模块没有导入期副作用: 设环境变量,改 cartopy 配置只发生在显式调用函数时;
-- `project_root()` 优先级: `CARTOPY_FILE_ROOT` > 由本文件位置推断(上三级有 `pyproject.toml`
-  即仓库根) > 当前工作目录; 都失败时抛 `RuntimeError`;
-- `data_root()` 是**三级回退**, 顺序固定:
-  1. `CARTOPY_FILE_DATA`(指向别处或搬走数据项目后的唯一方式, 自动建目录);
-  2. `<仓根>/data`(里面有 `manifest.json` 时);
-  3. `<仓根>/miko_gis_data/data`(数据项目暂放在本仓内, 里面有 `manifest.json` 时);
-  都没有清单时退回 `<仓根>/data` 并建目录, 让后续报错指向一个具体位置;
-- 用"有没有 `manifest.json`"判定数据项目在哪: 空目录与真实数据根要能区分开, 否则会静默把
-  缓存目录当成数据根;
-- `local_data_dir()` 只建 `<仓根>/data`, 里面放 `.mplcache` 等本仓缓存; 它**不是**数据根,
-  除非把清单也放进去;
+- 模块没有导入期副作用: 改 cartopy 配置只发生在显式调用函数时;
+- `project_root()` 只按本文件位置推断(上三级有 `pyproject.toml` 即仓库根), 失败退回当前工作
+  目录, 再失败抛 `RuntimeError`; 不读环境变量;
+- `data_root()` 的**唯一来源**是仓根 `config.toml` 的 `data_root`(相对路径按仓根解析);
+  配置缺失或非法时抛 `RuntimeError`, 并在错误信息里给出该写什么. 不读环境变量, 也不设隐式
+  默认路径: 数据根换位置后宁可报错, 也不静默读到别处的数据;
+- `config.toml` 是本机文件(`.gitignore` 已忽略), 内容:
+
+  ```toml
+  data_root = "<数据项目>/data"
+  ```
+
+- 本模块只认`数据根`这一个概念, 不认识数据项目放在哪,目录叫什么; 两个仓之间只靠
+  `manifest.json` 与本机的 `config.toml` 耦合;
+- `local_data_dir()` 只建 `<仓根>/data`, 里面放 `.mplcache` 等本仓缓存; 它**不是**数据根;
 - `prepare_matplotlib_env()` 用 `setdefault`, 已自己指定 `MPLCONFIGDIR` 的脚本保持原样;
   返回实际生效的缓存目录;
-- `configure_cartopy()` 把 `cartopy.config["data_dir"]` 改成 `<数据根>/cartopy`, 并把改动前的
-  旧缓存登记为 `pre_existing_data_dir`; 重复调用是安全的(idempotent);
+- `configure_cartopy()` 把 `cartopy.config["data_dir"]` 改成 `<数据根>/cartopy`, 并把 HOME 下
+  已有的缓存登记为 `pre_existing_data_dir`; 重复调用是安全的(idempotent);
 - `natural_earth_paths()` 判断"是否已存在"只看 `.shp`(下载器把 shp/shx/dbf 一起解压),
   返回顺序故意让数据根里的项目缓存优先;
 - `subproject_dirs()` 用"目录里有 `config.py`"当判定: 子项目名单只在目录结构里出现一次,
@@ -57,17 +61,26 @@
 
 ### 为什么缓存要重定向
 
-本机 `/home` 是只读挂载, cartopy 默认的 `~/.local/share/cartopy` 与 matplotlib 默认的
-`~/.config/matplotlib` 都不可写: 要素没有缓存时渲染会尝试下载并失败. 所以 matplotlib 的
+缓存默认落在 HOME 下(`~/.local/share/cartopy`, `~/.config/matplotlib`), 机器一换就没了,
+HOME 只读时还会直接失败. 所以本模块把两类缓存都固定到仓库/数据根里: matplotlib 的
 `MPLCONFIGDIR` 指到 `<仓根>/data/.mplcache`, cartopy 缓存的写入位置指到 `<数据根>/cartopy`
 (数据项目用同一个布局写入, 两边读到同一份共享底图).
 
-`configure_cartopy()` 必须把旧缓存登记为 `pre_existing_data_dir`: cartopy 的 Downloader 先查
-`pre_existing_data_dir` 再查 `data_dir`, 两者都没有才联网. 改 `data_dir` 后如果不登记旧缓存,
-原先下在 HOME 里的文件会"看不见", 从而被重新下载一遍 -- 这正是要避免的. 渲染仓自己从不
-下载, 读不到就是数据没备好, 由 [catalog.py](catalog.md) 与 `runner` 报错指向数据项目.
+`configure_cartopy()` 必须把 HOME 下已有的缓存登记为 `pre_existing_data_dir`: cartopy 的
+Downloader 先查 `pre_existing_data_dir` 再查 `data_dir`, 两者都没有才联网. 不登记时 HOME 下
+已有的缓存文件会"看不见", 从而被重新下载一遍 -- 这正是要避免的. 渲染仓自己从不下载, 读不到
+就是数据没备好, 由 [catalog.py](catalog.md) 与 `runner` 报错指向数据项目.
 
 ## 用法
+
+本机一次性配置(路径按实际情况改, 不进 git):
+
+```toml
+# <仓根>/config.toml
+data_root = "<数据项目>/data"
+```
+
+脚本里照常调用:
 
 ```python
 from cartopy_file.data import prepare_matplotlib_env
@@ -95,9 +108,10 @@ manifest = manifest_path()    # <数据根>/manifest.json
 ## 注意事项
 
 - 数据根里没有 `manifest.json` 时, `catalog_for()` 会抛 `FileNotFoundError` 并提示到数据项目
-  运行 `python main.py all`; 这时先检查 `CARTOPY_FILE_DATA` 是否指对;
-- 本仓 `.gitignore` 忽略 `**/data`, 数据根与 `<仓根>/data` 都不入库; 换机器后到数据项目重跑
-  准备命令即可恢复(清单见 [data-preparation.md](../data-preparation.md));
-- `CARTOPY_DATA_DIR` 只被当作"旧缓存位置"登记为只读复用, 不是项目缓存的写入位置; 想让渲染
-  仓使用另一个数据根, 设 `CARTOPY_FILE_DATA`;
-- 渲染仓没有数据准备子命令: 数据缺失时不要在本仓找下载脚本, 去数据项目.
+  运行 `python main.py all`; 这时先检查仓根 `config.toml` 的 `data_root` 是否指对;
+- `config.toml` 是本机文件, 换机器要重新写; `.gitignore` 已忽略它, 不要提交;
+- 本仓 `.gitignore` 也忽略 `**/data`, 本仓自己的缓存与数据根都不入库; 换机器后到数据项目
+  重跑准备命令即可恢复(清单见 [data-preparation.md](../data-preparation.md));
+- cartopy 已有缓存(`~/.local/share/cartopy`)只被当作只读复用来源, 不是项目缓存的写入位置;
+- 渲染仓没有下载/解压子命令: 原始数据缺失时去数据项目 `download`; 派生数据缺失时跑本仓
+  `<子项目>/main.py prepare`(见 [prepare.md](prepare.md)), 不要在本仓找下载脚本.

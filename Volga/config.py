@@ -2,8 +2,9 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Volga subproject: the render spec of the two Volga maps.
 
-是什么: 伏尔加流域两张图的规格(画框,投影,色带,经纬网,版式,文案), 两图共用一套数值.
-数据清单与下载范围已拆到数据项目 miko_gis_data, 这里只留绘图需要的数值.
+是什么: 伏尔加流域两张图的规格(画框,投影,色带,经纬网,版式,文案), 两图共用一套数值;
+以及 ``prepare`` 生成的三个派生 GeoJSON 在本子项目 ``build/`` 下的位置. 原始数据清单与
+下载范围在数据项目 miko_gis_data; 清洗/裁剪口径在本子项目的 prepare.py.
 完整说明见 ``docs/reference/spec.md``; 两个图种的设计取舍见 ``docs/maps/volga.md``.
 """
 
@@ -20,12 +21,22 @@ from cartopy_file.spec import (
     Projection,
     Relief,
     Sheet,
+    build_path,
 )
 
 ROOT = Path(__file__).resolve().parent
 
 # 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
 DATA_GROUP = "volga"
+
+# ============================
+# 派生产物(本仓 prepare.py 生成, 目录布局见 docs/reference/spec.md)
+# ============================
+# 清洗/裁剪后的 GeoJSON 放在本子项目 build/ 下: 它是图种口径的中间产物, 不属于数据根;
+# 删掉后重跑 ``python Volga/main.py prepare`` 即可恢复(不会重新联网).
+VOLGA_SUBJECTS_GEOJSON = build_path(ROOT, "volga_subjects.geojson")
+VOLGA_BASIN_GEOJSON = build_path(ROOT, "volga_basin.geojson")
+RUSSIA_BORDER_GEOJSON = build_path(ROOT, "russia_border.geojson")
 
 # ============================
 # 画框
@@ -489,7 +500,7 @@ SHEET_BASIN = Sheet(
     regrid_shape=max(1200, int(LAYOUT_BASIN.map_width_in * 300)),
     dataset_ids=(
         "etopo-volga",
-        "hybas-eu-lev05-archive",
+        "hybas-eu-lev05",
         "gadm41-rus",
         "ne-rivers-10m",
         "ne-lakes-10m",
@@ -520,7 +531,7 @@ SHEET_REPUBLICS = Sheet(
     regrid_shape=max(1200, int(LAYOUT_REPUBLICS.map_width_in * 300)),
     dataset_ids=(
         "etopo-volga",
-        "hybas-eu-lev05-archive",
+        "hybas-eu-lev05",
         "gadm41-rus",
         "ne-rivers-10m",
         "ne-lakes-10m",

@@ -69,8 +69,9 @@ plt.rcParams["hatch.linewidth"] = 0.5
 SHEET = config.SHEET_ADMIN
 CATALOG = catalog_for(config.DATA_GROUP)
 
-# 数据路径全部由数据清单 manifest 给出(目录约定见 docs/reference/data.md).
-ADMIN_GEOJSON = CATALOG.path("myanmar-admin1")
+# 原始数据路径由数据清单 manifest 给出(目录约定见 docs/reference/data.md);
+# 行政区 GeoJSON 由本仓 prepare.py 生成到 build/(见 docs/reference/spec.md).
+ADMIN_GEOJSON = config.ADMIN_GEOJSON
 RIVER_SHP = (
     CATALOG.path("ne-rivers-10m") / "ne_10m_rivers_lake_centerlines.shp"
 )
@@ -109,8 +110,7 @@ def load_admin_units():
     """读取预处理后的 15 个一级行政区, 按邦/省/联邦区分组."""
     if not ADMIN_GEOJSON.exists():
         raise FileNotFoundError(
-            f"未找到行政区数据: {ADMIN_GEOJSON}\n请先到数据项目 miko_gis_data 运行: "
-            "python main.py prepare --group myanmar"
+            f"未找到行政区数据: {ADMIN_GEOJSON}\n请先运行: python Myanmar/main.py prepare"
         )
     payload = json.loads(ADMIN_GEOJSON.read_text(encoding="utf-8"))
     units = []

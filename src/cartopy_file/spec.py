@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 __all__ = [
+    "BUILD_DIR",
     "CCRS_KINDS",
     "City",
     "Extent",
@@ -28,15 +29,19 @@ __all__ = [
     "Relief",
     "Sheet",
     "TEXT_DIR",
+    "build_path",
     "check_slug",
     "geo_path_for",
     "map_path",
     "text_path",
 ]
 
-# 子项目下的产物目录: 地图(SVG)与文字信息(geo.json)分开放, 前端按目录成对取用.
+# 子项目下的产物目录: 地图(SVG),文字信息(geo.json)与派生数据(build/)分开放.
+# build/ 是应用侧派生的中间产物(清洗/裁剪后的 GeoJSON), 由 prepare 子命令按需重建;
+# 它不属于数据根, 删掉不会触发重新下载, 见 docs/reference/prepare.md.
 MAP_DIR = "map"
 TEXT_DIR = "text"
+BUILD_DIR = "build"
 
 
 def map_path(root: str | Path, out: str) -> Path:
@@ -47,6 +52,15 @@ def map_path(root: str | Path, out: str) -> Path:
 def text_path(root: str | Path, out: str) -> Path:
     """子项目 ``root`` 里文字信息产物的路径: ``<root>/text/<out 的 stem>.geo.json``."""
     return Path(root) / TEXT_DIR / f"{Path(out).stem}.geo.json"
+
+
+def build_path(root: str | Path, name: str) -> Path:
+    """子项目 ``root`` 里派生数据的路径: ``<root>/build/<name>``.
+
+    为什么单独一个目录: 派生 GeoJSON 是应用侧(图种口径)的中间产物, 不是原始数据;
+    放本仓子项目下, 与数据根解耦, 删掉重跑 prepare 即可恢复.
+    """
+    return Path(root) / BUILD_DIR / name
 
 
 def geo_path_for(svg_path: str | Path) -> Path:

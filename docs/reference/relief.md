@@ -80,13 +80,13 @@ ax.imshow(relief_rgba, origin="lower", extent=(lon[0], lon[-1], lat[0], lat[-1])
 ## 注意事项
 
 - 警告: 本模块导入即加载 matplotlib/cartopy, 调用方必须在 import 本模块**之前**设置好
-  `MPLCONFIGDIR`(用 [`cartopy_file.data.prepare_matplotlib_env()`](data.md)), 否则本机只读
-  的 `~/.config` 会让 matplotlib 每次重建字体缓存;
-- 各子项目模块直接 `from cartopy_file.relief import ...`(以前缅甸目录里有一层
-  `Myanmar/map_lib.py` 兼容 shim, 迁移到新架构时已删除);
-- 共享的 cartopy 底图在 `<数据根>/cartopy`; 各区域自己的高程/矢量在
-  `<数据根>/<region>/raw`(下载原样)与 `<数据根>/<region>/derived`(脚本生成),
-  `find_etopo` 的 `data_dir` 传 `raw` 那层(绘图模块直接传 `Catalog.raw_dir`), 分工见
-  [`data-preparation.md`](../data-preparation.md);
-- `load_countries()` 是保留的旧入口(从指定目录读 10m 国界); 新图用
-  `layers.countries_frame()` 读共享缓存, 不要照它写新代码.
+  `MPLCONFIGDIR`(用 [`cartopy_file.data.prepare_matplotlib_env()`](data.md)), 否则默认落在
+  HOME 下的 `~/.config` 会让 matplotlib 每次重建字体缓存;
+- 各子项目模块直接 `from cartopy_file.relief import ...`;
+- 共享的 cartopy 底图在 `<数据根>/cartopy`; 各区域自己的高程与原始矢量在
+  `<数据根>/<region>/raw`(下载原样), `find_etopo` 的 `data_dir` 传这一层(绘图模块直接传
+  `Catalog.raw_dir`). 派生矢量不在数据根里, 由本仓 `prepare` 写到 `<子项目>/build/`,
+  分工见 [`data-preparation.md`](../data-preparation.md) 与
+  [`prepare.md`](prepare.md);
+- `load_countries()` 从指定目录读 10m 国界; 常规图种用 `layers.countries_frame()` 读共享
+  缓存, 不要照它写新代码.

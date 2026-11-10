@@ -13,6 +13,9 @@ dependencies = [
     "matplotlib>=3.11.1",
     "netcdf4>=1.7.4",
     "numpy>=2.5.2",
+    "pandas>=2.3",
+    "pyogrio>=0.11",
+    "pyproj>=3.7",
     "shapely>=2.1.2",
     "xarray>=2026.7.0",
 ]
@@ -25,5 +28,5 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.12.3,<0.13.0"]
+requires = ["uv_build>=0.13.0,<0.14.0"]
 build-backend = "uv_build"

@@ -113,7 +113,7 @@ _ID_PREFIX = {
 _ANCHORS = {"left": "start", "center": "middle", "right": "end"}
 
 # 数字保留 3 位小数: geo 契约要求 3 位以内; 底图 viewBox 另按 6 位处理(见 _format_pt),
-# 两边都从同一份 Frame 生成, 这样 prepare 脚本逐值比对不会因舍入差报错.
+# 两边都从同一份 Frame 生成, 这样检查脚本逐值比对不会因舍入差报错.
 _GEO_DIGITS = 3
 _FRAME_DIGITS = 6
 

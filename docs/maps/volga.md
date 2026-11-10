@@ -1,7 +1,7 @@
 # 伏尔加河流域地形图 (Volga/volga.py)
 
-- 源码: [`Volga/volga.py`](../../Volga/volga.py)(数据准备在独立数据项目 `miko_gis_data`)
-- 入口: [`Volga/main.py`](../../Volga/main.py)(唯一入口, 只有 `render` 子命令)
+- 源码: [`Volga/volga.py`](../../Volga/volga.py); 派生在 [`Volga/prepare.py`](../../Volga/prepare.py)
+- 入口: [`Volga/main.py`](../../Volga/main.py)(唯一入口: `prepare` 派生 + `render` 出图)
 - 产物: `Volga/map/volga_basin_topography_etopo2022_lambert_conformal.svg`(流域图),
   `Volga/map/volga_basin_republics_topography_etopo2022_lambert_conformal.svg`(周边共和国图);
   两张图的文字信息在 `Volga/text/` 下, 与地图同 stem 的 `.geo.json`
@@ -11,10 +11,10 @@
 以 ETOPO 2022 地形晕渲为底图, 叠加 HydroSHEDS 伏尔加河流域,GADM 4.1 俄罗斯一级行政区,
 Natural Earth 10m 河网与湖泊水面, 一次生成两张自包含 SVG:
 
-- **流域图**: 只画流域一个主题, 不画联邦主体行政区. 画框沿用 30.3~62.3°E / 44.4~62.3°N,
+- **流域图**: 只画流域一个主题, 不画联邦主体行政区. 画框是 30.3~62.3°E / 44.4~62.3°N,
   西到瓦尔代丘陵以西, 东到乌拉尔山西坡, 南到里海西北岸, 北到上卡马河源地.
 - **周边共和国图**: 保留与流域直接覆盖/紧邻的六个联邦主体共和国, 科米与卡尔梅克不画;
-  画框收窄到 40~60°E / 44.4~59°N, 北界足以放下卡马河中下游与六个共和国, 不再为科米留出
+  画框收窄到 40~60°E / 44.4~59°N, 北界足以放下卡马河中下游与六个共和国, 不为科米留出
   60°N 以北的空白.
 
 两图共用的图幅内容:
@@ -44,8 +44,8 @@ Natural Earth 10m 河网与湖泊水面, 一次生成两张自包含 SVG:
 `EXTENT_REPUBLICS`,`LAYOUTS`), 由 `SHEETS` 里的两个 `Sheet` 驱动: 地图区高度固定
 9.894 英寸, 宽度按画框投影包围盒的宽高比算, 画布宽度
 随之为约 17.6 × 12.2 英寸(流域图)或 14.5 × 12.2 英寸(共和国图). 这样两种宽高比都能让
-地图正好填满左侧地图区, 不靠留白对齐; 右侧面板宽度固定 4.23 英寸. 底图不再画文字但版面未重排,
-右侧仍按原图例/色标/注的占位预留留白, 等前端排版接管; 地名只以 `role`/位置写进同 stem
+地图正好填满左侧地图区, 不靠留白对齐; 右侧面板宽度固定 4.23 英寸. 底图不含文字, 右侧面板
+按图例/色标/注的占位预留留白, 等前端排版接管; 地名只以 `role`/位置写进同 stem
 的 `.geo.json`(样式由前端 role 表统一决定). 图例条目,标题与右栏注是纯数据, 由
 `layers.standard_collect` 从 `Sheet` 写进 geo.json, 绘图模块里没有手拼 geo 字段的代码.
 
@@ -112,43 +112,41 @@ GADM 各州并集的外边界同时是俄罗斯外轮廓, 含北冰洋/里海/�
 ## 数据
 
 数据集清单(从哪下,下载范围,版本,本地路径)由独立数据项目 `miko_gis_data` 的
-`regions/volga/config.py` 声明, 数据准备也全在那里完成; `volga.py` 只读数据根下的本地文件
-与 `<数据根>/cartopy/` 的共用底图. 数据准备分两个阶段: `download` 负责下载/解压, `prepare`
-负责 `raw/` -> `derived/` 派生.
+`regions/volga/config.py` 声明, 数据项目只负责下载/解压; 派生数据由本仓 `Volga/prepare.py`
+生成到 `Volga/build/`, `volga.py` 只读数据根的原始文件,`Volga/build/` 的派生文件与
+`<数据根>/cartopy/` 的共用底图.
 
-| 文件(相对 `<数据根>/volga/`) | 内容 | 准备阶段 |
+| 文件 | 内容 | 准备阶段 |
 | --- | --- | --- |
-| `raw/ETOPO_2022_v1_15s_volga_stride2.nc` | NOAA ETOPO 2022 地形, 30 弧秒, 29.8~62.8°E / 43.9~62.8°N(画框四周外扩 0.5°) | download |
-| `raw/gadm41_RUS_1.json` | GADM 4.1 俄罗斯一级行政区(原始) | download |
-| `raw/hybas_eu_lev05_v1c.zip` | HydroBASINS level 5 欧洲区(原始压缩包) | download |
-| `derived/hybas_eu_lev05_v1c/` | 解压后的 HydroBASINS shapefile | download(解压) |
-| `derived/volga_subjects.geojson` | 55 个一级行政区裁到画框, 属性 name/engtype/type | prepare |
-| `derived/volga_basin.geojson` | 伏尔加河流域面, 属性 area_km2 | prepare |
-| `derived/russia_border.geojson` | GADM 口径俄罗斯国界(裁到画框) | prepare |
+| `<数据根>/volga/raw/ETOPO_2022_v1_15s_volga_stride2.nc` | NOAA ETOPO 2022 地形, 30 弧秒, 29.8~62.8°E / 43.9~62.8°N(画框四周外扩 0.5°) | 数据项目 download |
+| `<数据根>/volga/raw/gadm41_RUS_1.json` | GADM 4.1 俄罗斯一级行政区(原始) | 数据项目 download |
+| `<数据根>/volga/raw/hybas_eu_lev05_v1c.zip` | HydroBASINS level 5 欧洲区(原始压缩包) | 数据项目 download |
+| `<数据根>/volga/raw/hybas_eu_lev05_v1c/` | 解压后的 HydroBASINS shapefile(manifest id `hybas-eu-lev05`,`kind=zip`) | 数据项目 download(解压) |
+| `Volga/build/volga_subjects.geojson` | 与画框相交的一级行政区, 属性 name/engtype/type | 本仓 `python Volga/main.py prepare` |
+| `Volga/build/volga_basin.geojson` | 伏尔加河流域面, 属性 area_km2 | 同上 |
+| `Volga/build/russia_border.geojson` | GADM 口径俄罗斯国界(裁到画框) | 同上 |
 | `<数据根>/cartopy/.../ne_10m_rivers_lake_centerlines` | 共用河网 | 数据项目 `download` 统一预取 |
 | `<数据根>/cartopy/.../ne_10m_lakes` | 共用湖泊 | 数据项目 `download` 统一预取 |
 | `<数据根>/cartopy/.../ne_10m_ocean` | 共用海洋面(里海低地判识 + 剪海岸段) | 数据项目 `download` 统一预取 |
 | `<数据根>/cartopy/.../ne_10m_coastline` | 共用海岸线(剪国界沿海段) | 数据项目 `download` 统一预取 |
 
-`<数据根>/volga/raw/` 只放下载原样, `<数据根>/volga/derived/` 放解压目录与派生 GeoJSON.
-下载由数据项目完成: 已有文件直接跳过, 中断的 `.part` 用 Range 续传, 下载完成先校验文件头
-(NetCDF/zip/JSON). 派生每次都从 raw 重建, 不缓存中间结果. Natural Earth 10m 图层由数据项目
-统一预取到 `<数据根>/cartopy/`, 本仓脚本不重复下载.
+数据项目只写 `<数据根>/volga/raw/`(下载原样与解压目录): 已有文件直接跳过, 中断的 `.part` 用
+Range 续传, 下载完成先校验文件头(NetCDF/zip/JSON). 本仓 `prepare` 每次都从 raw 重建三个
+派生 GeoJSON, 不缓存中间结果, 不联网. Natural Earth 10m 图层由数据项目统一预取到
+`<数据根>/cartopy/`, 本仓脚本不重复下载.
 
 ## 运行
 
-唯一可执行入口是 `Volga/main.py`, 只有 `render` 子命令; 数据在数据项目准备, 下面前两步在
-数据项目根目录执行:
+唯一可执行入口是 `Volga/main.py`, 有 `prepare` 与 `render` 两个子命令; 原始数据在数据项目
+下载, 派生与出图在本仓:
 
 ```bash
-# 数据项目根目录: 首次准备(已存在则跳过)
-cd miko_gis_data
-python main.py download --group volga   # 下载/解压 ETOPO,GADM,HydroBASINS 到数据根
-python main.py prepare --group volga    # 从 raw 派生三个 GeoJSON
-python main.py publish                  # 发布清单给渲染仓
-cd ..
+# 数据项目根(与本仓平级时: ../miko_gis_data): 下载/解压 ETOPO,GADM,HydroBASINS + 发布清单
+(cd ../miko_gis_data && python main.py download --group volga)
+(cd ../miko_gis_data && python main.py publish)
 
-# 渲染仓: 依次出两张图, 地图进 Volga/map/, 文字信息进 Volga/text/
+# 渲染仓: 派生三个 GeoJSON, 再出图(地图进 Volga/map/, 文字信息进 Volga/text/)
+python Volga/main.py prepare
 python Volga/main.py render
 ```
 
@@ -160,7 +158,7 @@ python Volga/main.py render
 - `--force`: 强制重下原始数据与重新解压;
 - `--skip-basin`: 跳过 HydroBASINS 下载(只准备 ETOPO/GADM).
 
-数据项目 `prepare` 的选项:
+本仓 `prepare` 的选项:
 
 - `--skip-basin`: 跳过流域派生, 只重建行政区与国界.
 
@@ -172,9 +170,9 @@ python Volga/main.py render
 - `--dpi`: 内嵌晕渲栅格的像素密度, 默认 300(矢量部分与 dpi 无关);
 - `--show`: 保存后弹出交互窗口(需要图形界面).
 
-数据已就位时数据项目的 `download` 不联网: 三个原始文件逐项跳过, 解压目录存在也不再解压
-(`python main.py check --group volga` 会列出每一项的本地路径). `prepare` 每次运行都重建三个
-派生文件, 不做增量判断.
+数据已就位时数据项目的 `download` 不联网: 三个原始文件逐项跳过, 解压目录存在则跳过解压
+(`python main.py check --group volga` 会列出每一项的本地路径). 本仓 `prepare` 每次运行都
+重建三个派生文件, 不做增量判断.
 
 高程文件也可用环境变量 `VOLGA_ETOPO_PATH` 指定; 数据缺失时脚本直接报错. 两张图在同一次
 运行里顺序生成, ETOPO,行政区与 Natural Earth 图层只读一次(图层用 `lru_cache` 缓存).
@@ -182,16 +180,16 @@ python Volga/main.py render
 ## 注意事项
 
 - 数据必须先准备, 本图脚本不联网; 缺 raw 文件会报错并提示到数据项目跑
-  `python main.py download --group volga`, 缺派生文件则提示 `python main.py prepare --group
-  volga`.
-- 派生 GeoJSON 由数据项目的 `geometry.py` 统一写: 坐标 5 位小数,紧凑分隔符,不写时间戳.
-  流域面在写文件前先用 1e-5° 的 GEOS 精度网格压一次坐标(旧产物的 GDAL 写出路径就是这个
-  网格); 这会让舍入后重合的顶点被删掉并重排环起点, 换写法产物就不再逐字节一致. 改派生
-  写法后必须重跑数据项目的 `prepare` 与本仓的 `render` 并核对产物.
+  `python main.py download --group volga`, 缺派生文件则提示本仓
+  `python Volga/main.py prepare`.
+- 派生 GeoJSON 由本仓的 `cartopy_file.geometry` 统一写: 坐标 5 位小数,紧凑分隔符,不写时间
+  戳. 流域面在写文件前先用 1e-5° 的 GEOS 精度网格压一次坐标: 舍入后重合的顶点会被删掉并
+  重排环起点, 换写法产物的字节就会变; 改派生写法后必须重跑本仓的 `prepare` 与 `render`
+  并核对产物.
 - 流域面积按 HydroBASINS 口径约 141 万 km², 略高于常引用的 138 万 km²; 引用面积时标明口径,
   不与其他来源混用. 共和国图画框虽然裁掉了流域西北/北缘, 但流域面积仍是全流域口径, 不要按
   画面内面积重算.
-- GADM 4.1 的俄罗斯国界不含克里米亚; 本图沿用该口径, 图上克里米亚一带没有俄罗斯一级
+- GADM 4.1 的俄罗斯国界不含克里米亚; 本图按该口径, 图上克里米亚一带没有俄罗斯一级
   行政区界与国界(与 Ukraine 图一致).
 - 里海低地的负高程陆地靠 Natural Earth 海洋/湖泊面判识, 依赖 `<数据根>/cartopy/` 的 10m
   ocean 层(数据项目 `python main.py download` 预取); 缺这一层时脚本会退回"z<0 全部按水面"
@@ -199,7 +197,8 @@ python Volga/main.py render
 - 湖泊填色用 Natural Earth 10m 面, 与 ETOPO 岸线有几百米级偏差; 图面 1:770 万下不可见.
 - 新增第三张图时只加一个 `Sheet` 到 `Volga/config.py` 的 `SHEETS`, 并登记 `THEMES`,
   `LAYOUTS`, 再按画框过滤生成一份地名表; 画框外的城市点仍由模块自动跳过, 画布宽度按投影
-  宽高比自动算;
+  宽高比自动算; 若新图需要不同的派生数据, 在 `Volga/prepare.py` 里加一份 `build_path`
+  产物并同步"数据"一节;
 - 图例条目,配色,标题与右栏注都在 `config.py` 里声明(图例走 `Sheet.legend`/
   `legend_title`, 文案走 `Sheet.title`/`subtitle`/`notes`), 改图例只改 config; `volga.py`
   没有 `collect` 回调, geo.json 由 `layers.standard_collect` 统一写;

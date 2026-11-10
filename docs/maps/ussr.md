@@ -48,21 +48,19 @@ Uzbekistan, Turkmenistan, Kyrgyzstan, Tajikistan, Lithuania, Latvia, Estonia. �
 ETOPO 子集范围: 经度 15°E 向东到 165°W(ERDDAP 的经度是 0~360, 右端写 195 = -165 + 360),
 纬度 20°N~90°N; 默认步长 8(2 弧分, 300 dpi 出图够用). 这个范围写在数据项目
 `regions/ussr/config.py` 的 `ETOPO_BBOX_USSR` 里, 并作为 `bbox` 写进清单, 出图时 `runner`
-用它核对覆盖--旧版下载脚本写的是 20~90°N,绘图脚本写 15~90°N, 两处分叉正是本次迁移修掉的
-bug. 画框底边到 15°N, 15~20°N 一带本来就没有高程数据(改前成品如此, 靠留白), 要扩到 15°N
+用它核对覆盖. 画框底边到 15°N, 15~20°N 一带没有高程数据, 图上靠留白; 要扩到 15°N
 属于换数据,会改变底图字节, 需要单独评审. 下载机制见
 [`data-preparation.md`](../data-preparation.md) 的 ETOPO 一节.
 
 ## 运行
 
-`USSR/` 只有一个可执行入口 `USSR/main.py`, 只有 `render` 子命令; 数据在数据项目准备:
+`USSR/` 只有一个可执行入口 `USSR/main.py`, 只有 `render` 子命令(本图没有派生数据, 不需要
+`prepare`); 原始数据在数据项目下载:
 
 ```bash
-# 数据项目根目录: 首次准备(已就位则跳过; 共享底图也在这里预取)
-cd miko_gis_data
-python main.py download --group ussr
-python main.py publish
-cd ..
+# 数据项目根(与本仓平级时: ../miko_gis_data): 首次准备(已就位则跳过; 共享底图也在这里预取)
+(cd ../miko_gis_data && python main.py download --group ussr)
+(cd ../miko_gis_data && python main.py publish)
 
 # 渲染仓: 出图, 地图进 USSR/map/, 文字信息进 USSR/text/
 python USSR/main.py render
@@ -85,11 +83,11 @@ python USSR/main.py render
 
 ## 注意事项
 
-- 旧成品只有经纬**网线**, 没有刻度文字: 这一点由 `Sheet.graticule_ticks=False` 声明,
-  `standard_collect` 会退化成只登记网线线型; 改成 True 会多出一圈旧图没有的刻度文字;
+- 本图只有经纬**网线**, 没有刻度文字: 这一点由 `Sheet.graticule_ticks=False` 声明,
+  `standard_collect` 会退化成只登记网线线型; 改成 True 会多出一圈刻度文字;
 - 高程文件不存在时 `load_elevation` 抛 `FileNotFoundError`(不带命令提示), 先到数据项目跑
   `python main.py download --group ussr` 补齐;
-- 投影实际参数是 `central_longitude=105`, 不是 90°E(原始代码如此), 引用投影参数时以代码为准;
+- 投影实际参数是 `central_longitude=105`, 不是 90°E, 引用投影参数时以代码为准;
 - 红色苏联轮廓读共享缓存的 Natural Earth 10m 国界(`<数据根>/cartopy/`, 由数据项目统一预取;
   本仓不保存副本), 海岸线读同一缓存的 110m 海岸线; 10m 国界缺失时 `countries_frame()` 返回
   `None`, 红色轮廓静默跳过(所以数据项目要先 `download`);

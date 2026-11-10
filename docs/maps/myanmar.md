@@ -1,7 +1,7 @@
 # 缅甸全境地形图 (Myanmar/myanmar.py)
 
 - 源码: [`Myanmar/myanmar.py`](../../Myanmar/myanmar.py)
-- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(唯一入口, 只有 `render` 子命令)
+- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(唯一入口: `prepare` 派生 + `render` 出图)
 - 产物: `Myanmar/map/myanmar_topography_etopo2022_lambert_conformal.svg`(地图) 与
   `Myanmar/text/myanmar_topography_etopo2022_lambert_conformal.geo.json`(文字信息)
 
@@ -32,7 +32,7 @@
 
 先用 Natural Earth 陆地多边形在海洋色背景上铺一层真实海陆底色, 防止 ETOPO 子集边缘露白;
 再叠 ETOPO 地形. 地形色带在 0 m 处断开(海水深蓝->浅蓝, 陆地浅绿->黄->棕->雪白), 海陆界线
-直接由这条色界表达, 不再叠 cartopy 海岸线: 既少一条与国界争层级的线, 也避开 Natural Earth
+直接由这条色界表达, 不叠 cartopy 海岸线: 既少一条与国界争层级的线, 也避开 Natural Earth
 国界与海岸线两套折线在岸边的偏差. 色带实现见 `make_relief_cmap`, 公共底图工具见
 [`reference/relief.md`](../reference/relief.md).
 
@@ -42,15 +42,15 @@
 岛屿的边界整圈贴着海岸线, 会被一并剪掉, 岛上只剩地形色斑. 剪枝工具见
 [`reference/overlap.md`](../reference/overlap.md). 国界/邻国国界的颜色与线型是三个缅甸图种
 共用的固定值, 写在 `Myanmar/config.py` 的 `COLOR_BORDER` / `BORDER_ALPHA` / `BORDER_WIDTH` /
-`COLOR_NEIGHBOR`, 绘图模块只引用不再各写一份.
+`COLOR_NEIGHBOR`, 绘图模块只引用, 不各写一份.
 
 ### 4. 地名与文案的归属
 
 地名表 `MYANMAR_LABELS` 声明在 `Myanmar/config.py`: 每条 `Label` 的 `name` 是 id 的 ASCII
 slug, `text` 才是图上显示的文案(中文), 两者分开是为了让前端按 id 引用的键不随文案漂移.
 渲染模块只画陆地国界/邻国国界/城市点三层, `geo.json` 由 `runner` 缺省的
-`layers.standard_collect` 按 `Sheet` 收集(地名 -> 经纬刻度 -> 色标 -> 文案), 模块里不再写
-`collect` 回调, 地名/文案也不再手拼.
+`layers.standard_collect` 按 `Sheet` 收集(地名 -> 经纬刻度 -> 色标 -> 文案), 模块里不写
+`collect` 回调, 地名/文案也不手拼.
 
 ## 数据
 
@@ -72,18 +72,20 @@ slug, `text` 才是图上显示的文案(中文), 两者分开是为了让前端
 ## 运行
 
 唯一入口是 `Myanmar/main.py`, 其余 `Myanmar/*.py` 都是模块(直接运行会报错并提示入口).
-数据在数据项目里准备, 出图在本仓:
+原始数据在数据项目里下载, 派生与出图在本仓:
 
 ```bash
-# 数据项目根目录: 首次准备(已就位则跳过; 行政区图还需要 prepare + publish)
-cd miko_gis_data
-python main.py download --group myanmar --region myanmar
-python main.py publish
-cd ..
+# 数据项目根(与本仓平级时: ../miko_gis_data): 下载原始数据 + 发布清单(已就位则跳过)
+(cd ../miko_gis_data && python main.py download --group myanmar --region myanmar)
+(cd ../miko_gis_data && python main.py publish)
 
-# 渲染仓: 出图, 地图进 Myanmar/map/, 文字信息进 Myanmar/text/
+# 渲染仓: 本图不需要派生数据; 若同一子项目的行政区图/掸邦图也要出, 先跑 prepare
+# python Myanmar/main.py prepare
 python Myanmar/main.py render --sheet myanmar
 ```
+
+`prepare` 生成 `Myanmar/build/` 下的三份派生 GeoJSON(本图不读它们, 行政区图与掸邦图读);
+流程见 [reference/prepare.md](../reference/prepare.md).
 
 画框,投影,色带,经纬网,地名与文案都在 [`Myanmar/config.py`](../../Myanmar/config.py);
 渲染模块只画本图特有条图层(陆上国界,邻国国界,城市点), `geo.json` 由框架按 `Sheet` 收集.
@@ -113,6 +115,6 @@ python Myanmar/main.py render --sheet myanmar
 - 海岸线不画, 岸线就是 0 m 处的水/陆色界; 国界也只画陆上段, 海岸与岛屿边缘不出现红线;
 - `--stride 1` 的全分辨率高程约 135 MB, 只在需要放大细节时下载, 全境图用默认 `stride=2`
   足够;
-- 标注 id 是稳定的 ASCII slug, 前端/旧布局文件按 id 引用; 改显示文案只动 `text`,
+- 标注 id 是稳定的 ASCII slug, 前端布局按 id 引用; 改显示文案只动 `text`,
   改 id 才算破坏兼容;
 - 同一份数据重复运行得到内容相同的 SVG(理由见 [`reference/output.md`](../reference/output.md)).

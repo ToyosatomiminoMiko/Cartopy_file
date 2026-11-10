@@ -6,12 +6,13 @@
 
 ## 阅读路径
 
-- **第一次出图**: 准备数据项目(到 `miko_gis_data` 跑 `python main.py all`, 细节见
-  [data-preparation.md](data-preparation.md)) -> [README](../README.md) 安装本仓 -> 按
-  [maps/](maps) 里对应图种页的"运行"节出图;
+- **第一次出图**: 准备数据项目(到 `miko_gis_data` 跑 `download` -> `publish` -> `check`,
+  细节见 [data-preparation.md](data-preparation.md)) -> [README](../README.md) 安装本仓 ->
+  本仓跑 `<子项目>/main.py prepare` 派生 -> 按 [maps/](maps) 里对应图种页的"运行"节出图;
 - **换机器 / 重新 clone**: 先装数据项目, 用 `python main.py check`(在数据项目里跑)确认缺
-  什么, 再 `python main.py download` / `prepare` / `publish`; 数据根位置与命令见
-  [data-preparation.md](data-preparation.md);
+  什么, 再 `python main.py download` / `publish`; 数据根位置与命令见
+  [data-preparation.md](data-preparation.md); 本仓的派生目录 `build/` 删掉后重跑
+  `<子项目>/main.py prepare` 即可恢复;
 - **改某张图**: 对应图种页的"设计要点"与"注意事项" -> 需要共用工具时查
   [reference/](reference);
 - **新增图种或共享模块**: [add-map.md](add-map.md) 的清单(先看 `AmericaArmy/` 这个最小例子);
@@ -24,14 +25,15 @@
 | 页面 | 内容 |
 | --- | --- |
 | [overview.md](overview.md) | 目录结构,四层结构,数据流,与数据项目的边界,共享包模块 |
-| [data-preparation.md](data-preparation.md) | 数据根布局,数据项目命令,数据源与许可,ETOPO 下载 |
+| [data-preparation.md](data-preparation.md) | 数据根布局,数据项目命令,本仓 prepare,数据源与许可,ETOPO 下载 |
 | [add-map.md](add-map.md) | 新增图种(渲染侧 + 数据项目)/共享模块的步骤与扩展点 |
 | [conventions.md](conventions.md) | 文档模板,命名,路径,文风,注释规则,维护流程 |
 
 ## 图种
 
-每个子项目只有一个可执行入口 `<子项目>/main.py`, 只有 `render` 子命令; 下表的"入口"列就是
-出图命令. 数据一律由独立数据项目准备.
+每个子项目只有一个可执行入口 `<子项目>/main.py`: 有派生数据的子项目有 `prepare` 与
+`render` 两个子命令, 没有派生数据的(苏联/美军基地演示)只有 `render`. 下表是出图入口;
+原始数据一律由独立数据项目准备, 本仓的 `prepare` 只做清洗/派生/裁剪, 不联网.
 
 | 页面 | 入口 | 内容 |
 | --- | --- | --- |
@@ -48,6 +50,8 @@
 | --- | --- |
 | [reference/data.md](reference/data.md) | `cartopy_file.data`: 数据根与 manifest 定位,cartopy/matplotlib 缓存,子项目枚举 |
 | [reference/catalog.md](reference/catalog.md) | `cartopy_file.catalog`: 读 manifest,按数据集 id 取路径/判断就位/折署名 |
+| [reference/prepare.md](reference/prepare.md) | 派生流程: 为什么在本仓,`build/` 目录约定,各子项目 prepare 做什么 |
+| [reference/geometry.md](reference/geometry.md) | `cartopy_file.geometry`: 几何修复,确定性 GeoJSON 写出,椭球面积/长度 |
 | [reference/manifest.md](reference/manifest.md) | `manifest.json` 契约: 字段,版本,两仓分工 |
 | [reference/spec.md](reference/spec.md) | `cartopy_file.spec`: 实例规格(画框/投影/色带/经纬网/地名/文案) |
 | [reference/layers.md](reference/layers.md) | `cartopy_file.layers`: 图层原语(底图/晕渲/经纬网/城市点/geo 收集) |

@@ -7,9 +7,10 @@
 
 把「底图不画,前端排版要知道」的元数据收集成文字信息 `<stem>.geo.json`, 并把
 Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem,分目录存放: 地图写到
-`<子项目>/map/`, 文字信息写到 `<子项目>/text/`. 字段与取值口径沿用 `miko_svg_editor` 的
+`<子项目>/map/`, 文字信息写到 `<子项目>/text/`. 字段与取值口径按 `miko_svg_editor` 的
 `mapdoc-geo` **v2** 契约(`docs/PAGE-EDITOR.md` §3): `base` / `graticule` / `labels` /
-`relief` / `legend` / `suggestions`. 旧 **v1** 产物不再被接受, 编辑器会要求重新生成.
+`relief` / `legend` / `suggestions`. 产物版本是 **v2**; 版本校验拒绝其他版本, 编辑器遇到
+其他版本会要求重新生成.
 
 - `GeoDoc(frame)`: 收集器; 脚本按图层顺序调用 `add_label()` / `add_graticule()` /
   `set_relief()` / `set_legend()` / `set_suggestions()`;
@@ -26,19 +27,19 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
    anchor / order`, 字号/颜色/描边/斜体/字重/字距/行高/折行位置全部由前端
    `miko_svg_editor/src/config/text-style.ts` 的角色表与全局常量决定; 旋转也由前端
    处理(默认 0). 字号是前端 role 表的**纸张 mm 设计值**, 与底图的 `viewBox`/尺寸和地图
-   缩放都无关--生成端既不输出字号, 也不参与字号换算. v1 的
-   `kind / lines / color / italic / halo / rotation_deg` 已删除,
-   `font_size_pt` 也不再输出(字号属于样式, 由前端 role 表决定).
+   缩放都无关--生成端既不输出字号, 也不参与字号换算. 样式字段
+   (`kind / lines / color / italic / halo / rotation_deg / font_size_pt`)一律不输出, 字号
+   属于样式, 由前端 role 表决定.
    **导出文字一律单行**: `labels[].text`,`legend.entries[].label` 与 `suggestions` 里的
    标题/注/来源都不带换行符, 折行(按文本块宽度)全由前端负责; 生成端不写换行, 也不输出
-   旧产物里的扩展字段 `label_lines`(v2 契约本身没有这个键). `geo.add_label` 与
+   扩展字段 `label_lines`(v2 契约没有这个键). `geo.add_label` 与
    `tools/check_geo.py` 遇到换行直接报错.
 3. **x 是文字块的水平锚点**: `anchor=start` 时 x 指文字块左端, `middle` 时指中心,
    `end` 时指右端(就是 matplotlib 的 `ha`). `anchor` 属于摆放数据, 不同角色/个别
    标签取值不同, 无法只由 role 推导, 所以保留.
 4. **y 是文字块的垂直中心**(底图坐标), x 是水平锚点; 文案单行时它就是这段文字的中心.
-   需要折行时由前端按文本块宽度决定断点并排版, 行高也由前端决定(旧成品用 `1.2 x 字号`);
-   生成端不再自己算基线, 也不存行高/断点.
+   需要折行时由前端按文本块宽度决定断点并排版, 行高也由前端决定;
+   生成端只给锚点, 不自己算基线, 也不存行高/断点.
 5. **role 枚举**与前端完全一致(唯一真源是 `src/config/text-style.ts` 的
    `MAP_LABEL_ROLES`; Python 只镜像校验, 不存样式值):
 
@@ -69,7 +70,7 @@ Figure 保存成裁到地图框的纯几何底图. 地图与文字信息同 stem
    等价且更难读, 所以本仓统一用语义 slug.
 7. **经纬刻度只登记落在画框内的整倍数**, 坐标取网格线与地图框边线的交点: 沿边线反查
    经纬度再插值, 不对投影做任何直线假设; `side` 由脚本决定(现有图都只标底边/左边).
-8. **色标 stops 从 colormap 等距采样 21 个**(与旧成品抽出的口径一致), 不导出
+8. **色标 stops 从 colormap 等距采样 21 个**, 不导出
    matplotlib 内部锚点, 避免版本升级改变输出.
 9. **确定性**: `save_svg` 已固定 hashsalt / 不写时间戳; 本模块只改根标签属性,JSON 用
    固定缩进和字段顺序, 同样数据重复出图得到相同字节(以同一环境为前提).
@@ -122,15 +123,15 @@ save_map(fig, MAP_PATH, doc, geo_path=TEXT_PATH, dpi=args.dpi)
   legend / colorbar 组件; 图外面积注记放 `suggestions.area_annotation`, 图内区域名放
   `labels`(用 `area`/`area-muted`/`area-accent-*` 等角色);
 - 文字一律单行: `labels[].text`,`legend.entries[].label` 与 `suggestions` 的标题/注/来源
-  都不写换行, 折行与行高全部由前端负责; 旧产物里手工分行的 `label_lines` 已删除,
-  `suggestions.notes` 也不再按行拆开(一条注一个完整字符串);
+  都不写换行, 折行与行高全部由前端负责; 不写 `label_lines`,
+  `suggestions.notes` 一条注一个完整字符串(不按行拆开);
 - 契约里仍未定义的 `labels[].leader/lang`,`scale`,`north`,`area_labels` 不输出: 比例尺与
-  指北针仍是非目标, 现有图种不产生这些信息(旧图的指引线端点保留在脚本数据表中);
+  指北针不是目标, 现有图种不产生这些信息(指引线端点只作为脚本数据保留, 当前不输出);
 - 布局只有一种: 地图必须在 `<子项目>/map/` 下,文字信息必须在 `<子项目>/text/` 下; 只拿到
   地图路径时用 `cartopy_file.spec.geo_path_for()` 反推 geo 路径, 地图不在 `map/` 下会直接
   报错, 不做「同级找同名 geo」的回退;
 - 产物不入库: `.gitignore` 忽略 `*.svg` 与 `*.geo.json`, 需要时按图种页的命令生成;
 - 出图后跑 `python tools/check_geo.py <子项目>/map/<产物>.svg`(或直接无参检查全部产物):
-  定位「根标签没裁,残留 `<text>`,sha 没更新,字段/枚举不合法,v1 旧字段/`label_lines`/`font_size_pt`
-  残留,文字带换行」这类结构错误;
+  定位「根标签没裁,残留 `<text>`,sha 没更新,字段/枚举不合法,`label_lines`/`font_size_pt`
+  等非契约字段残留,文字带换行」这类结构错误;
   它不做视觉判断, 前端标准校验仍以 miko 的 `mapdoc-geo` 实现为准.

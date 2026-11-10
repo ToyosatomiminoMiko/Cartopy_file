@@ -14,7 +14,7 @@
 
 ## 收尾前(每次都必须)
 
-1. 跑 `uv run python tools/check_all.py`(需要先 `export UV_CACHE_DIR="$PWD/data/uv-cache"`),
+1. 跑 `uv run python tools/check_all.py`(在仓库根跑, 不需要额外环境变量),
    把输出贴进回复; 不许用"应该没问题""看起来对"代替.
 2. 检查失败必须修到过; 修不了就明确报告失败项与原因, **不许注释掉,跳过或放宽检查**.
 
@@ -25,18 +25,23 @@
 2. 新增图种或共享模块 -> 按 [docs/add-map.md](docs/add-map.md) 的清单逐项补, 不许挑着做.
 3. 改产物相关代码 -> 重新生成 `.svg` 与同名 `.geo.json` 再自检; 产物不进 git, 但必须是
    当前代码生成的(否则 `geo.base.sha256` 会与底图不符).
-4. 绘图脚本**不联网**: 数据一律由独立数据项目 `miko_gis_data` 准备; 新增/修改数据源要改
-   数据项目的 `src/miko_gis_data/sources.py`, 并同步两边的数据说明页
+4. 改派生逻辑(`<子项目>/prepare.py`) -> 重跑该子项目的 `prepare` 再重出图; `build/` 下的
+   派生 GeoJSON 不进 git, 但必须与当前代码一致.
+5. 绘图脚本**不联网**: 原始数据一律由独立数据项目 `miko_gis_data` 下载/解压; 新增/修改数据源
+   要改数据项目的 `src/miko_gis_data/sources.py`, 并同步两边的数据说明页
    ([docs/data-preparation.md](docs/data-preparation.md) 与数据项目的 `docs/`).
 
 ## 脚本入口
 
-1. 每个子项目**只有** `<子项目>/main.py` 可以执行, 且只有 `render` 子命令; 其余 `.py` 是
-   模块, 只导出 `run()`, 直接运行会报错并指向入口. 数据下载/派生不在本仓, 统一走独立
-   数据项目 `miko_gis_data/main.py`(`check` / `download` / `prepare` / `publish` / `all`).
+1. 每个子项目**只有** `<子项目>/main.py` 可以执行: 有派生数据的子项目有 `prepare` 与
+   `render` 两个子命令, 没有派生数据的(苏联/美军基地演示)只有 `render`; 其余 `.py` 是模块,
+   只导出 `run()`, 直接运行会报错并指向入口. 数据**下载/入库/解压**不在本仓, 统一走独立
+   数据项目 `miko_gis_data/main.py`(`check` / `download` / `publish` / `all`); 清洗/派生/
+   裁剪在本仓各子项目的 `prepare.py`(流程见
+   [docs/reference/prepare.md](docs/reference/prepare.md)).
 2. 框架层脚本(`tools/*.py`,`global.py`)不受此限, 仍可独立运行.
-3. `miko_gis_data/` 是独立项目(用户会整体移走), 本仓不跟踪它: 已在 .gitignore; 不要把它
-   的文件混进本仓文档索引或检查脚本.
+3. 数据项目 `miko_gis_data` 在**本仓之外**(单独仓库): 本仓不跟踪它, 也不在代码/检查脚本
+   里为它留位置; 两者只靠 `manifest.json` 与本机 `config.toml` 的数据根耦合.
 
 ## 标点
 
@@ -48,5 +53,5 @@
 ## 代码与注释
 
  1. 注释只写三类: 是什么 / 为什么 / 元信息; 跨文件的原理与取舍写进 docs, 代码里只留指针.
- 2. 不提交 `.venv/`,`data/`,`miko_gis_data/`,`*.svg`,`*.geo.json`,`__pycache__/`(已在
+ 2. 不提交 `.venv/`,`data/`,`*.svg`,`*.geo.json`,`__pycache__/`,`**/build/`(已在
    .gitignore, 不要用 `-f` 强加).

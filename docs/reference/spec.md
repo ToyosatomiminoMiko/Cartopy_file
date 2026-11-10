@@ -10,8 +10,8 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
 产物路径与数据依赖.
 
 本模块只放**类型与校验**(spec = 规格模型); 具体数值写在子项目的 `config.py` 里(config = 该
-子项目的配置实例). `config.py` 只声明两件事: `DATA_GROUP`(数据项目 manifest 的区域键)与
-`SHEETS`(出哪些图). 数据集清单(从哪下,什么版本,放哪)在独立数据项目 `miko_gis_data` 的区域
+子项目的配置实例). `config.py` 声明 `DATA_GROUP`(数据项目 manifest 的区域键),
+`SHEETS`(出哪些图)与派生文件路径(`build_path(...)`). 数据集清单(从哪下,什么版本,放哪)在独立数据项目 `miko_gis_data` 的区域
 配置里, 不在本仓; 本仓的绘图范围(画框)是数据项目推导下载 `bbox` 的来源, 出图时 `runner` 会
 核对清单里的 `bbox` 是否盖住画框. 分开的理由: 类型不随图种变, 所以留在共享包; 配置每个
 子项目一份, 新增子项目只加 `config.py`, 不用改这里.
@@ -27,15 +27,14 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
 - `Relief`: `mode="rgba"` 时给 `sea`/`land` 锚点(高程 m, `#rrggbb`), 由
   `layers.make_relief_cmap` 在 0 m 处断开的双色带; `mode="scalar"` 时直接用命名色带
   (`name="terrain"`) 交给 matplotlib. `zorder=None` 表示不传 zorder(留给 matplotlib 默认);
-- `Graticule`: 步长 + 网线位置的**精确取值** `lon_ticks`/`lat_ticks`(以前是各脚本里的
-  `np.arange(...)`). 取值必须逐条写死: 起点差一格就会在 SVG 里多出一条被裁剪的路径,
-  产物就不再是同一份图. `color` 原样传给 `ax.gridlines`(允许 `"gray"`), `stroke` 是给
-  geo.json 的 `#rrggbb` 副本;
+- `Graticule`: 步长 + 网线位置的**精确取值** `lon_ticks`/`lat_ticks`. 取值必须逐条写死:
+  起点差一格就会在 SVG 里多出一条被裁剪的路径, 产物就不是同一份图. `color` 原样传给
+  `ax.gridlines`(允许 `"gray"`), `stroke` 是给 geo.json 的 `#rrggbb` 副本;
 - `Label`: `lon/lat/text/role/name` 必填, `dx/dy`(度)是相对锚点的偏移,
   `ha` 是水平对齐. `text` 只放图上显示的文案(必须单行, 中文/双语都行), `name` 是 id 的标识符段,
   必须是小写 ASCII slug(`check_slug`: 字母数字, 用 `-` `_` `.` 连接, 如 `belarus`,
-  `black-sea`). 为什么分开: id 会被前端和旧布局文件当键引用, 不能随显示文案漂移,
-  也不允许中文(旧产物的 `label-country-白俄罗斯` 就是在 text 兜底进 id 时产生的);
+  `black-sea`). 为什么分开: id 会被前端和已存排版当键引用, 不能随显示文案漂移,
+  也不允许中文(中文文案兜底进 id 会得到 `label-country-白俄罗斯` 这类非法 id);
   `id_kind` 覆盖 id 的角色家族(如共和国名要 `republic`), 同样是 slug; 字号/颜色/描边等
   样式一律由前端 role 表决定, 生成端不存字号(字号是前端纸张 mm 设计值, 与底图尺寸无关);
 - `LegendEntry`: 一条图例, `label`/`shape(line|rect|point)` 必填, 其余 `stroke`/`fill`
@@ -51,25 +50,35 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
   表示这张图不铺高程;
 - `Sheet.legend` / `legend_title`: 图例整块声明在 config 里, `standard_collect` 写进
   `geo.legend`; 没有图例时两者都为缺省(空), 有 `legend` 必须有 `legend_title`;
-- `Sheet.graticule_ticks`: 缺省 True(输出经纬刻度文字); False 表示只登记网线线型
-  (苏联图的历史口径: 旧成品只有网线没有刻度文字);
+- `Sheet.graticule_ticks`: 缺省 True(输出经纬刻度文字); False 表示只登记网线线型,
+  不输出刻度文字(苏联图采用该口径);
 - `Extent.contains_point(lon, lat, pad=0)`: 点是否在画框内, config 用它过滤画框外的地名
   (代替各脚本里各写一份 `in_extent`);
 - 产物目录: `MAP_DIR = "map"` 与 `TEXT_DIR = "text"` 是子项目下的两个产物目录,
   `map_path(root, out)` / `text_path(root, out)` 按 `Sheet.out` 拼路径, `geo_path_for(svg_path)`
-  由地图路径反推文字信息路径; 布局只有一种, 地图不在 `map/` 下时 `geo_path_for` 直接报错.
+  由地图路径反推文字信息路径; 布局只有一种, 地图不在 `map/` 下时 `geo_path_for` 直接报错;
+- 派生目录: `BUILD_DIR = "build"`, `build_path(root, name)` 拼
+  `<子项目>/build/<name>`; 派生 GeoJSON 由本仓 `prepare` 生成, 不在数据根里, 也不进 manifest
+  (流程见 [prepare.md](prepare.md)). 它之所以放在 `spec` 里: 与 `map/`/`text/` 一样是
+  子项目布局的一部分, 供 `config.py` 与 `tools/` 共用.
 
 ## 用法
 
 ```python
+from pathlib import Path
+
 from cartopy_file.spec import (
-    City, Extent, Graticule, Label, LegendEntry, Projection, Relief, Sheet,
+    City, Extent, Graticule, Label, LegendEntry, Projection, Relief, Sheet, build_path,
 )
 
 PROJECTION = Projection("lambert_conformal", {
     "central_longitude": 96.5, "central_latitude": 19.5,
     "standard_parallels": (10.0, 27.0),
 })
+
+ROOT = Path(__file__).resolve().parent
+# 派生文件由 prepare.py 生成, 不属于数据根.
+ADMIN_GEOJSON = build_path(ROOT, "myanmar_admin1.geojson")
 
 SHEET = Sheet(
     id="myanmar",

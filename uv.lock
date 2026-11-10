@@ -73,6 +73,9 @@ dependencies = [
     { name = "matplotlib" },
     { name = "netcdf4" },
     { name = "numpy" },
+    { name = "pandas" },
+    { name = "pyogrio" },
+    { name = "pyproj" },
     { name = "shapely" },
     { name = "xarray" },
 ]
@@ -90,6 +93,9 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.11.1" },
     { name = "netcdf4", specifier = ">=1.7.4" },
     { name = "numpy", specifier = ">=2.5.2" },
+    { name = "pandas", specifier = ">=2.3" },
+    { name = "pyogrio", specifier = ">=0.11" },
+    { name = "pyproj", specifier = ">=3.7" },
     { name = "shapely", specifier = ">=2.1.2" },
     { name = "xarray", specifier = ">=2026.7.0" },
 ]

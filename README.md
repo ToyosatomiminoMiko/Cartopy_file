@@ -4,9 +4,11 @@
 目录, 目录里的 `config.py` 声明该子项目用哪个数据区域(`DATA_GROUP`)与每张图的规格
 (画框/投影/色带/经纬网/文案), 出图流程与图层原语都在共享包 `src/cartopy_file/`.
 
-数据获取/下载/派生/入库由**独立数据项目 `miko_gis_data`** 负责: 它把数据准备到数据根, 并写
-一份 `manifest.json`; 本仓只读这份清单与它指向的文件, 出图时**不联网**. 两个仓库靠这份 JSON
-契约耦合, 互不 import. 数据项目可以单独移走, 换位置时设 `CARTOPY_FILE_DATA` 指过去即可.
+这仓分两层: **数据**由独立数据项目 `miko_gis_data` 负责 -- 只做下载/入库/解压, 把原始数据
+原样放进数据根并写一份 `manifest.json`; **清洗/派生/裁剪**与出图在本仓完成. 本仓读清单与它
+指向的原始文件, 用 `<子项目>/main.py prepare` 生成 `build/` 下的派生 GeoJSON, 再
+`render` 出图; 全程**不联网**. 两个仓库靠这份 JSON 契约耦合, 互不 import. 数据项目可以单独
+移走, 换位置时改本仓根目录 `config.toml` 的 `data_root` 即可.
 
 每张图产出两个文件: 地图(裁到地图框的**纯几何底图**, 只有地理图形, 不含文字,图例,色标,标题与
 刻度文字)写到 `<子项目>/map/<stem>.svg`, 文字信息(地图框,经纬刻度,初始标注候选,色标,图例与
@@ -18,31 +20,34 @@
 
 ```
 Cartopy_file/
-├── README.md               安装,数据准备,出图
+├── README.md               安装,数据准备,派生,出图
 ├── pyproject.toml          依赖与打包(uv_build)
 ├── AGENTS.md               必须做 / 禁止做的硬规矩
 ├── docs/                   概念 / 图种 / 参考三层
 ├── src/cartopy_file/       共享包
 │   ├── data.py             数据根 / manifest / cartopy 缓存定位
 │   ├── catalog.py          读 manifest,给出 Catalog / DatasetView / SourceInfo
-│   ├── spec.py             实例规格(画框/投影/色带/经纬网/地名/文案)
+│   ├── geometry.py         派生共用几何工具(修复/确定性 GeoJSON/椭球量算)
+│   ├── spec.py             实例规格(画框/投影/色带/经纬网/地名/文案/产物目录)
 │   ├── layers.py           图层原语(底图/晕渲/经纬网/城市点/geo 收集)
 │   ├── runner.py           统一出图流程与回调契约
 │   ├── geo.py              底图裁剪与 geo.json
 │   ├── output.py           纯几何 SVG 出口
 │   ├── relief.py           高程,晕渲,海陆底色
 │   └── overlap.py          边界重合剪枝
-├── Myanmar/                缅甸子项目: 3 张图
-├── USSR/                   苏联子项目
-├── Ukraine/                乌克兰子项目
-├── Volga/                  伏尔加河流域子项目: 流域图 + 周边共和国图
+├── Myanmar/                缅甸子项目: 3 张图 + prepare.py(派生)
+├── USSR/                   苏联子项目(无派生数据)
+├── Ukraine/                乌克兰子项目: prepare.py(派生) + 1 张图
+├── Volga/                  伏尔加河流域子项目: 流域图 + 周边共和国图 + prepare.py(派生)
 ├── AmericaArmy/            演示子项目: 框架用法的最小例子
 ├── tools/                  check_docs.py / check_geo.py / check_all.py / autorun.py
 └── global.py               一次性演示脚本
 ```
 
-每个子项目只有 `config.py`,`main.py` 与若干绘图模块: `main.py` 是**唯一可执行文件**, 其余
-`.py` 只导出 `run()`, 直接运行会报错并指向入口.
+每个子项目只有 `config.py`,`main.py` 与若干模块: `main.py` 是**唯一可执行文件**, 有派生数据的
+子项目有 `prepare`(生成 `<子项目>/build/` 下的派生 GeoJSON)与 `render`(出图)两个子命令,
+没有派生数据的子项目只有 `render`; 其余 `.py` 只导出 `run()`, 直接运行会报错并指向入口.
+`build/` 是可丢弃的中间产物(已在 `.gitignore`), 删掉后重跑 `prepare` 即可重建, 不触发下载.
 
 ## 安装
 
@@ -50,7 +55,6 @@ Cartopy_file/
 (`.python-version` 固定为 3.15). 用 uv 同步环境:
 
 ```bash
-export UV_CACHE_DIR="$PWD/data/uv-cache"   # 本机 /home 只读, uv 缓存要落在仓库内
 uv sync                # 新建/同步 .venv, 默认包含 dev 组
 uv pip install -e .    # 已有 .venv, 只把本项目以可编辑模式装进去
 ```
@@ -67,40 +71,55 @@ git config --local core.hooksPath .githooks
 
 ## 数据准备
 
-数据不在本仓准备. 到独立数据项目 `miko_gis_data` 的根目录执行(数据项目会在首次 clone 后
-`uv sync` 一次):
+下载/入库/解压在独立数据项目 `miko_gis_data` 里完成, 产物是数据根里的原始文件与
+`manifest.json`; 它**不做派生**. 到数据项目根目录执行(首次 clone 后 `uv sync` 一次; 下面的
+命令假设它与本仓平级, 即 `../miko_gis_data`, 放在别处就换成实际路径):
 
 ```bash
-cd miko_gis_data
-export UV_CACHE_DIR="<渲染仓>/data/uv-cache"   # 复用渲染仓里可写的 uv 缓存
+cd ../miko_gis_data
 uv sync
-python main.py check      # 只检查数据是否齐全/版本相符, 不联网; 有缺失退出码 1
-python main.py download   # 预取共享 Natural Earth 图层 + 下载各区域原始数据(已存在就跳过)
-python main.py prepare    # 由 raw/ 重建 derived/ 的派生 GeoJSON(不联网)
+python main.py check      # 只检查原始数据是否齐全/版本相符, 不联网; 有缺失退出码 1
+python main.py download   # 预取共享 Natural Earth 图层 + 下载/解压各区域原始数据(已存在就跳过)
 python main.py publish    # 重建 <数据根>/manifest.json 给渲染仓读
-python main.py all        # 依次 download -> prepare -> publish -> check
+python main.py all        # 依次 download -> publish -> check
 ```
 
 常用选项: `--group {all,america_army,myanmar,ukraine,ussr,volga}` 只处理一个区域;
-`download` 另有 `--region/--stride/--force/--skip-regions/--skip-basin`, `prepare` 有
-`--skip-basin`, 含义见 `python main.py <子命令> --help`. `publish --check` 只比较清单与配置,
-不写盘.
+`download` 另有 `--region/--stride/--force/--skip-regions/--skip-basin`, 含义见
+`python main.py <子命令> --help`. `publish --check` 只比较清单与配置, 不写盘.
 
-数据根默认是 `miko_gis_data/data/`, 需要放到别的可写磁盘时设 `CARTOPY_FILE_DATA`; 数据项目
-往这里写, 本仓从同一个值读. 本仓按下面的顺序找数据根:
+数据根默认是数据项目里的 `data/`. 渲染仓只认一个来源: 仓根 `config.toml` 的 `data_root`
+(本机配置, 不进 git). 数据项目在本仓之外, 所以本机只做一次配置, 之后照常出图:
 
-1. 环境变量 `CARTOPY_FILE_DATA`;
-2. `<仓根>/data/`(里面有 `manifest.json` 时);
-3. `<仓根>/miko_gis_data/data/`(数据项目暂放在本仓内, 里面有 `manifest.json` 时).
+```toml
+# <仓根>/config.toml
+data_root = "<数据项目>/data"
+```
 
 数据根布局: `manifest.json`(清单契约), `cartopy/`(全项目共用的 Natural Earth 缓存),
-`<region>/{raw,derived}`(各区域的原始数据与派生数据, region 就是 `DATA_GROUP` 的取值).
-清单格式与字段见 [docs/reference/manifest.md](docs/reference/manifest.md), 目录约定与数据源
-见 [docs/data-preparation.md](docs/data-preparation.md).
+`<region>/raw/`(各区域的原始数据, region 就是 `DATA_GROUP` 的取值). 清单只登记原始数据,
+没有 `kind=derived` 条目; 清单格式与字段见
+[docs/reference/manifest.md](docs/reference/manifest.md), 目录约定与数据源见
+[docs/data-preparation.md](docs/data-preparation.md).
 
-`raw` 只放下载原样(永不改写), `derived` 可以随时删掉重算; 两者都相对
-`<数据根>/<region>/` 定位, 清单里的 `dest`/`files` 也是这个口径. 数据与清单都不进 git:
-`**/data` 与 `/miko_gis_data/` 已在 `.gitignore`, 换机器后重跑上面的准备命令即可恢复.
+`raw/` 只放下载原样(解压目录也在这里, 永不改写), 都相对 `<数据根>/<region>/` 定位, 清单里的
+`dest`/`files` 也是这个口径. 数据与清单都不进 git: `**/data` 与 `/config.toml` 已在
+`.gitignore`, 换机器后重跑上面的准备命令即可恢复.
+
+## 派生数据
+
+数据根里只有原始数据, 没有派生 GeoJSON; 清洗/裁剪/拼装在本仓各自子项目的 `prepare.py` 里完成. 首次出图
+前跑一次(数据已就位时很快, 不联网):
+
+```bash
+python Myanmar/main.py prepare    # -> Myanmar/build/*.geojson
+python Ukraine/main.py prepare    # -> Ukraine/build/*.geojson(12 份)
+python Volga/main.py prepare      # -> Volga/build/*.geojson; --skip-basin 跳过流域派生
+```
+
+苏联与美军基地演示没有派生数据, 不用 prepare. 派生产物是图种口径的中间结果, 不在数据根里,
+也不登记进 manifest; 删掉 `build/` 重跑 `prepare` 即可恢复. 流程与分工见
+[docs/reference/prepare.md](docs/reference/prepare.md).
 
 ## 出图
 
@@ -117,7 +136,9 @@ python main.py all        # 依次 download -> prepare -> publish -> check
 | `python Volga/main.py render` | `volga_basin_topography_etopo2022_lambert_conformal.svg`(流域图)<br>`volga_basin_republics_topography_etopo2022_lambert_conformal.svg`(周边共和国图) |
 | `python AmericaArmy/main.py render` | `america_army_bases.svg`(框架用法演示, 定点位) |
 
-不给 `--sheet` 时出该子项目的全部图(`Volga`,`Myanmar` 都是如此). `render` 通用选项是
+出图前先确认该子项目的派生数据已在 `build/` 里(没有跑过就按上一节跑 `prepare`); 没有派生
+数据的子项目直接 render. 不给 `--sheet` 时出该子项目的全部图(`Volga`,`Myanmar` 都是如此).
+`render` 通用选项是
 `--dpi`(内嵌晕渲像素密度)与 `--show`(保存后弹窗); 有 ETOPO 数据的图种另有
 `--stride`(指定采样步长, 缺省自动挑分辨率最高的), 多图子项目另有 `--sheet`. 每张图的
 前置数据,可用选项与设计取舍见 [docs/index.md](docs/index.md) 里的图种页.
@@ -130,7 +151,7 @@ viewBox/尺寸),`graticule`(经纬刻度),`labels`(地名候选: id/role/文字/
 `relief`(色标),`legend`(图例)与 `suggestions`(标题/副标题/注/来源). 标注样式(字号/颜色/
 描边/斜体/字重/字距/行高)不在地图产物里, 由 `miko_svg_editor/src/config/text-style.ts` 的
 角色表统一决定; 字号是前端的纸张 mm 设计值, 与底图尺寸, 地图缩放都无关, 生成端不提供也不
-推导任何样式数据; 旧 v1 产物已被版本校验拒绝, 需要重新生成. 字段与口径见
+推导任何样式数据; geo.json 只接受 v2 契约, 版本校验会拒绝其他版本, 不符时要重新生成. 字段与口径见
 [docs/reference/geo.md](docs/reference/geo.md). 唯一的栅格是山体晕渲, 以 base64 内嵌在同一个
 `.svg` 里, 所以底图始终是单个自包含文件(`--dpi` 只影响晕渲像素密度, 默认 300). 出图不写
 时间戳, 内部 id 固定, 同一份数据重复运行得到相同内容. 实现与理由见
@@ -148,17 +169,15 @@ viewBox/尺寸),`graticule`(经纬刻度),`labels`(地名候选: id/role/文字/
 
 ## 缓存
 
-本机 `/home` 是只读挂载, 缓存统一放在仓库或数据根里:
+缓存统一放在仓库或数据根里, 不依赖 HOME:
 
 | 位置 | 内容 | 谁维护 |
 | --- | --- | --- |
 | `<数据根>/cartopy/` | Natural Earth 共享底图缓存 | 数据项目 `download` 预取 |
 | `<仓根>/data/.mplcache` | matplotlib 的 `MPLCONFIGDIR` | 渲染仓 `prepare_matplotlib_env()` |
-| `<仓根>/data/uv-cache` | uv 的包缓存 | 手动设 `UV_CACHE_DIR` |
 
-`<仓根>/data/` 只是渲染仓自己的可写缓存目录, **不是数据根**; 除非把 `manifest.json` 也放
-进去(或设 `CARTOPY_FILE_DATA` 指向别处), 否则数据根仍按上面的顺序定位. 定位逻辑见
-[docs/reference/data.md](docs/reference/data.md).
+`<仓根>/data/` 只是渲染仓自己的可写缓存目录, **不是数据根**; 数据根只由 `config.toml` 指定.
+定位逻辑见 [docs/reference/data.md](docs/reference/data.md).
 
 ## 文档
 
@@ -166,8 +185,8 @@ viewBox/尺寸),`graticule`(经纬刻度),`labels`(地名候选: id/role/文字/
 模块 API)三层. 文档与注释的写法见 [docs/conventions.md](docs/conventions.md), 提交前跑
 `uv run python tools/check_all.py`(会自动跑 `tools/check_docs.py`).
 
-`global.py` 是一次性演示脚本, 没有对应文档页. `miko_gis_data/` 是独立数据项目, 不进入本仓的
-文档索引与检查脚本.
+`global.py` 是一次性演示脚本, 没有对应文档页. 数据项目 `miko_gis_data` 是另一个仓库, 本仓
+只在文档里用文字提它, 不链接它的文件.
 
 ## 许可
 
