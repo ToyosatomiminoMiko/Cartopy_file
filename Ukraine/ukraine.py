@@ -17,10 +17,12 @@ import os
 import sys
 from pathlib import Path
 
-# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
+# 缓存目录必须在导入 matplotlib 之前指到可写位置, 见 docs/reference/data.md.
+from cartopy_file.data import prepare_matplotlib_env
+
+prepare_matplotlib_env()
+
 ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT / "data"
-os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
 import cartopy.crs as ccrs  # 地图投影
 import geopandas as gpd  # 读取 GeoJSON/shapefile
@@ -29,10 +31,12 @@ import numpy as np  # 数组运算
 from shapely.geometry import LineString, Point, box  # 图幅范围/端头延伸
 from shapely.ops import unary_union  # 合并几何
 
-# 图种规格与数据集清单: 画框/投影/色带/地名/文案都从这里取, 见 docs/reference/spec.md.
+# 图种规格与数据清单: 画框/投影/色带/地名/文案都从这里取, 见 docs/reference/spec.md.
 import config
 
 # 共享图层原语(底图/晕渲/经纬网/城市点/geo 收集), 见 docs/reference/layers.md.
+from cartopy_file.catalog import catalog_for
+
 from cartopy_file import layers
 
 # 统一出图流程(建画布 -> 底图 -> 晕渲 -> 本脚本图层 -> geo 保存), 见 docs/reference/runner.md.
@@ -45,31 +49,31 @@ from cartopy_file.overlap import cut, overlap_mask
 from cartopy_file.relief import find_etopo, load_ne_layer
 
 SHEET = config.SHEET_UKRAINE
-DATASETS = config.DATASETS
+CATALOG = catalog_for(config.DATA_GROUP)
 
 # ============================
 # 数据路径(派生 GeoJSON 由 prepare_data.py 生成, 见 config.py)
 # ============================
-OBLASTS_PATH = DATASETS.path("ukraine-oblasts")
-BORDER_1991_PATH = DATASETS.path("ukraine-border-1991")
-CRIMEA_LINE_PATH = DATASETS.path("crimea-2014-line")
-OCCUPIED_2014_PATH = DATASETS.path("occupied-2014")
-CONTACT_2014_PATH = DATASETS.path("contact-2014")
-CLAIMED_2022_PATH = DATASETS.path("claimed-2022")
+OBLASTS_PATH = CATALOG.path("ukraine-oblasts")
+BORDER_1991_PATH = CATALOG.path("ukraine-border-1991")
+CRIMEA_LINE_PATH = CATALOG.path("crimea-2014-line")
+OCCUPIED_2014_PATH = CATALOG.path("occupied-2014")
+CONTACT_2014_PATH = CATALOG.path("contact-2014")
+CLAIMED_2022_PATH = CATALOG.path("claimed-2022")
 # 德左区域面: 由 prepare_data.py 用 OSM 的 PMR 边界面按"德涅斯特河心线 +
 # 1991 国界"裁切得到; 只用于灰色参照填色, 不参与任何边界口径.
-TRANSNISTRIA_PATH = DATASETS.path("transnistria")
-DNIEPER_RIVER_PATH = DATASETS.path("dnieper-river")
-DNIEPER_WATER_PATH = DATASETS.path("dnieper-water")
+TRANSNISTRIA_PATH = CATALOG.path("transnistria")
+DNIEPER_RIVER_PATH = CATALOG.path("dnieper-river")
+DNIEPER_WATER_PATH = CATALOG.path("dnieper-water")
 # 德涅斯特河中心线(OSM): NE 10m 版本在德左一段平均 ~1 km 一个顶点, 而德左参照面
 # 的西缘就压在这条河上, 两者必须同源同精度.
-DNIESTER_RIVER_PATH = DATASETS.path("dniester-river")
+DNIESTER_RIVER_PATH = CATALOG.path("dniester-river")
 # 南布格河/顿河中心线: NE 10m 在河口前收笔, prepare_data.py 用 OSM 补了下游段,
 # 并与 NE 上段在接缝处拼成一条线(文件里含 NE + OSM 两段, 属性 replaces_ne_id
 # 标出被替换的 NE 要素).
 RIVER_EXTENSION_PATHS = (
-    DATASETS.path("southern-bug-river"),
-    DATASETS.path("don-river"),
+    CATALOG.path("southern-bug-river"),
+    CATALOG.path("don-river"),
 )
 
 # ============================
@@ -101,7 +105,8 @@ def _require(path: Path) -> Path:
     """缺少数据时给出明确修复命令, 而不是让后面的读取抛难懂的错."""
     if not path.exists():
         raise FileNotFoundError(
-            f"未找到数据: {path}\n请先运行: python Ukraine/main.py prepare"
+            f"未找到数据: {path}\n请先到数据项目 miko_gis_data 运行: "
+            "python main.py download --group ukraine && python main.py prepare --group ukraine"
         )
     return path
 
@@ -720,7 +725,7 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
     """渲染乌克兰全图并写出同名 geo.json; 返回 0=成功, 1=数据缺失."""
     try:
         etopo_path = find_etopo(
-            DATA_DIR / "raw",
+            CATALOG.raw_dir,
             "ukraine",
             stride,
             env_path=os.environ.get("UKRAINE_ETOPO_PATH"),
@@ -728,7 +733,7 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
         runner.render(
             SHEET,
             root=ROOT,
-            catalog=DATASETS,
+            catalog=CATALOG,
             draw=draw,
             dem_path=etopo_path,
             dpi=dpi,

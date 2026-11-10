@@ -40,7 +40,8 @@ def find_etopo(
     """按区域名定位本地 ETOPO NetCDF 文件.
 
     文件名约定: ETOPO_2022_v1_15s_{region}_stride{N}.nc.
-    优先级: 显式 stride > env_path(环境变量覆盖) > data/ 下该区域步长最小(分辨率最高)的文件.
+    优先级: env_path(各图种的 *_ETOPO_PATH 环境变量) > 显式 stride > data/ 下该区域步长最小
+    (分辨率最高)的文件.
     """
     if env_path:
         return Path(env_path)

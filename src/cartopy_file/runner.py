@@ -20,7 +20,7 @@ import numpy as np
 from . import layers
 from . import relief as relief_helpers
 from .data import configure_cartopy
-from .datasets import DatasetSet
+from .catalog import Catalog
 from .geo import GeoDoc, figure_frame, save_map
 from .output import apply_svg_output
 from .spec import Extent, Sheet, map_path, text_path
@@ -35,7 +35,7 @@ DrawHook = Callable[["RenderContext"], None]
 CollectHook = Callable[[GeoDoc, "RenderContext"], None]
 
 
-def _require_shared_layers(sheet: Sheet, catalog: DatasetSet) -> None:
+def _require_shared_layers(sheet: Sheet, catalog: Catalog) -> None:
     """出图前确认 sheet 声明用到的 Natural Earth 图层都在本地缓存里.
 
     为什么必须在画图前失败: ``layers.countries_frame()`` / ``relief.load_ne_layer()``
@@ -44,7 +44,8 @@ def _require_shared_layers(sheet: Sheet, catalog: DatasetSet) -> None:
     在 save_map 之前, 不会写出半成品底图.
 
     只检查 ``sheet.dataset_ids`` 里声明为 ``cartopy-ne`` 的数据: 未登记却直接读共享图层的
-    图种属于数据清单漏登记(另一个问题), 由对应 config 修复, 不在这里猜.
+    图种属于数据清单漏登记(另一个问题), 由数据项目 miko_gis_data 的区域 config 修复,
+    不在这里猜.
     """
     missing = [
         dataset
@@ -56,7 +57,7 @@ def _require_shared_layers(sheet: Sheet, catalog: DatasetSet) -> None:
         lines = "\n".join(f"  {item.resolution}/{item.category}/{item.name}" for item in missing)
         raise FileNotFoundError(
             f"缺少共享 Natural Earth 图层(Sheet {sheet.id}):\n{lines}\n"
-            "请先在仓库根运行: python download_data.py"
+            "请先到数据项目 miko_gis_data 运行: python main.py download"
         )
 
 
@@ -65,7 +66,7 @@ class RenderContext:
     """回调拿到的全部上下文; 图种图层函数从这里的 ax/数据/目录取参数."""
 
     sheet: Sheet
-    catalog: DatasetSet
+    catalog: Catalog
     root: Path
     fig: plt.Figure
     ax: plt.Axes
@@ -100,7 +101,7 @@ def render(
     sheet: Sheet,
     *,
     root: Path,
-    catalog: DatasetSet,
+    catalog: Catalog,
     draw: DrawHook,
     collect: CollectHook | None = None,
     dem_path: Path | None = None,
@@ -128,7 +129,7 @@ def render(
         # 兜底: 声明了 basemap 但共享缓存缺 10m 国界; 不能当成"没开底图"继续出图.
         raise FileNotFoundError(
             "缺少共享 Natural Earth 底图(10m/cultural/admin_0_countries); "
-            "请先在仓库根运行: python download_data.py"
+            "请先到数据项目 miko_gis_data 运行: python main.py download"
         )
     if sheet.basemap:
         layers.add_base_map(ax, sheet, world)
@@ -149,7 +150,7 @@ def render(
         _warn_coverage(sheet, dataset, covered)
         path = Path(dem_path) if dem_path is not None else catalog.path(dataset)
         if not path.exists():
-            hint = dataset.note or f"python {root.name}/download_data.py"
+            hint = dataset.note or "数据项目 miko_gis_data 的 download/prepare"
             raise FileNotFoundError(f"未找到高程数据: {path}\n请先准备数据({hint})")
         ctx.lon, ctx.lat, ctx.z = relief_helpers.load_elevation(path)
         if sheet.relief is None:

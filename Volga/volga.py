@@ -9,7 +9,7 @@ SVG: 只画流域的流域图, 与画框收窄,保留六个周边共和国的共
 要素, 不绘制任何文字/图例/色标/标题/比例尺/指北针.
 完整说明(两份画框,行政区取舍,河网分级与配色)见 ``docs/maps/volga.md``;
 数据集与两张图的规格见 ``Volga/config.py``, 分层与 API 见 ``docs/reference/spec.md``
-与 ``docs/reference/datasets.md``, 共享图层与出图流水线见 ``docs/reference/layers.md``
+与 ``docs/reference/manifest.md``, 共享图层与出图流水线见 ``docs/reference/layers.md``
 与 ``docs/reference/runner.md``.
 """
 
@@ -20,10 +20,12 @@ from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 
-# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
+# 缓存目录必须在导入 matplotlib 之前指到可写位置, 见 docs/reference/data.md.
+from cartopy_file.data import prepare_matplotlib_env
+
+prepare_matplotlib_env()
+
 ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT / "data"
-os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
 import cartopy.crs as ccrs  # 地图投影
 import geopandas as gpd  # 读取预加工好的 GeoJSON
@@ -32,8 +34,11 @@ import numpy as np  # 数组运算
 from shapely.geometry import box  # 投影画框与湖库筛选
 from shapely.ops import unary_union  # 流域/行政区几何合并
 
-# 图种规格与数据集清单: 画框/投影/色带/地名/文案都从这里取, 见 docs/reference/spec.md.
+# 图种规格与数据清单: 画框/投影/色带/地名/文案都从这里取, 见 docs/reference/spec.md.
 import config
+
+# 数据清单: 数据集路径/覆盖范围/署名都从 manifest 读, 见 docs/reference/manifest.md.
+from cartopy_file.catalog import catalog_for
 
 # 共享图层原语(底图/晕渲/经纬网/城市点/geo 收集), 见 docs/reference/layers.md.
 from cartopy_file import layers
@@ -41,10 +46,13 @@ from cartopy_file import layers
 # 统一出图流程(建画布 -> 图种图层 -> geo 保存), 见 docs/reference/runner.md.
 from cartopy_file import runner
 
-# cartopy 底图缓存统一到仓库 data/cartopy, 见 docs/reference/data.md.
+# cartopy 底图缓存统一到数据根里的 cartopy/, 见 docs/reference/data.md.
 from cartopy_file.data import configure_cartopy
 
 configure_cartopy()
+
+# 这个区域的 manifest 键(数据项目 miko_gis_data 的 regions/volga).
+CATALOG = catalog_for(config.DATA_GROUP)
 
 # 重合线剪枝: 国界与海岸线/湖岸重合的段落只留一种线, 见 docs/reference/overlap.md.
 from cartopy_file.overlap import cut, overlap_mask
@@ -130,8 +138,8 @@ def load_vectors(extent) -> tuple[gpd.GeoDataFrame, object, object]:
     来自仓库 data/cartopy 里已缓存的 Natural Earth 10m 图层(见 add_rivers /
     add_water), 不需要各图种再下载一份.
     """
-    subjects = gpd.read_file(_require(config.DATASETS.path("volga-subjects")))
-    basin = unary_union(gpd.read_file(_require(config.DATASETS.path("volga-basin"))).geometry)
+    subjects = gpd.read_file(_require(CATALOG.path("volga-subjects")))
+    basin = unary_union(gpd.read_file(_require(CATALOG.path("volga-basin"))).geometry)
     # 流域面裁到俄罗斯陆地: HydroBASINS 的单元边界在里海岸边比 GADM 岸线
     # 略靠外, 不裁的话浅蓝填色会在海面上多出一圈岸线误差(约 1500 km²);
     # 行政区的陆地并集与国界同源, 裁完岸线才与国界对齐.
@@ -143,7 +151,7 @@ def load_vectors(extent) -> tuple[gpd.GeoDataFrame, object, object]:
     if ocean is not None:
         land = land.difference(ocean.intersection(_view_box(extent, pad=1.0)))
     basin = unary_union(polygon_parts(basin.intersection(land)))
-    border = unary_union(gpd.read_file(_require(config.DATASETS.path("russia-border"))).geometry)
+    border = unary_union(gpd.read_file(_require(CATALOG.path("russia-border"))).geometry)
     return subjects, basin, border
 
 
@@ -560,7 +568,7 @@ def run(
 ) -> int:
     """出图入口: ``sheets`` 为 None 出两张, 否则只出给定的 sheet id; 返回退出码."""
     etopo_path = find_etopo(
-        DATA_DIR / "raw",
+        CATALOG.raw_dir,
         "volga",
         stride,
         env_path=os.environ.get("VOLGA_ETOPO_PATH"),
@@ -592,7 +600,7 @@ def run(
         runner.render(
             sheet,
             root=ROOT,
-            catalog=config.DATASETS,
+            catalog=CATALOG,
             draw=draw,
             label_vars=label_vars,
             area_annotation=area_annotation,

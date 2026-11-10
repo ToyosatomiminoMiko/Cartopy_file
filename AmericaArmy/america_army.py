@@ -19,23 +19,27 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
+# 缓存目录必须在导入 matplotlib 之前指到可写位置, 见 docs/reference/data.md.
+from cartopy_file.data import prepare_matplotlib_env
+
+prepare_matplotlib_env()
+
 ROOT = Path(__file__).resolve().parent
-os.environ.setdefault("MPLCONFIGDIR", str(ROOT.parent / "data" / ".mplcache"))
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
-# 子项目配置(数据集清单 + Sheet), 见 docs/reference/spec.md.
+# 子项目配置(数据清单键 + Sheet), 见 docs/reference/spec.md.
 import config
 
 # 共享图层原语与统一出图流程, 见 docs/reference/layers.md / docs/reference/runner.md.
 from cartopy_file import layers, runner
+from cartopy_file.catalog import catalog_for
 
 SHEET = config.SHEET_WORLD
-DATASETS = config.DATASETS
+CATALOG = catalog_for(config.DATA_GROUP)
 
-# 预取清单只准备了 110m(见 docs/data-preparation.md), 这里钉死, 缩放也不换分辨率.
+# 数据项目只预取了 110m(见 docs/data-preparation.md), 这里钉死, 缩放也不换分辨率.
 SCALE = "110m"
 
 
@@ -65,7 +69,7 @@ def run(*, dpi: int | None = None, show: bool = False) -> int:
     runner.render(
         SHEET,
         root=ROOT,
-        catalog=DATASETS,
+        catalog=CATALOG,
         draw=draw,
         dpi=dpi,
         show=show,

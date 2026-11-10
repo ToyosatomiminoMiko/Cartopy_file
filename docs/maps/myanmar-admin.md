@@ -1,7 +1,7 @@
 # 缅甸省/邦级行政区划图 (Myanmar/myanmar_admin.py)
 
 - 源码: [`Myanmar/myanmar_admin.py`](../../Myanmar/myanmar_admin.py)
-- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(子命令 download / prepare / render / all)
+- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(唯一入口, 只有 `render` 子命令)
 - 产物: `Myanmar/map/myanmar_administrative_divisions_bilingual.svg`(地图) 与
   `Myanmar/text/myanmar_administrative_divisions_bilingual.geo.json`(文字信息)
 
@@ -57,9 +57,11 @@ GADM 与 Natural Earth 10m 国界来自不同测绘成果, 直接按国界裁剪
 
 ### 7. 图例与双语标注的声明位置
 
-行政区属性表 `ADMIN_INFO`(GADM 名 -> key/中英文名/类型/行政中心中英文名与坐标)在
-`Myanmar/config.py`: `prepare_admin_data.py` 用它生成派生 GeoJSON(只负责几何), 绘图模块,图例
-与双语标注也从这里取同一份事实, 不再在准备脚本和渲染脚本里各写一遍.
+行政区属性表 `ADMIN_INFO`(GADM 名 -> key/中英文名/类型/行政中心中英文名与坐标)同时存在于
+两边: 数据项目 `regions/myanmar/config.py` 的一份给派生脚本生成行政区 GeoJSON 用(只负责
+几何), 本仓 `Myanmar/config.py` 的一份给绘图模块,图例与双语标注用. 两份必须保持一致: 改
+行政中心名/坐标时两边一起改, 再 `prepare` + `publish` + 重新出图, 否则派生数据与图上的
+名称/落点会对不上.
 
 图例是数据不是代码: 14 个行政区色块(7 邦冷色 + 7 省暖色) + 1 个联邦区(斜线) + 6 个符号/线型
 条目, 按旧面板顺序声明在 `ADMIN_LEGEND`, 标题是 `ADMIN_LEGEND_TITLE`; `geo.legend` 由
@@ -76,37 +78,46 @@ GADM 与 Natural Earth 10m 国界来自不同测绘成果, 直接按国界裁剪
 
 ## 数据
 
-| 文件 | 内容 | 生成方式 |
+数据由独立数据项目 `miko_gis_data` 准备, 路径相对数据根(数据根定位见
+[data-preparation.md](../data-preparation.md)):
+
+| 文件 | 内容 | 准备方式 |
 | --- | --- | --- |
-| `Myanmar/data/derived/myanmar_admin1.geojson` | 15 个一级行政区(含名称/中心点属性, 属性表来自 `Myanmar/config.py` 的 `ADMIN_INFO`) | `python Myanmar/main.py prepare` |
-| `Myanmar/data/raw/gadm41_MMR/gadm41_MMR_1.json` | GADM 4.1 原始 JSON | `python Myanmar/main.py download` |
-| `Myanmar/data/raw/osm_naypyidaw_union_territory.json` | OSM 内比都联邦区 relation 原始响应 | `python Myanmar/main.py download` |
-| `Myanmar/data/raw/ne_10m_rivers_lake_centerlines/` | Natural Earth 10m 河流(钉在 5.0.0 旧副本) | `python Myanmar/main.py download` |
-| `data/cartopy/` | 共享缓存的 Natural Earth 10m 国界(底图)/海岸线(剪国界用)/国界线 | `python download_data.py` |
-| `Myanmar/data/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集 | `python Myanmar/main.py download --region myanmar` |
+| `<数据根>/myanmar/derived/myanmar_admin1.geojson` | 15 个一级行政区(含名称/中心点属性, 属性表来自数据项目 `regions/myanmar/config.py` 的 `ADMIN_INFO`) | 数据项目 `python main.py prepare --group myanmar` |
+| `<数据根>/myanmar/raw/gadm41_MMR/gadm41_MMR_1.json` | GADM 4.1 原始 JSON(可选缓存) | 数据项目 `python main.py download --group myanmar` |
+| `<数据根>/myanmar/raw/osm_naypyidaw_union_territory.json` | OSM 内比都联邦区 relation 原始响应(可选缓存) | 数据项目 `python main.py download --group myanmar` |
+| `<数据根>/myanmar/raw/ne_10m_rivers_lake_centerlines/` | Natural Earth 10m 河流(钉在 5.0.0 旧副本) | 数据项目 `python main.py download --group myanmar` |
+| `<数据根>/cartopy/shapefiles/natural_earth/...` | 共享缓存的 Natural Earth 10m 国界(底图)/海岸线(剪国界用)/国界线 | 数据项目 `python main.py download` 统一预取 |
+| `<数据根>/myanmar/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集 | 数据项目 `python main.py download --group myanmar --region myanmar` |
 
 ## 运行
 
 唯一入口是 `Myanmar/main.py`, 其余 `Myanmar/*.py` 都是模块(直接运行会报错并提示入口):
 
 ```bash
-python download_data.py                              # 首次: 共享 Natural Earth 底图
-python Myanmar/main.py download --region myanmar     # 首次: ETOPO + GADM/NE 河流/OSM 内比都原始数据
-python Myanmar/main.py prepare                       # 首次: 由原始数据重建行政区 GeoJSON(离线)
-python Myanmar/main.py render --sheet myanmar-admin  # 出图
+# 数据项目根目录: 首次准备(下载原样 + 派生行政区 GeoJSON + 发布清单)
+cd miko_gis_data
+python main.py download --group myanmar --region myanmar
+python main.py prepare --group myanmar
+python main.py publish
+cd ..
+
+# 渲染仓: 出图
+python Myanmar/main.py render --sheet myanmar-admin
 ```
 
-`prepare` 无选项,不联网: 只读 `data/raw/`, 派生行政区 GeoJSON 每次全量重建; 缺原始数据时
-报错并提示先跑上面的 `download`(不会在派生流程里悄悄联网). `render` 的选项与其它图种相同
+数据项目的 `prepare` 不联网: 只读 `<数据根>/myanmar/raw/`, 派生行政区 GeoJSON 每次全量
+重建; 缺原始数据时报错并提示先跑 `download`. `render` 的选项与其它图种相同
 (`--stride` / `--dpi` / `--show`), 高程文件也可用 `MYANMAR_ETOPO_PATH` 指定.
 
 ## 注意事项
 
-- 已下载的 GADM / Natural Earth 文件存在时跳过下载, 便于断点续跑;
-- `prepare` 生成前做拓扑自检: 15 个单元必须无重叠,无缝铺满国界, 否则报错退出;
+- 数据项目的 `download` 对已存在的 GADM / Natural Earth 文件跳过下载, 便于断点续跑;
+- 数据项目的 `prepare` 生成前做拓扑自检: 15 个单元必须无重叠,无缝铺满国界, 否则报错退出;
 - 国界只画陆上段, 海岸线不画; 省/邦界贴着国界/海岸的那一段会被走廊剪掉, 所以图上
   海岸处没有深灰轮廓, 由填色与海洋底色分界;
-- 行政区 GeoJSON 缺失时绘图报错并提示先跑 `python Myanmar/main.py prepare`;
+- 行政区 GeoJSON 缺失时绘图报错并提示到数据项目跑
+  `python main.py prepare --group myanmar`(以及 `publish`);
 - 双语标注落点是按当前画框/投影折算的经纬度(见设计要点 7), 改投影或画幅要重算, 不要只改
   文案;
 - 标注 id 是稳定的 ASCII slug, 前端按 id 引用; 改显示文案只动 `text`.

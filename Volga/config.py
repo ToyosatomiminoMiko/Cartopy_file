@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Volga subproject: dataset inventory and per-sheet render config.
+"""Volga subproject: the render spec of the two Volga maps.
 
-是什么: 伏尔加子项目的唯一配置入口--数据集清单(从哪下,版本,下载范围,本地路径),
-两张图各自的 ``Sheet``(画框,投影,色带,经纬网,文案)与图种特有图层的数据(配色,
-地名,城市,河网分级,行政区主题). 数据准备脚本与绘图脚本都从这里取参数, 下载范围与
-绘图范围不会再各写一份.
-完整说明(数据集层与实例规格层怎么分工,画布宽高比怎么算)见
-``docs/reference/datasets.md`` 与 ``docs/reference/spec.md``; 两张图的设计取舍见
-``docs/maps/volga.md``.
+是什么: 伏尔加流域两张图的规格(画框,投影,色带,经纬网,版式,文案), 两图共用一套数值.
+数据清单与下载范围已拆到数据项目 miko_gis_data, 这里只留绘图需要的数值.
+完整说明见 ``docs/reference/spec.md``; 两个图种的设计取舍见 ``docs/maps/volga.md``.
 """
 
 from __future__ import annotations
@@ -16,8 +12,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from cartopy_file.datasets import Dataset, dataset_set
-from cartopy_file.sources import erddap_url, gadm_url, hydrobasins_url
 from cartopy_file.spec import (
     Extent,
     Graticule,
@@ -29,7 +23,9 @@ from cartopy_file.spec import (
 )
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "data"
+
+# 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
+DATA_GROUP = "volga"
 
 # ============================
 # 画框
@@ -42,142 +38,6 @@ EXTENT_BASIN = Extent(30.3, 62.3, 44.4, 62.3)
 # 西到 40°E(上伏尔加), 东到 60°E(卡马河以东的乌拉尔西坡); 南界沿用 44.4°N,
 # 保留流域三角洲与里海西北岸.
 EXTENT_REPUBLICS = Extent(40.0, 60.0, 44.4, 59.0)
-
-# ETOPO 下载范围由画框外扩: 兰勃特投影下矩形画框的顶边会张开, 数据必须在经纬度上
-# 盖住投影后的画框, 否则四角露出底图. 四边各留 0.5°, 与改前成品用的范围一致
-# (原 download_data.py 的 BBOX 与 volga.py 的 EXTENT_BASIN 曾各写一份且顺序不同).
-ETOPO_BBOX = EXTENT_BASIN.padded(lon=0.5, lat=0.5)
-
-# ============================
-# 数据集
-# ============================
-# ETOPO 高程子集: stride=2 即 30 弧秒; 文件名里的区域名要与绘图脚本的 find_etopo("volga") 对应.
-ETOPO_VOLGA = Dataset(
-    id="etopo-volga",
-    kind="file",
-    source_id="etopo-2022",
-    url=erddap_url(
-        "etopo-2022",
-        stride=2,
-        lon_range=(ETOPO_BBOX.lon_min, ETOPO_BBOX.lon_max),
-        lat_range=(ETOPO_BBOX.lat_min, ETOPO_BBOX.lat_max),
-    ),
-    dest="raw/ETOPO_2022_v1_15s_volga_stride2.nc",
-    files=("raw/ETOPO_2022_v1_15s_volga_stride*.nc",),
-    bbox=ETOPO_BBOX,
-    stride=2,
-    note="ETOPO 2022 伏尔加河流域高程(stride 2 = 30 弧秒)",
-)
-
-# GADM 4.1 俄罗斯一级行政区(法理口径, 不含克里米亚/塞瓦斯托波尔).
-GADM_RUS = Dataset(
-    id="gadm41-rus",
-    kind="file",
-    source_id="gadm-4.1",
-    url=gadm_url("RUS"),
-    dest="raw/gadm41_RUS_1.json",
-    note="GADM 4.1 俄罗斯一级行政区(原始)",
-)
-
-# HydroBASINS level 5 欧洲区: 压缩包是下载原样, 下载与解压都由 download_data.py 做,
-# 解压目录放在 derived; prepare_data.py 只读解压结果派生流域面.
-HYBAS_EU_ARCHIVE = Dataset(
-    id="hybas-eu-lev05-archive",
-    kind="file",
-    source_id="hydrobasins",
-    url=hydrobasins_url("hybas_eu_lev05_v1c.zip"),
-    dest="raw/hybas_eu_lev05_v1c.zip",
-    note="HydroBASINS level 5 欧洲区压缩包(原始)",
-)
-
-HYBAS_EU_SHAPES = Dataset(
-    id="hybas-eu-lev05",
-    kind="derived",
-    dest="derived/hybas_eu_lev05_v1c/hybas_eu_lev05_v1c.shp",
-    note="HydroBASINS level 5 欧洲区(download_data.py 解压, 流域派生用)",
-)
-
-# 共享缓存里的 Natural Earth 10m 图层用 cartopy-ne: 只登记出处, 由 cartopy 的下载器
-# 管理, 全项目共用 data/cartopy 一份; 本子项目的数据准备脚本不重复下载.
-NE_RIVERS = Dataset(
-    id="ne-rivers-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="physical",
-    name="rivers_lake_centerlines",
-    note="Natural Earth 10m 河网",
-)
-
-NE_LAKES = Dataset(
-    id="ne-lakes-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="physical",
-    name="lakes",
-    note="Natural Earth 10m 湖泊/水库水面",
-)
-
-NE_OCEAN = Dataset(
-    id="ne-ocean-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="physical",
-    name="ocean",
-    note="Natural Earth 10m 海洋面(里海低地判识与流域面裁边)",
-)
-
-NE_COASTLINE = Dataset(
-    id="ne-coastline-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="physical",
-    name="coastline",
-    note="Natural Earth 10m 海岸线(国界剪掉沿海段的蒙版)",
-)
-
-# 派生输出(由 prepare_data.py 生成; 绘图脚本直接读这三个文件, 字段契约不要随意改).
-VOLGA_SUBJECTS = Dataset(
-    id="volga-subjects",
-    kind="derived",
-    dest="derived/volga_subjects.geojson",
-    note="GADM 一级行政区裁到画框, 属性 name/engtype/type",
-)
-
-VOLGA_BASIN = Dataset(
-    id="volga-basin",
-    kind="derived",
-    dest="derived/volga_basin.geojson",
-    note="伏尔加河流域面, 属性 area_km2",
-)
-
-RUSSIA_BORDER = Dataset(
-    id="russia-border",
-    kind="derived",
-    dest="derived/russia_border.geojson",
-    note="GADM 口径俄罗斯国界(裁到画框)",
-)
-
-DATASETS = dataset_set(
-    "伏尔加",
-    DATA,
-    [
-        ETOPO_VOLGA,
-        GADM_RUS,
-        HYBAS_EU_ARCHIVE,
-        HYBAS_EU_SHAPES,
-        NE_RIVERS,
-        NE_LAKES,
-        NE_OCEAN,
-        NE_COASTLINE,
-        VOLGA_SUBJECTS,
-        VOLGA_BASIN,
-        RUSSIA_BORDER,
-    ],
-)
 
 # ============================
 # 投影 / 色带 / 经纬网

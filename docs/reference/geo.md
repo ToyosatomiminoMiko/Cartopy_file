@@ -98,7 +98,7 @@ doc.set_legend("图例", [{"label": "国界", "shape": "line",
 doc.set_suggestions({"title": "...", "subtitle": "...", "notes": ["..."],
                      "legend_title": "图例",
                      "colorbar_title": "高程 / 水深"})
-# 新图种不要手写 source: layers.suggestions(sheet, catalog) 会按数据集清单生成
+# 新图种不要手写 source: layers.suggestions(sheet, catalog) 会用 Catalog.citation 生成
 # 「署名 + 发布页 URL」, 见 docs/reference/layers.md.
 
 # 产物路径由 spec 的 map_path / text_path 拼: 地图进 <子项目>/map/, 文字信息进
@@ -115,7 +115,8 @@ save_map(fig, MAP_PATH, doc, geo_path=TEXT_PATH, dpi=args.dpi)
   硬编码字号或颜色;
 - 地图框位置只在 `set_extent()` 之后量, `figure_frame` 会先 `apply_aspect()`, 否则拿到
   的是 aspect 修正前的矩形;
-- `suggestions.source` 由数据集清单自动生成(每个数据源一条, 带发布页 URL), 不要手写:
+- `suggestions.source` 由 `Catalog.citation(sheet.dataset_ids)` 自动生成(每个数据源一条, 带
+  发布页 URL), 不要手写:
   手写的来源句容易混进投影参数之类的废话, 还会漏掉 ODbL 这类许可要求的署名;
 - `title/subtitle/notes/source` 用纯文本且单行(不带 `#` 等标记), 前端预填到 scene 的 text /
   legend / colorbar 组件; 图外面积注记放 `suggestions.area_annotation`, 图内区域名放

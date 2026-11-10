@@ -284,7 +284,7 @@ def suggestions(
     """拼 geo.suggestions: 文案来自 spec, 数据来源由数据集登记自动生成.
 
     为什么来源不手写: 手写的「数据源」句子里混着投影参数和废话, 换一张图就要重抄一遍,
-    还会漏掉许可要求的署名. 这里按 ``sheet.dataset_ids`` 查 ``DatasetSet`` 的署名,
+    还会漏掉许可要求的署名. 这里按 ``sheet.dataset_ids`` 查数据清单 ``Catalog`` 的署名,
     每个数据源只出现一次, 且一定带发布页 URL.
     ``area_annotation`` 是图外的面积注记(伏尔加流域图用), 数值出图时才算得出来.
     """

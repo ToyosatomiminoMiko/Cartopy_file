@@ -10,9 +10,11 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
 产物路径与数据依赖.
 
 本模块只放**类型与校验**(spec = 规格模型); 具体数值写在子项目的 `config.py` 里(config = 该
-子项目的配置实例), 与数据集清单放在同一个文件: 下载范围和绘图范围因此只有一个作者, 不会再
-出现「下载模块写一个画框,绘图模块又写一个」的问题. 分开的理由: 类型不随图种变, 所以留在
-共享包; 配置每个子项目一份, 新增子项目只加 `config.py`, 不用改这里.
+子项目的配置实例). `config.py` 只声明两件事: `DATA_GROUP`(数据项目 manifest 的区域键)与
+`SHEETS`(出哪些图). 数据集清单(从哪下,什么版本,放哪)在独立数据项目 `miko_gis_data` 的区域
+配置里, 不在本仓; 本仓的绘图范围(画框)是数据项目推导下载 `bbox` 的来源, 出图时 `runner` 会
+核对清单里的 `bbox` 是否盖住画框. 分开的理由: 类型不随图种变, 所以留在共享包; 配置每个
+子项目一份, 新增子项目只加 `config.py`, 不用改这里.
 
 ## 关键行为
 
@@ -44,7 +46,8 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
   写到 `<子项目>/text/<stem>.geo.json`, 目录由 `map_path`/`text_path` 决定; `axes=None`
   用 `plt.subplots` 默认布局, 给矩形则用 `add_axes`; `basemap=False` 表示不铺共享海陆底色
   (图种自己画); `tight_layout=True` 表示量地图框前先 `plt.tight_layout()`(苏联图);
-  `dataset_ids` 是数据来源的署名依据, `dem_id` 指向其中的高程数据集; `relief=None`
+  `dataset_ids` 是数据来源的署名依据(由 `Catalog.citation` 折成一行), `dem_id` 指向其中的
+  高程数据集(`runner` 用它核对覆盖并读高程); `relief=None`
   表示这张图不铺高程;
 - `Sheet.legend` / `legend_title`: 图例整块声明在 config 里, `standard_collect` 写进
   `geo.legend`; 没有图例时两者都为缺省(空), 有 `legend` 必须有 `legend_title`;
@@ -90,16 +93,18 @@ SHEET = Sheet(
 )
 ```
 
-一个子项目出多张图时写 `SHEETS = (SHEET_A, SHEET_B)`; 工具(`download_data.py --check`,
-`tools/check_geo.py`)会把它们自动收进清单与自检范围.
+一个子项目出多张图时写 `SHEETS = (SHEET_A, SHEET_B)`; 工具(`tools/check_geo.py`,
+`tools/check_docs.py`)会把它们自动收进自检范围. 数据集本身仍由数据项目声明, 这里只写
+`DATA_GROUP` 与 `dataset_ids`.
 
 ## 注意事项
 
 - **纯数据**: 这里不要 import matplotlib/cartopy, 也不要读数据文件; 需要投影几何计算
   (例如按投影包围盒定画布宽高比)就留在子项目的 `config.py` 里, 或把算好的数字写成常量
   并注释来源;
-- 画框只有一处: 数据集的 `bbox` 用 `Sheet.extent.padded(...)` 推出来; 确实需要非对称余量时
-  也在 `config.py` 里紧接着写, 不要跑到下载脚本里再写一遍;
+- 画框在本仓 `config.py` 只有一处: 数据项目的下载 `bbox` 由它推导(写进 manifest), 出图时
+  `runner` 拿清单里的 `bbox` 核对该画框投影后的范围. 改画框要同时改数据项目的区域配置并
+  重新 `publish` + 出图, 不要只在一边改;
 - `lon_ticks`/`lat_ticks` 是**产物级**的取值: 改它们会改变 SVG 字节. 只想要更密的刻度时,
   先确认这是设计变更而不是顺手重排;
 - `Sheet.out` 只写地图文件名,必须 `.svg` 结尾, 不能带目录; 一个 `SHEETS` 里 id 与产物名

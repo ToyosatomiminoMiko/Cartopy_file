@@ -1,21 +1,19 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Myanmar subproject: dataset inventory and per-sheet render config.
+"""Myanmar subproject: per-sheet render config.
 
-是什么: 缅甸子项目的唯一配置入口--数据集清单(从哪下,版本,下载范围,本地路径)与
-每张图的规格(画框,投影,色带,经纬网,地名,图例,图面配色,文案). 数据准备脚本与绘图
-脚本都从这里取参数, 下载范围和绘图范围不会再各写一份; 图例与地图共用同一份颜色,
-改色时图例跟着变.
-完整说明(数据集层与实例规格层怎么分工)见 ``docs/reference/datasets.md`` 与
-``docs/reference/spec.md``; 各图种的设计取舍见 ``docs/maps/myanmar.md`` 等页面.
+是什么: 缅甸子项目的唯一配置入口--每张图的规格(画框,投影,色带,经纬网,地名,图例,
+图面配色,文案). 数据清单与下载范围已拆到数据项目 miko_gis_data, 这里只留绘图需要的
+数值; 图例与地图共用同一份颜色, 改色时图例跟着变.
+完整说明(实例规格层怎么分工)见 ``docs/reference/spec.md``; 各图种的设计取舍见
+``docs/maps/myanmar.md`` 等页面; 数据从哪来见数据项目 miko_gis_data 的
+``docs/data-preparation.md``.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from cartopy_file.datasets import Dataset, dataset_set
-from cartopy_file.sources import erddap_url, ne_url
 from cartopy_file.spec import (
     City,
     Extent,
@@ -28,7 +26,9 @@ from cartopy_file.spec import (
 )
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "data"
+
+# 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
+DATA_GROUP = "myanmar"
 
 # ============================
 # 画框
@@ -39,154 +39,6 @@ EXTENT_MYANMAR = Extent(87.0, 106.0, 5.0, 31.0)
 EXTENT_NORTHERN_SHAN = Extent(95.3, 101.5, 19.0, 24.75)
 # 行政区划图: 画框也要容下整国轮廓与邻国参照.
 EXTENT_ADMIN = Extent(91.0, 102.5, 8.8, 29.4)
-
-# ETOPO 下载范围由画框外扩: 圆锥投影的矩形画框顶边会张开(详见 docs/data-preparation.md),
-# 所以纬度方向也要留余量; 数字与改前的下载范围一致, 不能随手改(会让已下载的缓存作废).
-ETOPO_BBOX_MYANMAR = EXTENT_MYANMAR.padded(lon=1.7, lat=0.1)
-ETOPO_BBOX_NORTHERN_SHAN = Extent(94.6, 102.1, 18.8, 25.2)
-
-# ============================
-# 数据集
-# ============================
-# 共享缓存里的 Natural Earth 图层用 cartopy-ne: 只登记出处, 由 cartopy 的下载器管理,
-# 全项目共用 data/cartopy 一份.
-ETOPO_MYANMAR = Dataset(
-    id="etopo-myanmar",
-    kind="file",
-    source_id="etopo-2022",
-    url=erddap_url(
-        "etopo-2022",
-        stride=2,
-        lon_range=(ETOPO_BBOX_MYANMAR.lon_min, ETOPO_BBOX_MYANMAR.lon_max),
-        lat_range=(ETOPO_BBOX_MYANMAR.lat_min, ETOPO_BBOX_MYANMAR.lat_max),
-    ),
-    dest="raw/ETOPO_2022_v1_15s_myanmar_stride2.nc",
-    files=("raw/ETOPO_2022_v1_15s_myanmar_stride*.nc",),
-    bbox=ETOPO_BBOX_MYANMAR,
-    stride=2,
-    note="ETOPO 2022 缅甸区域高程(stride 2 = 30 弧秒)",
-)
-
-ETOPO_NORTHERN_SHAN = Dataset(
-    id="etopo-northern-shan",
-    kind="file",
-    source_id="etopo-2022",
-    url=erddap_url(
-        "etopo-2022",
-        stride=1,
-        lon_range=(ETOPO_BBOX_NORTHERN_SHAN.lon_min, ETOPO_BBOX_NORTHERN_SHAN.lon_max),
-        lat_range=(ETOPO_BBOX_NORTHERN_SHAN.lat_min, ETOPO_BBOX_NORTHERN_SHAN.lat_max),
-    ),
-    dest="raw/ETOPO_2022_v1_15s_northern_shan_stride1.nc",
-    files=("raw/ETOPO_2022_v1_15s_northern_shan_stride*.nc",),
-    bbox=ETOPO_BBOX_NORTHERN_SHAN,
-    stride=1,
-    note="ETOPO 2022 掸邦区域高程(15 弧秒)",
-)
-
-NE_COUNTRIES = Dataset(
-    id="ne-countries-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="cultural",
-    name="admin_0_countries",
-    version_file="ne_10m_admin_0_countries.VERSION.txt",
-    note="Natural Earth 10m 国家多边形(海陆底色与国界轮廓)",
-)
-
-NE_COASTLINE = Dataset(
-    id="ne-coastline-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="physical",
-    name="coastline",
-    note="Natural Earth 10m 海岸线(国界剪掉沿海段的蒙版)",
-)
-
-NE_BORDERS = Dataset(
-    id="ne-borders-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="cultural",
-    name="admin_0_boundary_lines_land",
-    note="Natural Earth 10m 陆上国界(邻国参照线)",
-)
-
-NE_RIVERS = Dataset(
-    id="ne-rivers-10m",
-    kind="zip",
-    source_id="natural-earth",
-    # 这份是 5.0.0 的旧副本(改前成品就是它画的), 所以钉住版本而不是跟共享缓存走;
-    # 换成 5.1.1 会改变河网几何, 属于要单独评审的改动(见 docs/reference/datasets.md).
-    version="5.0.0",
-    url=ne_url("10m", "physical", "rivers_lake_centerlines"),
-    dest="raw/ne_10m_rivers_lake_centerlines",
-    version_file="raw/ne_10m_rivers_lake_centerlines/ne_10m_rivers_lake_centerlines.VERSION.txt",
-    files=("raw/ne_10m_rivers_lake_centerlines/ne_10m_rivers_lake_centerlines.shp",),
-    note="Natural Earth 10m 河流(缅甸administrative图, 版本 5.0.0 旧副本)",
-)
-
-ADMIN_GEOJSON = Dataset(
-    id="myanmar-admin1",
-    kind="derived",
-    dest="derived/myanmar_admin1.geojson",
-    note="省/邦级行政区 GeoJSON(由 prepare_admin_data.py 生成)",
-)
-
-SHAN_REGIONS = Dataset(
-    id="osm-shan-regions",
-    kind="script",
-    source_id="openstreetmap",
-    dest="raw/regions/shan_north_boundaries.geojson",
-    note="掸邦北部各特区/民地武控制区边界(Overpass 抓取)",
-)
-
-OSM_COUNTRY_BORDERS = Dataset(
-    id="osm-country-borders",
-    kind="script",
-    source_id="openstreetmap",
-    dest="raw/regions/osm_country_borders.geojson",
-    note="画框附近国界(Overpass 抓取)",
-)
-
-GADM_MMR_RAW = Dataset(
-    id="gadm41-mmr",
-    kind="script",
-    source_id="gadm-4.1",
-    dest="raw/gadm41_MMR/gadm41_MMR_1.json",
-    optional=True,
-    note="GADM 4.1 缅甸一级行政区原始 JSON(生成 admin1 用)",
-)
-
-NAYPYIDAW_CACHE = Dataset(
-    id="osm-naypyidaw",
-    kind="script",
-    source_id="openstreetmap",
-    dest="raw/osm_naypyidaw_union_territory.json",
-    optional=True,
-    note="内比都联邦区 OSM 缓存",
-)
-
-DATASETS = dataset_set(
-    "缅甸",
-    DATA,
-    [
-        ETOPO_MYANMAR,
-        ETOPO_NORTHERN_SHAN,
-        NE_COUNTRIES,
-        NE_COASTLINE,
-        NE_BORDERS,
-        NE_RIVERS,
-        ADMIN_GEOJSON,
-        SHAN_REGIONS,
-        OSM_COUNTRY_BORDERS,
-        GADM_MMR_RAW,
-        NAYPYIDAW_CACHE,
-    ],
-)
 
 # ============================
 # 图面配色(三个图种共用的固定色)
@@ -317,8 +169,10 @@ SHEET_MYANMAR = Sheet(
 # 行政区划图 (myanmar_admin.py)
 # ============================
 # 行政区属性表: GADM 名称 -> (键名, 中文名, 英文名, 类型, 行政中心中文, 行政中心英文,
-# 中心经度, 中心纬度). 派生脚本用它生成 GeoJSON; 绘图模块与图例/标注也从这里取同一份
-# 事实, 不再在 prepare 与 render 两个文件里各抄一遍.
+# 中心经度, 中心纬度). 本表用于图例/标注排序/样式; 数据项目 miko_gis_data 的
+# regions/myanmar/config.py 有一份同名表, 用来给派生 GeoJSON 打 key/名称. 两份必须同步:
+# 只改这里只影响图面, 只改那边只影响派生数据, 两边同时改并重跑 prepare + render 才一致
+# (见 docs/data-preparation.md).
 # 行政中心坐标来自 Natural Earth 10m populated places, 实皆省的行政中心按现行建制
 # 改用蒙育瓦(Monywa), 不用 Natural Earth 里过时的实皆(Sagaing).
 # 类型: state=邦, region=省, union=联邦区.

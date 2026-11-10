@@ -23,10 +23,12 @@ import os
 import sys
 from pathlib import Path
 
-# 缓存目录必须在导入 matplotlib 之前指定, 见 docs/reference/data.md.
+# 缓存目录必须在导入 matplotlib 之前指到可写位置, 见 docs/reference/data.md.
+from cartopy_file.data import prepare_matplotlib_env
+
+prepare_matplotlib_env()
+
 ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT / "data"
-os.environ.setdefault("MPLCONFIGDIR", str(DATA_DIR / ".mplcache"))
 
 import cartopy.crs as ccrs  # 地图投影
 import cartopy.feature as cfeature  # 河流/湖泊等自然要素
@@ -34,10 +36,12 @@ import matplotlib.pyplot as plt  # 绘图
 from shapely.geometry import shape  # GeoJSON -> Shapely
 from shapely.ops import unary_union  # 合并同类边界
 
-# 图种规格与数据集清单: 画框/投影/色带/经纬网/地名/文案都从这里取, 见 docs/reference/spec.md.
+# 图种规格与数据清单: 画框/投影/色带/经纬网/地名/文案都从这里取, 见 docs/reference/spec.md.
 import config
 
 # 共享图层原语(底图/经纬网/城市点/经纬刻度/色标/geo 收集), 见 docs/reference/layers.md.
+from cartopy_file.catalog import catalog_for
+
 from cartopy_file import layers
 
 # 统一出图流程(建画布 -> 底图 -> 本脚本图层 -> geo 保存), 见 docs/reference/runner.md.
@@ -53,11 +57,11 @@ from cartopy_file.relief import find_etopo, load_elevation, load_ne_layer, make_
 plt.rcParams["hatch.linewidth"] = 0.45
 
 SHEET = config.SHEET_NORTHERN_SHAN
-DATASETS = config.DATASETS
+CATALOG = catalog_for(config.DATA_GROUP)
 
-# 缓存路径由数据集清单给出(raw/ 的约定见 docs/reference/datasets.md).
-REGION_GEOJSON = DATASETS.path(config.SHAN_REGIONS)
-BORDER_GEOJSON = DATASETS.path(config.OSM_COUNTRY_BORDERS)
+# 缓存路径由数据清单 manifest 给出(目录约定见 docs/reference/data.md).
+REGION_GEOJSON = CATALOG.path("osm-shan-regions")
+BORDER_GEOJSON = CATALOG.path("osm-country-borders")
 
 # ============================
 # 本图特有图层
@@ -84,7 +88,8 @@ def load_regions(path: Path) -> dict[str, list]:
     """
     if not path.exists():
         raise FileNotFoundError(
-            f"未找到区域边界: {path}\n请先运行: python Myanmar/main.py download"
+            f"未找到区域边界: {path}\n请先到数据项目 miko_gis_data 运行: "
+            "python main.py download --group myanmar"
         )
     data = json.loads(path.read_text(encoding="utf-8"))
     grouped: dict[str, list] = {}
@@ -100,7 +105,8 @@ def load_borders(path: Path):
     """读取 download_regions.py 缓存的国界折线, 合并成一个 MultiLineString."""
     if not path.exists():
         raise FileNotFoundError(
-            f"未找到国界数据: {path}\n请先运行: python Myanmar/main.py download"
+            f"未找到国界数据: {path}\n请先到数据项目 miko_gis_data 运行: "
+            "python main.py download --group myanmar"
         )
     data = json.loads(path.read_text(encoding="utf-8"))
     return unary_union([shape(feature["geometry"]) for feature in data["features"]])
@@ -357,11 +363,12 @@ def draw(
 def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False) -> int:
     """渲染掸邦/特区地形图并写出同名 geo.json; 返回 0=成功, 1=数据缺失."""
     try:
-        etopo_path = find_etopo(DATA_DIR / "raw", "northern_shan", stride)
+        etopo_path = find_etopo(CATALOG.raw_dir, "northern_shan", stride)
         if not etopo_path.exists():
             raise FileNotFoundError(
                 f"未找到高程数据: {etopo_path}\n"
-                "请先运行: python Myanmar/main.py download --region northern-shan --stride 1"
+                "请先到数据项目 miko_gis_data 运行: python main.py download --group myanmar "
+                "--region northern-shan --stride 1"
             )
         regions = load_regions(REGION_GEOJSON)
         border_line = load_borders(BORDER_GEOJSON)
@@ -371,7 +378,7 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
         runner.render(
             SHEET,
             root=ROOT,
-            catalog=DATASETS,
+            catalog=CATALOG,
             draw=functools.partial(
                 draw,
                 etopo_path=etopo_path,

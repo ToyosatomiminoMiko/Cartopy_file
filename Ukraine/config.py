@@ -1,20 +1,17 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Ukraine subproject: dataset inventory and per-sheet render config.
+"""Ukraine subproject: the render spec of the Ukraine overview map.
 
-是什么: 乌克兰子项目的唯一配置入口--数据集清单(从哪下,版本,下载范围,本地路径)与
-每张图的规格(画框,投影,色带,经纬网,地名,图例,图面配色,文案). 数据准备脚本与绘图
-脚本都从这里取参数, 下载范围和绘图范围不会再各写一份; 图例与地图共用同一份颜色.
-完整说明: ``docs/reference/spec.md``(实例规格层)与 ``docs/reference/datasets.md``
-(数据集层); 各图种的设计取舍见 ``docs/maps/ukraine.md``.
+是什么: 乌克兰全图的规格(画框,投影,双色带,经纬网,图例,文案). 数据清单与下载范围已
+拆到数据项目 miko_gis_data, 这里只留绘图需要的数值.
+完整说明见 ``docs/reference/spec.md``; 设计取舍(边界口径,河流补段,色带)见
+``docs/maps/ukraine.md``.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from cartopy_file.datasets import Dataset, dataset_set
-from cartopy_file.sources import erddap_url, gadm_url
 from cartopy_file.spec import (
     City,
     Extent,
@@ -27,285 +24,15 @@ from cartopy_file.spec import (
 )
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "data"
+
+# 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
+DATA_GROUP = "ukraine"
 
 # ============================
-# 画框与下载范围
+# 画框
 # ============================
 # 乌克兰全图: 国土约 22.1~40.2°E / 44.4~52.4°N, 四周留出邻国与海域.
 EXTENT_UKRAINE = Extent(21.0, 41.5, 43.2, 53.4)
-
-# ETOPO 子集范围由画框外扩: 兰勃特等角圆锥投影的矩形画框四角向外张开, 反算到
-# 经纬度约 18.8~43.8°E / 42.7~53.25°N, 这里再留余量. 数字与已下载的缓存一致,
-# 不能随手改(会让 16 MB 的 NetCDF 作废); 这是全项目唯一一处 ETOPO 下载范围.
-ETOPO_BBOX_UKRAINE = Extent(
-    round(EXTENT_UKRAINE.lon_min - 2.5, 6),
-    round(EXTENT_UKRAINE.lon_max + 2.5, 6),
-    round(EXTENT_UKRAINE.lat_min - 0.8, 6),
-    round(EXTENT_UKRAINE.lat_max + 0.1, 6),
-)
-ETOPO_STRIDE = 2  # 15 弧秒数据按索引步长 2 抽样 = 30 弧秒
-
-# ============================
-# 外部数据源的下载参数
-# ============================
-# OCHA HDX 直链: resources 页里的固定资源 id, 换版本时只改这一行.
-OCHA_URL = (
-    "https://data.humdata.org/dataset/0a24205d-084c-4ef9-9d53-9349bacbde1e/"
-    "resource/86861957-a064-4427-b93a-2277738f0caa/download/2021-hno-gca_ngca.zip"
-)
-# OCHA 压缩包落在 raw/ 根, 解压到 raw/ocha_gca_ngca/(Dataset.dest 是解压目录).
-OCHA_ARCHIVE = "raw/2021-hno-gca_ngca.zip"
-
-# ---- OpenStreetMap (Overpass) 下载参数 ----
-# 第聂伯河干流 relation(waterway=river): main_stream 成员首尾相接.
-DNIEPER_RIVER_RELATION = 2086905
-# 第聂伯河梯级水库(从上游到下游): OSM 里都是 natural=water 的 multipolygon
-# relation. 只取 outer 成员: 水库里的岛屿(inner)在 1:330 万图上不足 1 px.
-DNIEPER_RESERVOIRS: dict[int, str] = {
-    1605938: "Київське водосховище",       # 基辅水库
-    3173129: "Канівське водосховище",       # 卡尼夫水库
-    2289192: "Кременчуцьке водосховище",    # 克列缅丘格水库
-    287177: "Кам'янське водосховище",       # 卡缅斯克水库
-    21217234: "Дніпровське водосховище",    # 第聂伯水库
-}
-# 卡霍夫卡水库: 2023-06 大坝被毁后放空, OSM 已删除其水面; 本图是 2022 年口径,
-# 用 Natural Earth 10m 湖泊层里溃坝前的水库面补上.
-KAKHOVKA_NE_NAME = "Kakhovka"
-# 德涅斯特河干流 relation(waterway=river).
-DNIESTER_RIVER_RELATION = 2474595
-# 德左(德涅斯特河沿岸摩尔达维亚共和国, PMR)边界 relation.
-TRANSNISTRIA_RELATION = 65335
-
-# 南布格河/顿河: NE 10m 在河口前收笔(NE 收笔位置 31.749,47.259 / 39.378,47.111),
-# 用 OSM 补下游段. bbox 用 Overpass 的 (south, west, north, east), 只覆盖收笔点
-# 到河口的一小段; 跨出 bbox 的 way 仍带完整几何, 足够接上. 河名在 Python 里按
-# osm_names 过滤: 同一段河在 OSM 里可能用不同语言/拼写标注.
-RIVER_EXTENSIONS: tuple[dict, ...] = (
-    {
-        "key": "southern_bug",
-        "ne_name": "Southern Bug",
-        "osm_names": ("Південний Буг", "Южный Буг", "Southern Bug"),
-        "bbox": (46.85, 31.55, 47.40, 32.10),
-        "name_zh": "南布格河下游补段",
-        "cache_id": "osm-southern-bug",
-        "derived_id": "southern-bug-river",
-    },
-    {
-        "key": "don",
-        "ne_name": "Don",
-        # 顿河下游在俄罗斯境内, OSM 用俄语名; 三角洲的汊道各有名字, 只要主河道.
-        "osm_names": ("Дон",),
-        "bbox": (47.00, 39.05, 47.25, 39.60),
-        "name_zh": "顿河下游补段",
-        "cache_id": "osm-don",
-        "derived_id": "don-river",
-    },
-)
-
-# Overpass QL: 键是数据集 id. 下载脚本从这里取查询体, 不再在脚本里拼 bbox/relation.
-_RESERVOIR_IDS = ",".join(str(rel_id) for rel_id in DNIEPER_RESERVOIRS)
-OSM_QUERIES: dict[str, str] = {
-    "osm-dnieper-river": f"[out:json][timeout:300];rel({DNIEPER_RIVER_RELATION});out geom;",
-    # 只取 outer 成员: inner 是水库里的岛(基辅水库一个 relation 就有 520 个
-    # inner way), 数量和体积都远大于 outer, 图上却看不见.
-    "osm-dnieper-reservoirs": (
-        f'[out:json][timeout:300];rel(id:{_RESERVOIR_IDS})->.rels;'
-        f'way(r.rels:"outer");out geom;'
-    ),
-    "osm-dniester-river": f"[out:json][timeout:300];rel({DNIESTER_RIVER_RELATION});out geom;",
-    "osm-transnistria-boundary": (
-        f"[out:json][timeout:300];rel({TRANSNISTRIA_RELATION});out geom;"
-    ),
-}
-for _extension in RIVER_EXTENSIONS:
-    _south, _west, _north, _east = _extension["bbox"]
-    OSM_QUERIES[_extension["cache_id"]] = (
-        f'[out:json][timeout:120];way["waterway"="river"]'
-        f"({_south},{_west},{_north},{_east});out geom;"
-    )
-
-# ============================
-# 数据集
-# ============================
-ETOPO_UKRAINE = Dataset(
-    id="etopo-ukraine",
-    kind="file",
-    source_id="etopo-2022",
-    url=erddap_url(
-        "etopo-2022",
-        stride=ETOPO_STRIDE,
-        lon_range=(ETOPO_BBOX_UKRAINE.lon_min, ETOPO_BBOX_UKRAINE.lon_max),
-        lat_range=(ETOPO_BBOX_UKRAINE.lat_min, ETOPO_BBOX_UKRAINE.lat_max),
-    ),
-    dest=f"raw/ETOPO_2022_v1_15s_ukraine_stride{ETOPO_STRIDE}.nc",
-    files=("raw/ETOPO_2022_v1_15s_ukraine_stride*.nc",),
-    bbox=ETOPO_BBOX_UKRAINE,
-    stride=ETOPO_STRIDE,
-    note="ETOPO 2022 乌克兰区域高程(stride 2 = 30 弧秒)",
-)
-
-GADM_UKR = Dataset(
-    id="gadm41-ukr",
-    kind="file",
-    source_id="gadm-4.1",
-    url=gadm_url("UKR"),
-    dest="raw/gadm41_UKR/gadm41_UKR_1.json",
-    note="GADM 4.1 乌克兰一级行政区原始 JSON(法理口径, 含克里米亚/塞瓦斯托波尔)",
-)
-
-OCHA_GCA_NGCA = Dataset(
-    id="ocha-gca-ngca",
-    kind="zip",
-    source_id="ocha-hno-2021",
-    url=OCHA_URL,
-    dest="raw/ocha_gca_ngca",
-    files=("raw/ocha_gca_ngca/*.shp",),
-    note="OCHA/HDX 2021 HNO 顿巴斯 GCA/NGCA 分区(2021-hno-gca_ngca.zip)",
-)
-
-# 共享缓存里的 Natural Earth 图层用 cartopy-ne: 只登记出处, 由 cartopy 的下载器
-# 管理, 全项目共用 data/cartopy 一份. 本子项目不再保留副本.
-NE_COUNTRIES = Dataset(
-    id="ne-countries-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="cultural",
-    name="admin_0_countries",
-    note="Natural Earth 10m 国家多边形(海陆底色与国界轮廓)",
-)
-
-NE_COASTLINE = Dataset(
-    id="ne-coastline-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="physical",
-    name="coastline",
-    note="Natural Earth 10m 海岸线(1991 国界剪掉沿海段的蒙版)",
-)
-
-NE_BORDERS = Dataset(
-    id="ne-borders-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="cultural",
-    name="admin_0_boundary_lines_land",
-    note="Natural Earth 10m 陆上国界(邻国参照线)",
-)
-
-NE_RIVERS = Dataset(
-    id="ne-rivers-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="physical",
-    name="rivers_lake_centerlines",
-    note="Natural Earth 10m 河网(一般河流与下游补段的 NE 上段)",
-)
-
-NE_LAKES = Dataset(
-    id="ne-lakes-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="physical",
-    name="lakes",
-    note="Natural Earth 10m 湖泊(卡霍夫卡水库溃坝前轮廓)",
-)
-
-
-def _osm_cache(dataset_id: str, dest: str, note: str) -> Dataset:
-    """建一条 OSM 原始 JSON 缓存数据集; 查询体在 ``OSM_QUERIES`` 里."""
-    return Dataset(
-        id=dataset_id,
-        kind="script",
-        source_id="openstreetmap",
-        dest=dest,
-        note=note,
-    )
-
-
-OSM_DNIEPER_RIVER = _osm_cache(
-    "osm-dnieper-river", "raw/osm_dnieper_river.json", "第聂伯河干流 OSM 原始关系(缓存)"
-)
-OSM_DNIEPER_WATER = _osm_cache(
-    "osm-dnieper-reservoirs", "raw/osm_dnieper_reservoirs.json", "第聂伯河梯级水库 OSM 原始 way(缓存)"
-)
-OSM_DNIESTER_RIVER = _osm_cache(
-    "osm-dniester-river", "raw/osm_dniester_river.json", "德涅斯特河干流 OSM 原始关系(缓存)"
-)
-OSM_TRANSNISTRIA = _osm_cache(
-    "osm-transnistria-boundary",
-    "raw/osm_transnistria_boundary.json",
-    "德左(PMR)边界 OSM 原始关系(缓存)",
-)
-OSM_RIVER_EXTENSIONS = tuple(
-    _osm_cache(
-        extension["cache_id"],
-        f"raw/osm_{extension['key']}_lower.json",
-        f"{extension['name_zh']} OSM 原始 way(缓存)",
-    )
-    for extension in RIVER_EXTENSIONS
-)
-
-
-def _derived(dataset_id: str, filename: str, note: str) -> Dataset:
-    """建一条由 ``prepare_data.py`` 生成的数据集; 绘图只读它的 GeoJSON."""
-    return Dataset(id=dataset_id, kind="derived", dest=f"derived/{filename}", note=note)
-
-
-OBLASTS = _derived("ukraine-oblasts", "ukraine_oblasts.geojson", "27 个一级行政区(含克里米亚/塞瓦斯托波尔)")
-BORDER_1991 = _derived("ukraine-border-1991", "ukraine_1991.geojson", "1991 年国际承认边界(含克里米亚)")
-CRIMEA_2014 = _derived("crimea-2014-line", "crimea_2014_line.geojson", "2014 年克里米亚陆上控制线")
-OCCUPIED_2014 = _derived("occupied-2014", "occupied_2014.geojson", "2014 年顿巴斯分离武装控制区(顿/卢两州)")
-CONTACT_2014 = _derived("contact-2014", "contact_line_2014.geojson", "2014 年顿巴斯接触线(近似)")
-CLAIMED_2022 = _derived("claimed-2022", "claimed_2022.geojson", "2022 年俄方宣称的四州全境(面)")
-TRANSNISTRIA = _derived("transnistria", "transnistria.geojson", "德左区域面(OSM PMR 按河心线/1991 国界裁切)")
-DNIEPER_RIVER = _derived("dnieper-river", "dnieper_river_osm.geojson", "第聂伯河干流中心线(OSM)")
-DNIEPER_WATER = _derived("dnieper-water", "dnieper_water_osm.geojson", "第聂伯河梯级水库水面(OSM + NE 卡霍夫卡)")
-DNIESTER_RIVER = _derived("dniester-river", "dniester_river_osm.geojson", "德涅斯特河干流中心线(OSM)")
-RIVER_EXTENSION_DERIVED = tuple(
-    _derived(
-        extension["derived_id"],
-        f"{extension['key']}_river_osm.geojson",
-        f"{extension['ne_name']} 中心线(NE 上段 + OSM 下段)",
-    )
-    for extension in RIVER_EXTENSIONS
-)
-
-DATASETS = dataset_set(
-    "乌克兰",
-    DATA,
-    [
-        ETOPO_UKRAINE,
-        GADM_UKR,
-        OCHA_GCA_NGCA,
-        NE_COUNTRIES,
-        NE_COASTLINE,
-        NE_BORDERS,
-        NE_RIVERS,
-        NE_LAKES,
-        OSM_DNIEPER_RIVER,
-        OSM_DNIEPER_WATER,
-        OSM_DNIESTER_RIVER,
-        OSM_TRANSNISTRIA,
-        *OSM_RIVER_EXTENSIONS,
-        OBLASTS,
-        BORDER_1991,
-        CRIMEA_2014,
-        OCCUPIED_2014,
-        CONTACT_2014,
-        CLAIMED_2022,
-        TRANSNISTRIA,
-        DNIEPER_RIVER,
-        DNIEPER_WATER,
-        DNIESTER_RIVER,
-        *RIVER_EXTENSION_DERIVED,
-    ],
-)
 
 # ============================
 # 图规格

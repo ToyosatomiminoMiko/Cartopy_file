@@ -1,7 +1,7 @@
 # 掸邦/特区地形图 (Myanmar/northern_shan.py)
 
 - 源码: [`Myanmar/northern_shan.py`](../../Myanmar/northern_shan.py)
-- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(子命令 download / prepare / render / all)
+- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(唯一入口, 只有 `render` 子命令)
 - 产物: `Myanmar/map/northern_shan_topography_etopo2022_lambert_conformal.svg`(地图) 与
   `Myanmar/text/northern_shan_topography_etopo2022_lambert_conformal.geo.json`(文字信息)
 
@@ -62,8 +62,8 @@ Ukraine 图一致: 下面的地形与区域填色透出来, 与它重合的区�
 两条干流是本图最主要的自然地理参照, 从一般河流图层里单独强调: 先用 4.2 pt 浅色描边,再用
 1.9 pt 深蓝画线, 颜色与行政图同源; 一般河流保持 0.7 pt, 不抢层级. Natural Earth 10m 把两条
 江拆成多段(Salween 上游 `Nu` + 下游 `Salween`, Irrawaddy 另有三角洲段), 按 `name_en` 全部
-选出再画, 河线才不会在 20.95°N 的分段点断开. 数据仍取自共享的 cartopy Natural Earth
-缓存, 不需要额外准备.
+选出再画, 河线才不会在 20.95°N 的分段点断开. 数据取自共享的 Natural Earth 缓存
+(`<数据根>/cartopy/`, 数据项目统一预取), 不需要额外准备.
 
 ### 6. 图例与标注口径
 
@@ -81,12 +81,15 @@ id 前缀沿用旧版(area/region/river/city), 由 `id_kind`/`role` 决定, `nam
 
 ## 数据
 
-| 文件 | 内容 | 生成方式 |
+数据由独立数据项目 `miko_gis_data` 准备, 路径相对数据根(数据根定位见
+[data-preparation.md](../data-preparation.md)):
+
+| 文件 | 内容 | 准备方式 |
 | --- | --- | --- |
-| `Myanmar/data/raw/ETOPO_2022_v1_15s_northern_shan_stride1.nc` | 15 弧秒高程子集 | `python Myanmar/main.py download --region northern-shan` |
-| `Myanmar/data/raw/regions/shan_north_boundaries.geojson` | 特区/自治区域多边形 | `python Myanmar/main.py download` |
-| `Myanmar/data/raw/regions/osm_country_borders.geojson` | 画框附近 OSM 国界线 | 同上 |
-| `data/cartopy/` | 共享缓存的 Natural Earth 10m 国界(海陆底图)/河流/湖泊 | `python download_data.py` |
+| `<数据根>/myanmar/raw/ETOPO_2022_v1_15s_northern_shan_stride1.nc` | 15 弧秒高程子集 | 数据项目 `python main.py download --group myanmar --region northern-shan` |
+| `<数据根>/myanmar/raw/regions/shan_north_boundaries.geojson` | 特区/自治区域多边形(OSM) | 同上 |
+| `<数据根>/myanmar/raw/regions/osm_country_borders.geojson` | 画框附近 OSM 国界线 | 同上 |
+| `<数据根>/cartopy/shapefiles/natural_earth/...` | 共享缓存的 Natural Earth 10m 国界(海陆底图)/河流/湖泊 | 数据项目 `python main.py download` 统一预取 |
 
 ETOPO 子集范围 94.6~102.1°E, 18.8~25.2°N: 画框南界是 19.0°N, 子集下探到 18.8°N 并留 0.2°
 余量, 用来覆盖兰勃特投影矩形南缘的数值误差.
@@ -96,22 +99,29 @@ ETOPO 子集范围 94.6~102.1°E, 18.8~25.2°N: 画框南界是 19.0°N, 子集�
 唯一入口是 `Myanmar/main.py`, 其余 `Myanmar/*.py` 都是模块(直接运行会报错并提示入口):
 
 ```bash
-python download_data.py                                  # 首次: 共享 Natural Earth 底图
-python Myanmar/main.py download --region northern-shan   # 高程子集(缺省 stride 1) + OSM 区域/国界 + 行政区原始数据
-python Myanmar/main.py render --sheet northern-shan      # 出图
+# 数据项目根目录: 首次准备(已就位则跳过)
+cd miko_gis_data
+python main.py download --group myanmar --region northern-shan
+python main.py publish
+cd ..
+
+# 渲染仓: 出图
+python Myanmar/main.py render --sheet northern-shan
 ```
 
-`download --region northern-shan` 下掸邦的 ETOPO 子集(该区域登记 stride 1, 可用 `--stride`
-覆盖)并抓取 OSM 区域/国界; 加 `--skip-regions` 可跳过后者. 同一条命令还会准备行政区图的
-GADM/NE 河流/OSM 内比都原始数据(文件已就位时只跳过,不联网). `render` 的选项: `--stride`(指定 `Myanmar/data/raw/` 下的采样步长),
-`--dpi`(内嵌晕渲像素密度, 默认 300),`--show`(保存后弹窗).
+数据项目的 `download --region northern-shan` 下掸邦的 ETOPO 子集(该区域登记 stride 1, 可用
+`--stride` 覆盖)并抓取 OSM 区域/国界; 加 `--skip-regions` 可跳过后者. 同一条命令还会准备
+行政区图的 GADM/NE 河流/OSM 内比都原始数据(文件已就位时只跳过,不联网). `render` 的选项:
+`--stride`(指定 `<数据根>/myanmar/raw/` 下的采样步长), `--dpi`(内嵌晕渲像素密度, 默认 300),
+`--show`(保存后弹窗).
 
 ## 注意事项
 
-- ETOPO 与 OSM 边界都要先准备(一条 `download` 同时跑两步), 缺文件时绘图报错并提示对应命令;
-- 下载都是"文件已存在就跳过", 刷新加 `--force`;
-- Overpass 公共实例常满负荷(502): 脚本分批请求(佤邦整体单独一组, 否则与 5 个县关系合在一
-  起容易 504), 并在多个镜像间轮换重试;
+- ETOPO 与 OSM 边界都要先在数据项目准备好(一条 `download` 同时跑两步), 缺文件时绘图报错并
+  提示对应命令;
+- 数据项目的下载都是"文件已存在就跳过", 刷新加 `--force`;
+- Overpass 公共实例常满负荷(502): 数据项目的下载脚本分批请求(佤邦整体单独一组, 否则与 5 个
+  县关系合在一起容易 504), 并在多个镜像间轮换重试;
 - 国界线与区域边界必须同源(都来自 OSM), 换成 NE 国界会重新出现双线问题;
 - 标注 id 是稳定的 ASCII slug, 前端按 id 引用; 改显示文案只动 `text`;
 - 图例/区域配色改动只改 `Myanmar/config.py`, 不要回渲染模块里找颜色常量.

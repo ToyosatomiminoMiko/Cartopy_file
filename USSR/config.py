@@ -1,24 +1,22 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""USSR subproject: dataset inventory and the render spec of the USSR topography map.
+"""USSR subproject: the render spec of the USSR topography map.
 
-是什么: 苏联子项目的唯一配置入口--数据集清单(来源,版本,下载范围,本地路径)与这张图的
-规格(画框,投影,色带,经纬网,文案). 数据准备脚本与绘图脚本都从这里取参数, 下载范围与
-绘图范围因此只有一个作者, 不会再各写一份.
-完整说明(数据集层与实例规格层怎么分工)见 ``docs/reference/datasets.md`` 与
-``docs/reference/spec.md``; 投影/范围/数据源的设计取舍见 ``docs/maps/ussr.md``.
+是什么: 苏联图的规格(画框,投影,色带,经纬网,文案). 数据清单与下载范围已拆到数据项目
+miko_gis_data, 这里只留绘图需要的数值.
+完整说明见 ``docs/reference/spec.md``; 投影/范围/数据源的设计取舍见 ``docs/maps/ussr.md``.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from cartopy_file.datasets import Dataset, dataset_set
-from cartopy_file.sources import erddap_url
 from cartopy_file.spec import Extent, Graticule, Projection, Relief, Sheet, sheets_of
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "data"
+
+# 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
+DATA_GROUP = "ussr"
 
 # ============================
 # 画框
@@ -27,69 +25,6 @@ DATA = ROOT / "data"
 # 为什么右端写 195 而不是 -165: cartopy 的 set_extent 不接受「最小值大于最大值」,
 # 而 ERDDAP 的经度本来就是 0~360°, 同一个数(main 里 -165 + 360)可以直接用于下载.
 EXTENT_USSR = Extent(15.0, 195.0, 15.0, 90.0)
-
-# ============================
-# 数据集
-# ============================
-# ETOPO 子集范围: 经度与画框一致(15~195°E), 纬度 20~90°N.
-# 为什么纬度不是画框的 15°N: 画框底边 15~20°N 这一段本来就没有高程数据(改前成品如此,
-# 靠底图留白), 而磁盘上已有的子集也只从 20°N 起. 下载范围与数据覆盖范围用同一个数字,
-# 免得「声明 15 起,文件 20 起」这种自相矛盾的清单. 要扩到 15°N 属于换数据, 必须单独评审
-# (会改变底图字节). 旧版下载脚本另写了一份范围, 与绘图脚本各持一处, 这是本次修掉的 bug.
-ETOPO_BBOX_USSR = Extent(15.0, 195.0, 20.0, 90.0)
-
-# stride=8 即 2 弧分, 300 dpi 出图够用; 文件名里的 stride 与这里保持一致.
-ETOPO_USSR = Dataset(
-    id="etopo-ussr",
-    kind="file",
-    source_id="etopo-2022",
-    url=erddap_url(
-        "etopo-2022",
-        stride=8,
-        lon_range=(ETOPO_BBOX_USSR.lon_min, ETOPO_BBOX_USSR.lon_max),
-        lat_range=(ETOPO_BBOX_USSR.lat_min, ETOPO_BBOX_USSR.lat_max),
-    ),
-    dest="raw/ETOPO_2022_v1_15s_ussr_stride8.nc",
-    files=("raw/ETOPO_2022_v1_15s_ussr_stride*.nc",),
-    bbox=ETOPO_BBOX_USSR,
-    stride=8,
-    note="ETOPO 2022 苏联区域高程(stride 8 = 2 弧分)",
-)
-
-# Natural Earth 10m 国家多边形: 全项目共用 data/cartopy 里那一份(合并 15 个加盟共和国
-# 画红色外轮廓). 以前 USSR/Myanmar/Ukraine 各存一份 9.3 MB 的相同文件, 已收编.
-NE_COUNTRIES = Dataset(
-    id="ne-countries-10m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="10m",
-    category="cultural",
-    name="admin_0_countries",
-    version_file="ne_10m_admin_0_countries.VERSION.txt",
-    note="Natural Earth 10m 国家多边形(苏联轮廓)",
-)
-
-# 海岸线: 旧脚本用 cartopy 的 cfeature.COASTLINE(固定 110m), 这里登记成 cartopy-ne,
-# 让根目录 download_data.py 预取到共享缓存; 110m 与全球画框配套, 不按视野换分辨率.
-NE_COASTLINE = Dataset(
-    id="ne-coastline-110m",
-    kind="cartopy-ne",
-    source_id="natural-earth",
-    resolution="110m",
-    category="physical",
-    name="coastline",
-    note="Natural Earth 110m 海岸线(苏联图海岸线, 黑色细线)",
-)
-
-DATASETS = dataset_set(
-    "苏联",
-    DATA,
-    [
-        ETOPO_USSR,
-        NE_COUNTRIES,
-        NE_COASTLINE,
-    ],
-)
 
 # ============================
 # 图规格

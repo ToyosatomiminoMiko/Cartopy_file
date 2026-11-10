@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Locate the project-wide data directory and cartopy's download cache.
+"""Locate the data root, the manifest and cartopy's Natural Earth cache.
 
-是什么: 统一定位仓库级共享数据目录,matplotlib 可写缓存目录与 cartopy 下载缓存.
-完整说明(API,为什么需要重定向,缓存位置)见 ``docs/reference/data.md``.
+是什么: 渲染仓唯一的"数据在哪"入口. 数据由独立项目 miko_gis_data 准备, 本仓只读:
+``CARTOPY_FILE_DATA`` 指向数据根(默认仓内 ``data/``, 其次仓内 ``miko_gis_data/data/``),
+数据根里的 ``manifest.json`` 由 ``catalog.py`` 解析, ``cartopy/`` 是共享底图缓存.
+本模块不下载任何东西; 数据根里没有清单时渲染会明确报错并指向数据项目.
+完整说明(目录约定,环境变量,为什么缓存要落在可写磁盘)见 ``docs/reference/data.md``.
 """
 
 from __future__ import annotations
@@ -12,28 +15,33 @@ import os
 from pathlib import Path
 
 __all__ = [
-    "shared_data_dir",
-    "project_root",
-    "prepare_matplotlib_env",
+    "DATA_ROOT_ENV",
+    "ROOT_ENV",
     "configure_cartopy",
+    "data_root",
+    "local_data_dir",
+    "manifest_path",
     "natural_earth_paths",
+    "prepare_matplotlib_env",
+    "project_root",
     "subproject_dirs",
 ]
 
-# 环境变量: 覆盖仓库级共享数据目录, 用于把缓存放到别的可写磁盘.
-_DATA_ENV = "CARTOPY_FILE_DATA"
-# 环境变量: 手动指定项目根目录(仅当无法由包安装路径推断时使用).
-_ROOT_ENV = "CARTOPY_FILE_ROOT"
+# 与数据项目 miko_gis_data 共用的数据根环境变量: 两边读同一个值, 谁都不猜绝对路径.
+DATA_ROOT_ENV = "CARTOPY_FILE_DATA"
+# 手动指定渲染仓根目录(仅当无法由包安装路径推断时使用).
+ROOT_ENV = "CARTOPY_FILE_ROOT"
+# 数据项目暂放在本仓内时的默认位置(用户把 miko_gis_data 移走后不再适用).
+_NESTED_DATA_PROJECT = "miko_gis_data"
 
 
 def project_root() -> Path:
-    """返回仓库根目录.
+    """返回渲染仓根目录.
 
-    优先级: 环境变量 CARTOPY_FILE_ROOT > 由本文件位置推断 > 当前工作目录.
-    导出安装(editable)时本文件位于 ``<repo>/src/cartopy_file/data.py``,
-    上三级就是仓库根, 因此不需要猜路径.
+    优先级: 环境变量 ``CARTOPY_FILE_ROOT`` > 由本文件位置推断 > 当前工作目录.
+    可编辑安装时本文件位于 ``<repo>/src/cartopy_file/data.py``, 上三级就是仓库根.
     """
-    override = os.environ.get(_ROOT_ENV)
+    override = os.environ.get(ROOT_ENV)
     if override:
         return Path(override).expanduser().resolve()
 
@@ -41,43 +49,66 @@ def project_root() -> Path:
     if (candidate / "pyproject.toml").is_file():
         return candidate
 
-    # 非可编辑安装(或源码布局变了)时不能用包路径推断, 退回到"从仓库根运行".
     cwd = Path.cwd()
     if (cwd / "pyproject.toml").is_file():
         return cwd
 
     raise RuntimeError(
         "无法定位项目根目录: 请用 `uv pip install -e .` 安装本项目, "
-        f"或设置环境变量 {_ROOT_ENV} / {_DATA_ENV}."
+        f"或设置环境变量 {ROOT_ENV} / {DATA_ROOT_ENV}."
     )
 
 
-def shared_data_dir() -> Path:
-    """返回全项目共享的数据目录(会自动建目录)."""
-    override = os.environ.get(_DATA_ENV)
-    base = Path(override).expanduser() if override else project_root() / "data"
+def local_data_dir() -> Path:
+    """返回渲染仓自己的可写缓存目录(不进数据项目): matplotlib 缓存等."""
+    base = project_root() / "data"
     base.mkdir(parents=True, exist_ok=True)
     return base
 
 
-def subproject_dirs() -> tuple[str, ...]:
-    """返回仓库里的子项目目录名(按名字排序), 判定标准是目录里有 ``config.py``.
+def _has_manifest(path: Path) -> bool:
+    """数据根是否已经发布过清单(用来区分"数据项目在哪")."""
+    return (path / "manifest.json").is_file()
 
-    为什么用「有 config.py」而不是硬编码列表: 名单只该在目录结构里出现一次, 新增子项目
-    只要建目录 + config.py, 清单检查与产物枚举就自动收录, 不用再改工具.
+
+def data_root() -> Path:
+    """返回数据根目录(会自动建目录).
+
+    优先级:
+    1. ``CARTOPY_FILE_DATA`` -- 数据项目被移出本仓后的唯一方式;
+    2. ``<仓根>/data`` -- 数据根就放在渲染仓里;
+    3. ``<仓根>/miko_gis_data/data`` -- 数据项目暂放在本仓内(未移走)时的默认位置.
     """
-    root = project_root()
-    return tuple(sorted(path.parent.name for path in root.glob("*/config.py")))
+    override = os.environ.get(DATA_ROOT_ENV)
+    if override:
+        base = Path(override).expanduser().resolve()
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+
+    repo = project_root()
+    candidates = (repo / "data", repo / _NESTED_DATA_PROJECT / "data")
+    for candidate in candidates:
+        if _has_manifest(candidate):
+            return candidate
+    # 都还没发布清单时退回仓内 data/, 让后续报错信息指向一个具体位置.
+    base = candidates[0]
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def manifest_path() -> Path:
+    """数据清单的固定位置: 数据根根目录."""
+    return data_root() / "manifest.json"
 
 
 def prepare_matplotlib_env() -> Path:
     """在导入 matplotlib 之前调用: 把 MPLCONFIGDIR 指到可写目录.
 
-    用 ``setdefault`` 而不是直接赋值: 已经在脚本顶部自己指定了 MPLCONFIGDIR
-    的(例如 Myanmar 系列脚本指向 ``Myanmar/data/.mplcache``)保持原样.
+    用 ``setdefault`` 而不是直接赋值: 已经在脚本顶部自己指定了 MPLCONFIGDIR 的
+    (例如各子项目 ``main.py`` 指向 ``<子项目>/data/.mplcache``)保持原样.
     返回实际生效的缓存目录.
     """
-    cache = shared_data_dir() / ".mplcache"
+    cache = local_data_dir() / ".mplcache"
     cache.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("MPLCONFIGDIR", str(cache))
     return Path(os.environ["MPLCONFIGDIR"])
@@ -104,19 +135,19 @@ def _existing_dirs(*candidates: object) -> list[Path]:
 
 
 def configure_cartopy() -> Path:
-    """把 cartopy 的下载缓存定位到共享目录, 并复用已有缓存; 返回缓存目录.
+    """把 cartopy 的下载缓存定位到数据根, 并复用已有缓存; 返回缓存目录.
 
     必须在第一个 cartopy 要素(cfeature.*)被读取之前调用, 一般在 import
     cartopy 之后立刻调用. 重复调用是安全的(idempotent).
 
     为什么还要设置 pre_existing_data_dir: cartopy 的 Downloader 先查
-    ``pre_existing_data_dir`` 再查 ``data_dir``, 两者都没有才联网下载. 改
+    ``pre_existing_data_dir`` 再查 ``data_dir``, 两者都没有才联网. 改
     ``data_dir`` 后如果不登记旧缓存, 原先下在 HOME 里的文件会"看不见",
-    从而被重新下载一遍 -- 这正是要避免的.
+    从而被重新下载一遍 -- 这正是要避免的. 渲染仓自己从不下载, 读不到就是数据没备好.
     """
     import cartopy
 
-    target = shared_data_dir() / "cartopy"
+    target = data_root() / "cartopy"
     target.mkdir(parents=True, exist_ok=True)
 
     # 记下改动前的两个位置: 旧 data_dir(通常是 ~/.local/share/cartopy)与
@@ -134,6 +165,16 @@ def configure_cartopy() -> Path:
     return target
 
 
+def subproject_dirs() -> tuple[str, ...]:
+    """返回渲染仓里的子项目目录名(按名字排序), 判定标准是目录里有 ``config.py``.
+
+    为什么用"有 config.py"而不是硬编码列表: 名单只该在目录结构里出现一次, 新增
+    子项目只要建目录 + config.py, 产物枚举就自动收录, 不用再改工具.
+    """
+    root = project_root()
+    return tuple(sorted(path.parent.name for path in root.glob("*/config.py")))
+
+
 def natural_earth_paths(
     resolution: str,
     category: str,
@@ -145,9 +186,8 @@ def natural_earth_paths(
     ``pre_existing_data_dir`` 与 ``data_dir`` 两个位置. 判断"是否已存在"只看
     ``.shp``: NEShpDownloader 是把 shp/shx/dbf 一起解压的, shp 在即整套在.
 
-    返回顺序上故意让 ``data_dir``(项目缓存)优先: 这样报告与"是否已自包含"的
-    判断都以仓库为准; cartopy 自己读取时是 ``pre_existing_data_dir`` 优先,
-    但两处内容相同, 不影响结果.
+    返回顺序上故意让 ``data_dir``(数据根里的项目缓存)优先: 这样报告与"是否自包含"的
+    判断都以数据根为准.
     """
     import cartopy
     from cartopy.io import shapereader

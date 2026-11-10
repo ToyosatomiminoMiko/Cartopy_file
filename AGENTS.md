@@ -25,13 +25,18 @@
 2. 新增图种或共享模块 -> 按 [docs/add-map.md](docs/add-map.md) 的清单逐项补, 不许挑着做.
 3. 改产物相关代码 -> 重新生成 `.svg` 与同名 `.geo.json` 再自检; 产物不进 git, 但必须是
    当前代码生成的(否则 `geo.base.sha256` 会与底图不符).
-4. 绘图脚本**不联网**; 新增数据源先写进 [docs/data-preparation.md](docs/data-preparation.md).
+4. 绘图脚本**不联网**: 数据一律由独立数据项目 `miko_gis_data` 准备; 新增/修改数据源要改
+   数据项目的 `src/miko_gis_data/sources.py`, 并同步两边的数据说明页
+   ([docs/data-preparation.md](docs/data-preparation.md) 与数据项目的 `docs/`).
 
 ## 脚本入口
 
-1. 每个子项目**只有** `<子项目>/main.py` 可以执行(`download` / `prepare` / `render` / `all`
-   子命令); 其余 `.py` 是模块, 只导出 `run()`, 直接运行会报错并指向入口.
-2. 框架层脚本(根目录 `download_data.py`,`tools/*.py`)不受此限, 仍可独立运行.
+1. 每个子项目**只有** `<子项目>/main.py` 可以执行, 且只有 `render` 子命令; 其余 `.py` 是
+   模块, 只导出 `run()`, 直接运行会报错并指向入口. 数据下载/派生不在本仓, 统一走独立
+   数据项目 `miko_gis_data/main.py`(`check` / `download` / `prepare` / `publish` / `all`).
+2. 框架层脚本(`tools/*.py`,`global.py`)不受此限, 仍可独立运行.
+3. `miko_gis_data/` 是独立项目(用户会整体移走), 本仓不跟踪它: 已在 .gitignore; 不要把它
+   的文件混进本仓文档索引或检查脚本.
 
 ## 标点
 
@@ -43,5 +48,5 @@
 ## 代码与注释
 
  1. 注释只写三类: 是什么 / 为什么 / 元信息; 跨文件的原理与取舍写进 docs, 代码里只留指针.
- 2. 不提交 `.venv/`,`data/`,`*.svg`,`*.geo.json`,`__pycache__/`(已在 .gitignore,
-    不要用 `-f` 强加).
+ 2. 不提交 `.venv/`,`data/`,`miko_gis_data/`,`*.svg`,`*.geo.json`,`__pycache__/`(已在
+   .gitignore, 不要用 `-f` 强加).

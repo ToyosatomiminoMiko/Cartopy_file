@@ -126,7 +126,12 @@ def check_source_pointers(errors: list[str]) -> int:
     checked = 0
     for path in sorted(ROOT.rglob("*.py")):
         rel = path.relative_to(ROOT)
-        if ".venv" in rel.parts or "data" in rel.parts or rel.as_posix() in NO_POINTER:
+        if (
+            ".venv" in rel.parts
+            or "data" in rel.parts
+            or "miko_gis_data" in rel.parts
+            or rel.as_posix() in NO_POINTER
+        ):
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         pointers = POINTER_RE.findall(text)

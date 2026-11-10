@@ -1,7 +1,7 @@
 # 缅甸全境地形图 (Myanmar/myanmar.py)
 
 - 源码: [`Myanmar/myanmar.py`](../../Myanmar/myanmar.py)
-- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(子命令 download / prepare / render / all)
+- 入口: [`Myanmar/main.py`](../../Myanmar/main.py)(唯一入口, 只有 `render` 子命令)
 - 产物: `Myanmar/map/myanmar_topography_etopo2022_lambert_conformal.svg`(地图) 与
   `Myanmar/text/myanmar_topography_etopo2022_lambert_conformal.geo.json`(文字信息)
 
@@ -54,35 +54,45 @@ slug, `text` 才是图上显示的文案(中文), 两者分开是为了让前端
 
 ## 数据
 
-| 文件 | 内容 | 生成方式 |
-| --- | --- | --- |
-| `Myanmar/data/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集(stride 2 = 30 弧秒) | `python Myanmar/main.py download --region myanmar` |
-| `data/cartopy/` | 共享缓存的 Natural Earth 10m 国界/国界线/海岸线 | `python download_data.py` |
+数据由独立数据项目 `miko_gis_data` 准备, 路径相对数据根(数据根定位见
+[data-preparation.md](../data-preparation.md)):
 
-下载范围由 `Myanmar/config.py` 的画框推出来: `EXTENT_MYANMAR.padded(lon=1.7, lat=0.1)`
-= 85.3~107.7°E / 4.9~31.1°N, 比地图画框(87~106°E, 5~31°N)大. 为什么不按画框直接下:
-兰勃特投影的矩形画框在北部向两侧张开, 只按经纬度画框下载会让四角露出没有高程数据的空白.
-这个数字只写在 `config.py` 一处, 下载脚本与绘图脚本共用; 出图时 `runner` 还会核对数据集
-`bbox` 是否盖住投影后的画框. 下载机制的共性见 [`data-preparation.md`](../data-preparation.md)
-的 ETOPO 一节.
+| 文件 | 内容 | 准备方式 |
+| --- | --- | --- |
+| `<数据根>/myanmar/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集(stride 2 = 30 弧秒) | 数据项目 `python main.py download --group myanmar --region myanmar` |
+| `<数据根>/cartopy/shapefiles/natural_earth/...` | 共享缓存的 Natural Earth 10m 国界/国界线/海岸线 | 数据项目 `python main.py download` 统一预取 |
+
+下载范围由数据项目 `regions/myanmar/config.py` 的画框推出来:
+`EXTENT_MYANMAR.padded(lon=1.7, lat=0.1)` = 85.3~107.7°E / 4.9~31.1°N, 比地图画框
+(87~106°E, 5~31°N)大. 为什么不按画框直接下: 兰勃特投影的矩形画框在北部向两侧张开, 只按
+经纬度画框下载会让四角露出没有高程数据的空白. 这个范围写进 manifest 的 `bbox`, 出图时
+`runner` 会核对它是否盖住投影后的画框. 下载机制的共性见
+[`data-preparation.md`](../data-preparation.md) 的 ETOPO 一节.
 
 ## 运行
 
-唯一入口是 `Myanmar/main.py`, 其余 `Myanmar/*.py` 都是模块(直接运行会报错并提示入口):
+唯一入口是 `Myanmar/main.py`, 其余 `Myanmar/*.py` 都是模块(直接运行会报错并提示入口).
+数据在数据项目里准备, 出图在本仓:
 
 ```bash
-python download_data.py                            # 首次: 共享 Natural Earth 底图
-python Myanmar/main.py download --region myanmar   # 首次: ETOPO + 行政区原始数据(已存在则跳过)
-python Myanmar/main.py render --sheet myanmar      # 出图, 地图进 Myanmar/map/, 文字信息进 Myanmar/text/
+# 数据项目根目录: 首次准备(已就位则跳过; 行政区图还需要 prepare + publish)
+cd miko_gis_data
+python main.py download --group myanmar --region myanmar
+python main.py publish
+cd ..
+
+# 渲染仓: 出图, 地图进 Myanmar/map/, 文字信息进 Myanmar/text/
+python Myanmar/main.py render --sheet myanmar
 ```
 
 画框,投影,色带,经纬网,地名与文案都在 [`Myanmar/config.py`](../../Myanmar/config.py);
 渲染模块只画本图特有条图层(陆上国界,邻国国界,城市点), `geo.json` 由框架按 `Sheet` 收集.
 
-`download` 的选项:
+数据项目的 `download` 选项(本图相关):
 
-- `--region {all,myanmar,northern-shan}`: 下载区域, 缺省 `all` 两个 ETOPO 区域都下;
-- `--stride`: 覆盖两个区域各自登记的默认步长(缅甸 2, 掸邦 1);
+- `--group {all,america_army,myanmar,ukraine,ussr,volga}`: 区域, 本图用 `myanmar`;
+- `--region {all,myanmar,northern-shan}`: ETOPO 下载区域, 本图用 `myanmar`;
+- `--stride`: 覆盖区域登记的默认步长(缅甸 2, 掸邦 1);
 - `--force`: 覆盖已存在的下载文件;
 - `--skip-regions`: 跳过掸邦特区边界/国界下载(本图不需要); 行政区原始数据仍会准备.
 
@@ -90,12 +100,12 @@ python Myanmar/main.py render --sheet myanmar      # 出图, 地图进 Myanmar/m
 
 - `--sheet {all,myanmar,myanmar-admin,northern-shan}`: 只出其中一张; 缺省 `all` 按
   `config.SHEETS` 顺序出全部三张;
-- `--stride`: 用 `Myanmar/data/raw/` 下对应采样步长的高程文件, 缺省自动选步长最小的;
+- `--stride`: 用 `<数据根>/myanmar/raw/` 下对应采样步长的高程文件, 缺省自动选步长最小的;
 - `--dpi`: 内嵌晕渲栅格的像素密度, 默认 300(矢量部分与 dpi 无关);
 - `--show`: 保存后弹出交互窗口(需要图形界面).
 
-高程文件也可用环境变量 `MYANMAR_ETOPO_PATH` 指定; 数据缺失时绘图报错并提示先跑
-`python Myanmar/main.py download`.
+高程文件也可用环境变量 `MYANMAR_ETOPO_PATH` 指定; 数据缺失时绘图报错并提示到数据项目运行
+`python main.py download --group myanmar`.
 
 ## 注意事项
 

@@ -27,7 +27,9 @@
   格式化 `text` 里的 `{name:.0f}` 占位符(出图时才有的数, 如流域面积);
   `collect_graticule`/`collect_relief`: 经纬刻度,色标;
 - `suggestions(sheet, catalog, area_annotation=None, label_vars=None)`: 文案 + 图例标题 +
-  由 `DatasetSet.citation` 自动生成的「数据来源」; `notes` 里的占位符同样按 `label_vars` 填;
+  由 `Catalog.citation(sheet.dataset_ids)` 自动生成的「数据来源」; `notes` 里的占位符同样按
+  `label_vars` 填. `catalog` 是 [`Catalog`](catalog.md), 由绘图模块用 `catalog_for(DATA_GROUP)`
+  取到后传进来;
 - `standard_collect(doc, ax, sheet, catalog, label_vars=None, area_annotation=None)`:
   默认顺序(地名 -> 刻度 -> 色标 -> 图例 -> 文案). 图例来自 `Sheet.legend`/`legend_title`,
   `Sheet.graticule_ticks=False` 时只登记网线线型不登记刻度文字; 图种只在有动态数据时
