@@ -9,7 +9,7 @@
 
 以 ETOPO 2022 地形晕渲为底图, 在一张图上同时表达 1991 / 2014 / 2022 三种边界口径, 并叠加
 第聂伯河梯级水库的实际水面,邻国地貌/水系参照与境外参照. 绘图脚本本身不联网: 原始数据由
-独立数据项目 `miko_gis_data` 下载/解压, 派生 GeoJSON 由本仓 `Ukraine/prepare.py` 加工,
+数据技能 `miko-gis-data` 下载/解压, 派生 GeoJSON 由本仓 `Ukraine/prepare.py` 加工,
 绘图模块只读数据根的原始文件与 `Ukraine/build/` 里的派生文件.
 
 图幅内容:
@@ -135,29 +135,29 @@ OSM 河网同源(沿河段直接共用河线顶点), 精度到几十米. 仍要�
 
 ## 数据
 
-数据准备分两段: **下载/解压**在独立数据项目 `miko_gis_data` 里完成, **派生**在本仓
+数据准备分两段: **下载/解压**在数据技能 `miko-gis-data` 里完成, **派生**在本仓
 `Ukraine/prepare.py` 里完成, `ukraine.py` 只读本地文件:
 
-- 数据项目 `download` 阶段(`regions/ukraine/download_data.py`): 只下载/解压原始数据到
+- 数据技能 `download` 阶段(技能 `gis_data.py` 的下载分派): 只下载/解压原始数据到
   `<数据根>/ukraine/raw/`(ETOPO / GADM 4.1 / OCHA 2021 GCA-NGCA / OSM 河流与德左边界),
   原始文件"已存在就跳过", 不加工几何;
 - 本仓 `prepare` 阶段(`Ukraine/prepare.py`): 只读原始数据与共享 Natural Earth 图层, 按本图
   口径派生出 12 份 GeoJSON 写到 `Ukraine/build/`, 每次运行全量重建, 不联网.
 
-下载地址,下载范围与本地路径由数据项目 `regions/ukraine/config.py` 声明: 本图画框与 ETOPO
+下载地址,下载范围与本地路径由技能 `REGIONS` 里 ukraine 区域的配置声明: 本图画框与 ETOPO
 子集范围由同一处画框外扩得出, 并作为 `bbox` 写进清单, 出图时 `runner` 用它核对覆盖.
 
 | 文件 | 内容 | 准备阶段 |
 | --- | --- | --- |
-| `<数据根>/ukraine/raw/ETOPO_2022_v1_15s_ukraine_stride2.nc` | NOAA ETOPO 2022 地形 | 数据项目 download |
-| `<数据根>/ukraine/raw/gadm41_UKR/gadm41_UKR_1.json` | GADM 4.1 乌克兰一级行政区(原始) | 数据项目 download |
-| `<数据根>/ukraine/raw/ocha_gca_ngca/` | OCHA 2021 GCA/NGCA shapefile(解压目录) | 数据项目 download |
-| `<数据根>/ukraine/raw/osm_dnieper_river.json` | OSM 第聂伯河干流原始关系 | 数据项目 download |
-| `<数据根>/ukraine/raw/osm_dnieper_reservoirs.json` | OSM 第聂伯河梯级水库原始 way | 数据项目 download |
-| `<数据根>/ukraine/raw/osm_dniester_river.json` | OSM 德涅斯特河干流原始关系 | 数据项目 download |
-| `<数据根>/ukraine/raw/osm_transnistria_boundary.json` | OSM 德左(PMR)边界原始关系 | 数据项目 download |
-| `<数据根>/ukraine/raw/osm_southern_bug_lower.json` | OSM 南布格河下游原始 way | 数据项目 download |
-| `<数据根>/ukraine/raw/osm_don_lower.json` | OSM 顿河下游原始 way | 数据项目 download |
+| `<数据根>/ukraine/raw/ETOPO_2022_v1_15s_ukraine_stride2.nc` | NOAA ETOPO 2022 地形 | 数据技能 download |
+| `<数据根>/ukraine/raw/gadm41_UKR/gadm41_UKR_1.json` | GADM 4.1 乌克兰一级行政区(原始) | 数据技能 download |
+| `<数据根>/ukraine/raw/ocha_gca_ngca/` | OCHA 2021 GCA/NGCA shapefile(解压目录) | 数据技能 download |
+| `<数据根>/ukraine/raw/osm_dnieper_river.json` | OSM 第聂伯河干流原始关系 | 数据技能 download |
+| `<数据根>/ukraine/raw/osm_dnieper_reservoirs.json` | OSM 第聂伯河梯级水库原始 way | 数据技能 download |
+| `<数据根>/ukraine/raw/osm_dniester_river.json` | OSM 德涅斯特河干流原始关系 | 数据技能 download |
+| `<数据根>/ukraine/raw/osm_transnistria_boundary.json` | OSM 德左(PMR)边界原始关系 | 数据技能 download |
+| `<数据根>/ukraine/raw/osm_southern_bug_lower.json` | OSM 南布格河下游原始 way | 数据技能 download |
+| `<数据根>/ukraine/raw/osm_don_lower.json` | OSM 顿河下游原始 way | 数据技能 download |
 | `Ukraine/build/ukraine_oblasts.geojson` | 27 个一级行政区(含克里米亚/塞瓦斯托波尔) | 本仓 `python Ukraine/main.py prepare` |
 | `Ukraine/build/ukraine_1991.geojson` | 1991 年国际承认边界(含克里米亚) | 同上 |
 | `Ukraine/build/crimea_2014_line.geojson` | 2014 年克里米亚陆上控制线 | 同上 |
@@ -172,7 +172,7 @@ OSM 河网同源(沿河段直接共用河线顶点), 精度到几十米. 仍要�
 | `Ukraine/build/don_river_osm.geojson` | 顿河中心线(NE 上段 + OSM 下段) | 同上 |
 
 Natural Earth 10m 图层(国家/海岸线/国界/河网/湖泊)复用 `<数据根>/cartopy/` 的共享缓存,
-由数据项目 `python main.py download` 统一预取, 本仓不保存副本.
+由数据技能 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py download` 统一预取, 本仓不保存副本.
 
 ETOPO 子集范围 18.5~44.0°E / 42.4~53.5°N, 步长 2(30 弧秒); 范围比画框大, 覆盖兰勃特投影
 矩形画框四角.
@@ -180,25 +180,25 @@ ETOPO 子集范围 18.5~44.0°E / 42.4~53.5°N, 步长 2(30 弧秒); 范围比�
 ## 运行
 
 唯一可执行入口是 [`Ukraine/main.py`](../../Ukraine/main.py): 其余脚本只导出 `run()`, 不自己
-解析命令行. 原始数据在数据项目下载, 派生与出图在本仓:
+解析命令行. 原始数据在数据技能下载, 派生与出图在本仓:
 
 ```bash
-# 数据项目根(与本仓平级时: ../miko_gis_data): 下载/解压原始数据 + 发布清单
-(cd ../miko_gis_data && python main.py download --group ukraine)
-(cd ../miko_gis_data && python main.py publish)
+# 数据技能: 下载/解压原始数据 + 发布清单
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group ukraine
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py publish
 
 # 渲染仓: 派生 12 份 GeoJSON(每次全量重建), 再出图
 python Ukraine/main.py prepare
 python Ukraine/main.py render
 ```
 
-数据项目 `download` 的选项:
+数据技能 `download` 的选项:
 
 - `--force`: 强制重下原始数据(本仓的派生文件由 `prepare` 重建, 不受影响);
-- `python main.py check --group ukraine`: 只检查原始数据是否齐全, 不联网(不是下载命令).
+- `python3 ~/.dsh/skills/miko-gis-data/gis_data.py check --group ukraine`: 只检查原始数据是否齐全, 不联网(不是下载命令).
 
 本仓 `prepare` 没有选项: 全量重建 `Ukraine/build/` 下的 12 份派生 GeoJSON 并打印文件汇总;
-缺原始数据时返回退出码 1 并提示到数据项目 `download`.
+缺原始数据时返回退出码 1 并提示跑技能 `download`.
 
 `render` 的选项:
 
@@ -207,13 +207,13 @@ python Ukraine/main.py render
 - `--dpi`: 内嵌晕渲栅格的像素密度, 缺省用 `config.py` 里的 300(矢量部分与 dpi 无关);
 - `--show`: 保存后弹出交互窗口(需要图形界面).
 
-高程文件也可用环境变量 `UKRAINE_ETOPO_PATH` 指定; 数据缺失时脚本报错并提示到数据项目跑
+高程文件也可用环境变量 `UKRAINE_ETOPO_PATH` 指定; 数据缺失时脚本报错并提示跑技能
 对应命令.
 
 ## 注意事项
 
-- 数据必须先准备, 本脚本不联网, 缺文件会报错: 缺原始数据提示到数据项目跑
-  `python main.py download --group ukraine`, 缺派生 GeoJSON 提示跑
+- 数据必须先准备, 本脚本不联网, 缺文件会报错: 缺原始数据提示跑技能
+  `python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group ukraine`, 缺派生 GeoJSON 提示跑
   `python Ukraine/main.py prepare`;
 - 中断后可重跑: 未完成的下载与原始 JSON 缓存会复用, OSM 关系首次运行后缓存, 不重复请求;
 - 1991 是法理口径; 2014 接触线是 OCHA 2021 GCA/NGCA 界线近似(明斯克协议后基本稳定), 属

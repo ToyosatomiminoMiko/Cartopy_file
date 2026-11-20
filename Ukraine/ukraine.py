@@ -109,8 +109,8 @@ def _require(path: Path) -> Path:
                 f"未找到派生数据: {path}\n请先运行: python Ukraine/main.py prepare"
             )
         raise FileNotFoundError(
-            f"未找到原始数据: {path}\n请到数据项目 miko_gis_data 运行: "
-            "python main.py download --group ukraine"
+            f"未找到原始数据: {path}\n请先运行: "
+            "python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group ukraine"
         )
     return path
 

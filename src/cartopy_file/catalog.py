@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 # (copyright) Kawaii Femboy Technology Co., Ltd.
-"""Read the data project's manifest and expose datasets to the render pipeline.
+"""Read the data skill's manifest and expose datasets to the render pipeline.
 
 是什么: 数据清单(``<数据根>/manifest.json``)的只读视图. 提供 ``DatasetView``(一份数据集
 的路径/覆盖范围/来源)与 ``Catalog``(一个区域的清单集合: 按 id 取路径, 判就位, 折署名).
-为什么用 JSON 而不是 import 数据项目: 数据项目要能单独移走, 两个仓库只靠这份文件格式
-耦合; 渲染仓不安装数据项目的 Python 包, 数据项目也不依赖绘图栈.
+为什么用 JSON 而不是 import 数据技能: 数据技能要能单独移走, 两边只靠这份文件格式
+耦合; 渲染仓不安装数据技能的 Python 包, 数据技能也不依赖绘图栈.
 完整说明(manifest 字段与版本,渲染仓怎么读)见 ``docs/reference/manifest.md`` 与
 ``docs/reference/data.md``.
 """
@@ -21,7 +21,7 @@ from .spec import Extent
 
 __all__ = ["Catalog", "DatasetView", "SourceInfo", "catalog_for"]
 
-# 与数据项目 miko_gis_data 约定的清单格式; 格式/版本不符时明确拒绝, 不猜.
+# 与数据技能 miko-gis-data 约定的清单格式; 格式/版本不符时明确拒绝, 不猜.
 MANIFEST_FORMAT = "miko-gis-data/manifest"
 SUPPORTED_VERSION = 1
 
@@ -39,7 +39,7 @@ class SourceInfo:
 
 @dataclass(frozen=True)
 class DatasetView:
-    """一份数据集的只读视图; 字段与数据项目的 ``Dataset`` 一一对应(少了下下载参数)."""
+    """一份数据集的只读视图; 字段与数据技能的 ``Dataset`` 一一对应(少了下下载参数)."""
 
     id: str
     kind: str
@@ -141,8 +141,9 @@ class Catalog:
     def citation(self, dataset_ids) -> str:
         """把用到的数据集折成产物「数据来源」一行: 每个数据源一条, 用 ` · ` 分隔.
 
-        算法与数据项目的 ``DatasetSet.citation`` 完全一致(按来源去重, 版本不一致时并排
-        写版本), 保证迁移前后产物字节不变. 改了这里要同步数据项目与 manifest 字段.
+        署名事实(来源/版本/homepage/credit)全部来自 manifest 的 ``source`` 字段; 拼接算法
+        只在本仓维护(按来源去重, 版本不一致时并排写版本), 保证同一份数据每次生成的署名行
+        字节一致.
         """
         groups: dict[str, list[DatasetView]] = {}
         order: list[str] = []
@@ -232,20 +233,20 @@ def _load() -> _Manifest:
     if not path.is_file():
         raise FileNotFoundError(
             f"数据清单不存在: {path}\n"
-            "请先准备数据: 到数据项目 miko_gis_data 运行 `python main.py all`, "
+            "请先准备数据: 运行 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py all`, "
             f"再确认仓根 {CONFIG_FILE} 的 data_root 指向那个数据根."
         )
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("format") != MANIFEST_FORMAT:
         raise RuntimeError(
             f"数据清单格式不符: {path} 的 format={payload.get('format')!r}, "
-            f"期望 {MANIFEST_FORMAT!r}; 请用当前版本的 miko_gis_data 重新 publish."
+            f"期望 {MANIFEST_FORMAT!r}; 请用当前版本的 miko-gis-data 技能重新 publish."
         )
     version = payload.get("version")
     if version != SUPPORTED_VERSION:
         raise RuntimeError(
             f"数据清单版本 {version!r} 不受支持(本仓只读 {SUPPORTED_VERSION}); "
-            "请同步升级/降级两边的 miko_gis_data 与 Cartopy_file."
+            "请同步升级/降级两边的 miko-gis-data 与 Cartopy_file."
         )
     groups: dict[str, tuple[str, tuple[DatasetView, ...]]] = {}
     for group, group_payload in payload.get("groups", {}).items():

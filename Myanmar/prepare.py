@@ -6,7 +6,7 @@
 是什么: 读数据根里 manifest 声明的原始数据(GADM 缅甸一级行政区, Natural Earth 10m 国界,
 OSM 内比都/特区/国界快照), 按本图口径裁剪,补缝,去重叠,拼装, 写到 ``Myanmar/build/``.
 本文件是模块, 只导出 ``run()``; 命令行入口是 ``python Myanmar/main.py prepare``.
-为什么放在渲染仓: 裁剪框,补缝阈值,特区归属都是图种口径, 数据仓只提供通用原始数据
+为什么放在渲染仓: 裁剪框,补缝阈值,特区归属都是图种口径, 数据技能只提供通用原始数据
 (分工见 ``docs/data-preparation.md`` 与 ``docs/reference/prepare.md``).
 完整说明见 ``docs/maps/myanmar-admin.md`` 与 ``docs/maps/northern-shan.md``.
 """
@@ -29,7 +29,7 @@ from cartopy_file.geometry import geodesic_area_km2
 # 调用要在读取图层路径之前(见 docs/reference/data.md).
 configure_cartopy()
 
-# 数据路径全部由数据清单 manifest 给出(原始数据仍在数据仓, 见 docs/reference/data.md).
+# 数据路径全部由数据清单 manifest 给出(原始数据仍由数据技能准备, 见 docs/reference/data.md).
 CATALOG = catalog_for(config.DATA_GROUP)
 GADM_JSON = CATALOG.path("gadm41-mmr")
 COUNTRY_SHP = CATALOG.path("ne-countries-10m")
@@ -42,15 +42,15 @@ ADMIN_OUT = config.ADMIN_GEOJSON
 SHAN_OUT = config.SHAN_GEOJSON
 BORDER_OUT = config.BORDER_GEOJSON
 
-# 原始数据: (路径, 名称, 准备命令). 命令与数据仓的下载入口一致.
+# 原始数据: (路径, 名称, 准备命令). 命令与数据技能的下载入口一致.
 RAW_INPUTS = (
-    (COUNTRY_SHP, "Natural Earth 10m 国界", "python main.py download --group myanmar"),
-    (GADM_JSON, "GADM 4.1 缅甸一级行政区", "python main.py download --group myanmar"),
-    (NPT_JSON, "OSM 内比都联邦区缓存", "python main.py download --group myanmar"),
+    (COUNTRY_SHP, "Natural Earth 10m 国界", "python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar"),
+    (GADM_JSON, "GADM 4.1 缅甸一级行政区", "python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar"),
+    (NPT_JSON, "OSM 内比都联邦区缓存", "python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar"),
 )
 
 # ============================
-# OSM 特区/国界: 数据仓只存原始 Overpass 响应, 归属与名称在这里解释.
+# OSM 特区/国界: 数据技能只存原始 Overpass 响应, 归属与名称在这里解释.
 # ============================
 # OSM relation id -> (图层, 中文名, 英文名, 上级区域).
 # 图层说明:
@@ -62,7 +62,7 @@ RAW_INPUTS = (
 #   sr4_county  第四特区下辖 3 县
 #   taang       德昂邦(德昂民族解放军 TNLA 控制区)
 #   context     仅作定位参考的掸邦/曼德勒省边界
-# 注意: 这些 id 同时出现在数据仓的下载参数里(查询用), 改图时两边一起改.
+# 注意: 这些 id 同时出现在数据技能的下载参数里(查询用), 改图时两边一起改.
 RELATIONS: dict[int, tuple[str, str, str, str | None]] = {
     16991276: ("sr1", "缅甸联邦第一特区", "Special Region 1", None),
     17632959: ("sr1_county", "老街市", "Laukkaing City", "sr1"),
@@ -90,7 +90,7 @@ RELATIONS: dict[int, tuple[str, str, str, str | None]] = {
 KOKANG_SAZ_PARTS = ("老街市", "果敢县")
 KOKANG_SAZ_OSM_IDS = (17632959, 17020740)
 
-# 国界: relation id -> (英文名, 中文名). 数据仓按 bbox 只取画框附近的成员 way.
+# 国界: relation id -> (英文名, 中文名). 数据技能按 bbox 只取画框附近的成员 way.
 BORDER_RELATIONS: dict[int, tuple[str, str]] = {
     50371: ("Myanmar", "缅甸"),
     270056: ("China", "中国"),
@@ -105,14 +105,14 @@ BORDER_RELATIONS: dict[int, tuple[str, str]] = {
 def require_raw_data() -> None:
     """检查派生所需的原始数据是否就位; 有缺失就报错并指出准备命令.
 
-    为什么只检查不下载: 出图不联网(见 docs/data-preparation.md), 缺数据时回数据仓下载.
+    为什么只检查不下载: 出图不联网(见 docs/data-preparation.md), 缺数据时用数据技能下载.
     """
     missing = [(path, label, hint) for path, label, hint in RAW_INPUTS if not path.exists()]
     if not missing:
         print("原始数据齐全: Natural Earth 国界, GADM 缅甸, OSM 内比都缓存.")
         return
     lines = [
-        f"未找到 {label}: {path}\n请到数据项目 miko_gis_data 运行: {hint}"
+        f"未找到 {label}: {path}\n请先运行: {hint}"
         for path, label, hint in missing
     ]
     raise FileNotFoundError("\n".join(lines))
@@ -288,7 +288,7 @@ def build_admin1() -> None:
 # OSM 特区/国界: 原始响应 -> 绘图用 GeoJSON
 # ============================
 def load_overpass_elements(path) -> list[dict]:
-    """读一份原始 Overpass 响应, 返回 elements 列表(数据仓按查询分组各存一份)."""
+    """读一份原始 Overpass 响应, 返回 elements 列表(数据技能按查询分组各存一份)."""
     payload = json.loads(path.read_text(encoding="utf-8"))
     return payload.get("elements", [])
 
@@ -300,7 +300,7 @@ def load_shan_raw() -> dict[int, dict]:
     if not files:
         raise FileNotFoundError(
             f"未找到掸邦特区原始响应: {SHAN_RAW_DIR}\n"
-            "请到数据项目 miko_gis_data 运行: python main.py download --group myanmar"
+            "请先运行: python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar"
         )
     for path in files:
         for element in load_overpass_elements(path):
@@ -446,7 +446,7 @@ def build_borders() -> None:
     if not BORDER_RAW.exists():
         raise FileNotFoundError(
             f"未找到 OSM 国界原始响应: {BORDER_RAW}\n"
-            "请到数据项目 miko_gis_data 运行: python main.py download --group myanmar"
+            "请先运行: python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar"
         )
     raw = {
         element["id"]: element
@@ -492,7 +492,7 @@ def build_borders() -> None:
 def run() -> int:
     """全量重建三份派生 GeoJSON; 返回 0=成功(原始数据缺失或拓扑自检失败会抛异常)."""
     print("\n" + "=" * 60)
-    print("派生缅甸图种数据(每次运行都全量重建; 原始数据来自数据仓 miko_gis_data)")
+    print("派生缅甸图种数据(每次运行都全量重建; 原始数据来自数据技能 miko-gis-data)")
     print("=" * 60)
     print("\n[1/3] 行政区 GeoJSON")
     build_admin1()

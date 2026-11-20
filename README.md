@@ -4,11 +4,11 @@
 目录, 目录里的 `config.py` 声明该子项目用哪个数据区域(`DATA_GROUP`)与每张图的规格
 (画框/投影/色带/经纬网/文案), 出图流程与图层原语都在共享包 `src/cartopy_file/`.
 
-这仓分两层: **数据**由独立数据项目 `miko_gis_data` 负责 -- 只做下载/入库/解压, 把原始数据
+这仓分两层: **数据**由数据技能 `miko-gis-data` 负责 -- 只做下载/入库/解压, 把原始数据
 原样放进数据根并写一份 `manifest.json`; **清洗/派生/裁剪**与出图在本仓完成. 本仓读清单与它
 指向的原始文件, 用 `<子项目>/main.py prepare` 生成 `build/` 下的派生 GeoJSON, 再
-`render` 出图; 全程**不联网**. 两个仓库靠这份 JSON 契约耦合, 互不 import. 数据项目可以单独
-移走, 换位置时改本仓根目录 `config.toml` 的 `data_root` 即可.
+`render` 出图; 全程**不联网**. 渲染仓与数据技能靠这份 JSON 契约耦合, 互不 import. 数据根可以
+整体搬运, 换位置时改本仓根目录 `config.toml` 的 `data_root` 即可.
 
 每张图产出两个文件: 地图(裁到地图框的**纯几何底图**, 只有地理图形, 不含文字,图例,色标,标题与
 刻度文字)写到 `<子项目>/map/<stem>.svg`, 文字信息(地图框,经纬刻度,初始标注候选,色标,图例与
@@ -71,30 +71,33 @@ git config --local core.hooksPath .githooks
 
 ## 数据准备
 
-下载/入库/解压在独立数据项目 `miko_gis_data` 里完成, 产物是数据根里的原始文件与
-`manifest.json`; 它**不做派生**. 到数据项目根目录执行(首次 clone 后 `uv sync` 一次; 下面的
-命令假设它与本仓平级, 即 `../miko_gis_data`, 放在别处就换成实际路径):
+下载/入库/解压在数据技能 `miko-gis-data` 里完成, 产物是数据根里的原始文件与
+`manifest.json`; 它**不做派生**. 技能脚本只用标准库, 依赖系统的 `wget` 与 `unzip`, 不需要
+`uv sync` 或虚拟环境, 在任意目录执行:
 
 ```bash
-cd ../miko_gis_data
-uv sync
-python main.py check      # 只检查原始数据是否齐全/版本相符, 不联网; 有缺失退出码 1
-python main.py download   # 预取共享 Natural Earth 图层 + 下载/解压各区域原始数据(已存在就跳过)
-python main.py publish    # 重建 <数据根>/manifest.json 给渲染仓读
-python main.py all        # 依次 download -> publish -> check
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py check      # 只检查原始数据是否齐全/版本相符, 不联网; 有缺失退出码 1
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py download   # 预取共享 Natural Earth 图层 + 下载/解压各区域原始数据(已存在就跳过)
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py publish    # 重建 <数据根>/manifest.json 给渲染仓读
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py all        # 依次 download -> publish -> check
 ```
 
 常用选项: `--group {all,america_army,myanmar,ukraine,ussr,volga}` 只处理一个区域;
 `download` 另有 `--region/--stride/--force/--skip-regions/--skip-basin`, 含义见
-`python main.py <子命令> --help`. `publish --check` 只比较清单与配置, 不写盘.
+`python3 ~/.dsh/skills/miko-gis-data/gis_data.py <子命令> --help`. `publish --check` 只比较
+清单与配置, 不写盘. 数据根默认由技能脚本登记(本机默认值见技能 `SKILL.md`), 可用全局 `--data-root` 或环境变量
+`MIKO_GIS_DATA_ROOT` 覆盖.
 
-数据根默认是数据项目里的 `data/`. 渲染仓只认一个来源: 仓根 `config.toml` 的 `data_root`
-(本机配置, 不进 git). 数据项目在本仓之外, 所以本机只做一次配置, 之后照常出图:
+渲染仓只认一个来源: 仓根 `config.toml` 的 `data_root`(本机配置, 不进 git). 技能与渲染仓不共享
+配置, 所以本机只做一次配置, 之后照常出图:
 
 ```toml
 # <仓根>/config.toml
-data_root = "<数据项目>/data"
+data_root = "<数据根>"
 ```
+
+技能与渲染仓不共享配置: 用 `--data-root`/`MIKO_GIS_DATA_ROOT` 改了技能侧的数据根, 要同时把
+`config.toml` 的 `data_root` 指到同一目录.
 
 数据根布局: `manifest.json`(清单契约), `cartopy/`(全项目共用的 Natural Earth 缓存),
 `<region>/raw/`(各区域的原始数据, region 就是 `DATA_GROUP` 的取值). 清单只登记原始数据,
@@ -173,7 +176,7 @@ viewBox/尺寸),`graticule`(经纬刻度),`labels`(地名候选: id/role/文字/
 
 | 位置 | 内容 | 谁维护 |
 | --- | --- | --- |
-| `<数据根>/cartopy/` | Natural Earth 共享底图缓存 | 数据项目 `download` 预取 |
+| `<数据根>/cartopy/` | Natural Earth 共享底图缓存 | 数据技能 `download` 预取 |
 | `<仓根>/data/.mplcache` | matplotlib 的 `MPLCONFIGDIR` | 渲染仓 `prepare_matplotlib_env()` |
 
 `<仓根>/data/` 只是渲染仓自己的可写缓存目录, **不是数据根**; 数据根只由 `config.toml` 指定.
@@ -185,8 +188,9 @@ viewBox/尺寸),`graticule`(经纬刻度),`labels`(地名候选: id/role/文字/
 模块 API)三层. 文档与注释的写法见 [docs/conventions.md](docs/conventions.md), 提交前跑
 `uv run python tools/check_all.py`(会自动跑 `tools/check_docs.py`).
 
-`global.py` 是一次性演示脚本, 没有对应文档页. 数据项目 `miko_gis_data` 是另一个仓库, 本仓
-只在文档里用文字提它, 不链接它的文件.
+`global.py` 是一次性演示脚本, 没有对应文档页. 数据技能 `miko-gis-data` 装在
+`~/.dsh/skills/miko-gis-data/`(脚本 `gis_data.py` + 说明 `SKILL.md`), 不在本仓结构里; 本仓
+只在文档里用文字提它, 不建相对链接.
 
 ## 许可
 

@@ -4,8 +4,8 @@
 """USSR subproject entry point: render the USSR topography map.
 
 是什么: 苏联子项目的唯一可执行入口, 只有 ``render`` 子命令; 地图进 ``USSR/map/``,
-文字信息进 ``USSR/text/``. 数据(ETOPO 高程与共享 Natural Earth 图层)由独立数据项目
-miko_gis_data 准备, 本入口不再提供 download/prepare.
+文字信息进 ``USSR/text/``. 数据(ETOPO 高程与共享 Natural Earth 图层)由独立数据技能
+miko-gis-data 准备, 本入口不再提供 download/prepare.
 为什么只有一个入口: 全项目约定「一个子项目一个可执行文件, 其余 .py 只导出 run()」;
 参数解析与退出码归这里, 模块不再各自解析命令行.
 完整说明(投影,数据来源,运行方式)见 ``docs/maps/ussr.md``.
@@ -18,10 +18,10 @@ import sys
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """构造命令行: 只有 render 子命令(数据准备在 miko_gis_data)."""
+    """构造命令行: 只有 render 子命令(数据准备在数据技能 miko-gis-data)."""
     parser = argparse.ArgumentParser(
         prog="python USSR/main.py",
-        description="苏联子项目统一入口: 出图(数据由 miko_gis_data 准备).",
+        description="苏联子项目统一入口: 出图(数据由数据技能 miko-gis-data 准备).",
     )
     subparsers = parser.add_subparsers(dest="command", required=True, metavar="<子命令>")
 

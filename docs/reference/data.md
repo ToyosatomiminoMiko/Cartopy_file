@@ -5,12 +5,12 @@
 
 ## 是什么
 
-渲染仓唯一的"数据在哪,缓存放哪"入口. 数据由独立数据项目 `miko_gis_data` 准备, 本模块只定位,
+渲染仓唯一的"数据在哪,缓存放哪"入口. 数据由数据技能 `miko-gis-data` 准备, 本模块只定位,
 不下载:
 
 - `project_root()`: 渲染仓根目录;
 - `local_data_dir()`: 渲染仓自己的可写缓存目录(`<仓根>/data`, 自动创建);
-- `data_root()`: 数据根目录, 取自仓根 `config.toml` 的 `data_root`, 是数据项目发布
+- `data_root()`: 数据根目录, 取自仓根 `config.toml` 的 `data_root`, 是数据技能发布
   `manifest.json` 与各区域数据的那个目录;
 - `manifest_path()`: 数据清单的固定位置(`<数据根>/manifest.json`);
 - `prepare_matplotlib_env()`: 在导入 matplotlib 之前把 `MPLCONFIGDIR` 指到可写目录;
@@ -44,10 +44,10 @@
 - `config.toml` 是本机文件(`.gitignore` 已忽略), 内容:
 
   ```toml
-  data_root = "<数据项目>/data"
+  data_root = "<数据根>"
   ```
 
-- 本模块只认`数据根`这一个概念, 不认识数据项目放在哪,目录叫什么; 两个仓之间只靠
+- 本模块只认`数据根`这一个概念, 不认识技能放在哪,目录叫什么; 渲染仓与技能之间只靠
   `manifest.json` 与本机的 `config.toml` 耦合;
 - `local_data_dir()` 只建 `<仓根>/data`, 里面放 `.mplcache` 等本仓缓存; 它**不是**数据根;
 - `prepare_matplotlib_env()` 用 `setdefault`, 已自己指定 `MPLCONFIGDIR` 的脚本保持原样;
@@ -64,12 +64,12 @@
 缓存默认落在 HOME 下(`~/.local/share/cartopy`, `~/.config/matplotlib`), 机器一换就没了,
 HOME 只读时还会直接失败. 所以本模块把两类缓存都固定到仓库/数据根里: matplotlib 的
 `MPLCONFIGDIR` 指到 `<仓根>/data/.mplcache`, cartopy 缓存的写入位置指到 `<数据根>/cartopy`
-(数据项目用同一个布局写入, 两边读到同一份共享底图).
+(数据技能用同一个布局写入, 两边读到同一份共享底图).
 
 `configure_cartopy()` 必须把 HOME 下已有的缓存登记为 `pre_existing_data_dir`: cartopy 的
 Downloader 先查 `pre_existing_data_dir` 再查 `data_dir`, 两者都没有才联网. 不登记时 HOME 下
 已有的缓存文件会"看不见", 从而被重新下载一遍 -- 这正是要避免的. 渲染仓自己从不下载, 读不到
-就是数据没备好, 由 [catalog.py](catalog.md) 与 `runner` 报错指向数据项目.
+就是数据没备好, 由 [catalog.py](catalog.md) 与 `runner` 报错指向数据技能.
 
 ## 用法
 
@@ -77,7 +77,7 @@ Downloader 先查 `pre_existing_data_dir` 再查 `data_dir`, 两者都没有才�
 
 ```toml
 # <仓根>/config.toml
-data_root = "<数据项目>/data"
+data_root = "<数据根>"
 ```
 
 脚本里照常调用:
@@ -107,11 +107,12 @@ manifest = manifest_path()    # <数据根>/manifest.json
 
 ## 注意事项
 
-- 数据根里没有 `manifest.json` 时, `catalog_for()` 会抛 `FileNotFoundError` 并提示到数据项目
-  运行 `python main.py all`; 这时先检查仓根 `config.toml` 的 `data_root` 是否指对;
+- 数据根里没有 `manifest.json` 时, `catalog_for()` 会抛 `FileNotFoundError` 并提示
+  运行 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py all`; 这时先检查仓根 `config.toml` 的
+  `data_root` 是否指对;
 - `config.toml` 是本机文件, 换机器要重新写; `.gitignore` 已忽略它, 不要提交;
-- 本仓 `.gitignore` 也忽略 `**/data`, 本仓自己的缓存与数据根都不入库; 换机器后到数据项目
-  重跑准备命令即可恢复(清单见 [data-preparation.md](../data-preparation.md));
+- 本仓 `.gitignore` 也忽略 `**/data`, 本仓自己的缓存与数据根都不入库; 换机器后重跑技能准备
+  命令即可恢复(清单见 [data-preparation.md](../data-preparation.md));
 - cartopy 已有缓存(`~/.local/share/cartopy`)只被当作只读复用来源, 不是项目缓存的写入位置;
-- 渲染仓没有下载/解压子命令: 原始数据缺失时去数据项目 `download`; 派生数据缺失时跑本仓
+- 渲染仓没有下载/解压子命令: 原始数据缺失时跑技能 `download`; 派生数据缺失时跑本仓
   `<子项目>/main.py prepare`(见 [prepare.md](prepare.md)), 不要在本仓找下载脚本.

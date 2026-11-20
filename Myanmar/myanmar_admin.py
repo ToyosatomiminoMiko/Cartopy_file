@@ -273,8 +273,8 @@ def add_rivers(ax: plt.Axes) -> None:
     """
     if not RIVER_SHP.exists():
         raise FileNotFoundError(
-            f"未找到河流数据: {RIVER_SHP}\n请先到数据项目 miko_gis_data 运行: "
-            "python main.py download --group myanmar"
+            f"未找到河流数据: {RIVER_SHP}\n请先运行: "
+            "python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar"
         )
     rivers = gpd.read_file(RIVER_SHP)
     selected = rivers[rivers["name_en"].isin(["Irrawaddy", "Salween"])]
@@ -402,7 +402,7 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
         if not etopo_path.exists():
             raise FileNotFoundError(
                 f"未找到高程数据: {etopo_path}\n"
-                "请先到数据项目 miko_gis_data 运行: python main.py download --group myanmar"
+                "请先运行: python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar"
             )
 
         units = load_admin_units()

@@ -51,7 +51,7 @@ def project_root() -> Path:
 
 
 def local_data_dir() -> Path:
-    """返回渲染仓自己的可写缓存目录(不进数据项目): matplotlib 缓存等."""
+    """返回渲染仓自己的可写缓存目录(不进数据根): matplotlib 缓存等."""
     base = project_root() / "data"
     base.mkdir(parents=True, exist_ok=True)
     return base
@@ -77,13 +77,14 @@ def data_root() -> Path:
     """返回数据根目录(唯一来源: 仓根 ``config.toml`` 的 ``data_root``).
 
     配置缺失或非法时抛 ``RuntimeError`` 并说明怎么建: 不读环境变量, 也不设隐式默认
-    路径, 免得数据项目换了位置却静默读到别处的旧数据.
+    路径, 免得数据根换了位置却静默读到别处的旧数据.
     """
     configured = _configured_root()
     if configured is None:
         raise RuntimeError(
             f"没有数据根配置: 在 {project_root() / CONFIG_FILE} 里写一行 "
-            'data_root = "<数据项目>/data"(本机路径, 不进 git), 格式见 docs/reference/data.md.'
+            'data_root = "<数据根>"(本机路径, 不进 git; 例如数据目录 .../miko_skill_gisdata/data), '
+            "格式见 docs/reference/data.md"
         )
     return configured
 

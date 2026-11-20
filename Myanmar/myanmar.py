@@ -160,7 +160,7 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
         if not etopo_path.exists():
             raise FileNotFoundError(
                 f"未找到高程数据: {etopo_path}\n"
-                "请先到数据项目 miko_gis_data 运行: python main.py download --group myanmar"
+                "请先运行: python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar"
             )
         runner.render(
             SHEET,

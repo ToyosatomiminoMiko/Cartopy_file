@@ -78,26 +78,26 @@ GADM 与 Natural Earth 10m 国界来自不同测绘成果, 直接按国界裁剪
 
 ## 数据
 
-原始数据由独立数据项目 `miko_gis_data` 下载, 派生文件由本仓 `prepare` 生成; 数据根定位见
+原始数据由数据技能 `miko-gis-data` 下载, 派生文件由本仓 `prepare` 生成; 数据根定位见
 [data-preparation.md](../data-preparation.md), 派生流程见 [reference/prepare.md](../reference/prepare.md):
 
 | 文件 | 内容 | 准备方式 |
 | --- | --- | --- |
 | `Myanmar/build/myanmar_admin1.geojson` | 15 个一级行政区(含名称/中心点属性, 属性表是 `Myanmar/config.py` 的 `ADMIN_INFO`) | 本仓 `python Myanmar/main.py prepare` |
-| `<数据根>/myanmar/raw/gadm41_MMR/gadm41_MMR_1.json` | GADM 4.1 原始 JSON | 数据项目 `python main.py download --group myanmar` |
-| `<数据根>/myanmar/raw/osm_naypyidaw_union_territory.json` | OSM 内比都联邦区 relation 原始响应 | 数据项目 `python main.py download --group myanmar` |
-| `<数据根>/myanmar/raw/ne_10m_rivers_lake_centerlines/` | Natural Earth 10m 河流(固定 5.0.0 版本) | 数据项目 `python main.py download --group myanmar` |
-| `<数据根>/cartopy/shapefiles/natural_earth/...` | 共享缓存的 Natural Earth 10m 国界(底图)/海岸线(剪国界用)/国界线 | 数据项目 `python main.py download` 统一预取 |
-| `<数据根>/myanmar/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集 | 数据项目 `python main.py download --group myanmar --region myanmar` |
+| `<数据根>/myanmar/raw/gadm41_MMR/gadm41_MMR_1.json` | GADM 4.1 原始 JSON | 数据技能 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar` |
+| `<数据根>/myanmar/raw/osm_naypyidaw_union_territory.json` | OSM 内比都联邦区 relation 原始响应 | 数据技能 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar` |
+| `<数据根>/myanmar/raw/ne_10m_rivers_lake_centerlines/` | Natural Earth 10m 河流(固定 5.0.0 版本) | 数据技能 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar` |
+| `<数据根>/cartopy/shapefiles/natural_earth/...` | 共享缓存的 Natural Earth 10m 国界(底图)/海岸线(剪国界用)/国界线 | 数据技能 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py download` 统一预取 |
+| `<数据根>/myanmar/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集 | 数据技能 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar --region myanmar` |
 
 ## 运行
 
 唯一入口是 `Myanmar/main.py`, 其余 `Myanmar/*.py` 都是模块(直接运行会报错并提示入口):
 
 ```bash
-# 数据项目根(与本仓平级时: ../miko_gis_data): 下载原始数据 + 发布清单
-(cd ../miko_gis_data && python main.py download --group myanmar --region myanmar)
-(cd ../miko_gis_data && python main.py publish)
+# 数据技能: 下载原始数据 + 发布清单
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar --region myanmar
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py publish
 
 # 渲染仓: 派生行政区 GeoJSON, 再出图
 python Myanmar/main.py prepare
@@ -105,17 +105,17 @@ python Myanmar/main.py render --sheet myanmar-admin
 ```
 
 本仓的 `prepare` 不联网: 只读 manifest 指向的原始数据, 派生行政区 GeoJSON 每次全量重建并做
-拓扑自检; 缺原始数据时报错并提示先到数据项目跑 `download`. `render` 的选项与其它图种相同
+拓扑自检; 缺原始数据时报错并提示先跑数据技能的 `download`. `render` 的选项与其它图种相同
 (`--stride` / `--dpi` / `--show`), 高程文件也可用 `MYANMAR_ETOPO_PATH` 指定.
 
 ## 注意事项
 
-- 数据项目的 `download` 对已存在的 GADM / Natural Earth 文件跳过下载, 便于断点续跑;
+- 数据技能的 `download` 对已存在的 GADM / Natural Earth 文件跳过下载, 便于断点续跑;
 - 本仓 `prepare` 生成前做拓扑自检: 15 个单元必须无重叠,无缝铺满国界, 否则报错退出;
 - 国界只画陆上段, 海岸线不画; 省/邦界贴着国界/海岸的那一段会被走廊剪掉, 所以图上
   海岸处没有深灰轮廓, 由填色与海洋底色分界;
 - 行政区 GeoJSON 缺失时绘图报错并提示先跑 `python Myanmar/main.py prepare`(原始数据缺失则
-  提示到数据项目 `download`);
+  提示跑数据技能的 `download`);
 - 双语标注落点是按当前画框/投影折算的经纬度(见设计要点 7), 改投影或画幅要重算, 不要只改
   文案;
 - 标注 id 是稳定的 ASCII slug, 前端按 id 引用; 改显示文案只动 `text`.

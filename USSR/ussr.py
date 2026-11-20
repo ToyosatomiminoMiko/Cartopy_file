@@ -122,7 +122,7 @@ def draw(ctx: runner.RenderContext) -> None:
 
     为什么海岸线钉死 110m: ``cfeature`` 默认按视野自动选分辨率, 缩放重绘时可能换到
     没预取的 50m/10m 并触发下载, 违背「出图不联网」; 110m 是改前成品的实际分辨率,
-    也是共享缓存里预取好的图层(由数据项目 miko_gis_data 的区域 config 登记).
+    也是共享缓存里预取好的图层(由数据技能 miko-gis-data 的 REGIONS 登记).
     为什么自己读国界: ``Sheet.basemap=False`` 时 runner 不加载共享底图, 苏联轮廓要的
     是 10m 国界(与 110m 海岸线同尺度才不会折线); 这份图层全项目共用数据根里的 cartopy 缓存.
     """

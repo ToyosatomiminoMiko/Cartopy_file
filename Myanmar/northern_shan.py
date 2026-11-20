@@ -59,7 +59,7 @@ plt.rcParams["hatch.linewidth"] = 0.45
 SHEET = config.SHEET_NORTHERN_SHAN
 CATALOG = catalog_for(config.DATA_GROUP)
 
-# 特区/国界 GeoJSON 由本仓 prepare.py 从数据仓的 Overpass 原始响应拼装到 build/
+# 特区/国界 GeoJSON 由本仓 prepare.py 从数据技能的 Overpass 原始响应拼装到 build/
 # (目录布局见 docs/reference/spec.md).
 REGION_GEOJSON = config.SHAN_GEOJSON
 BORDER_GEOJSON = config.BORDER_GEOJSON
@@ -366,7 +366,7 @@ def run(*, stride: int | None = None, dpi: int | None = None, show: bool = False
         if not etopo_path.exists():
             raise FileNotFoundError(
                 f"未找到高程数据: {etopo_path}\n"
-                "请先到数据项目 miko_gis_data 运行: python main.py download --group myanmar "
+                "请先运行: python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar "
                 "--region northern-shan --stride 1"
             )
         regions = load_regions(REGION_GEOJSON)

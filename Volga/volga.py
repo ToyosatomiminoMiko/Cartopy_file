@@ -51,7 +51,7 @@ from cartopy_file.data import configure_cartopy
 
 configure_cartopy()
 
-# 这个区域的 manifest 键(数据项目 miko_gis_data 的 regions/volga).
+# 这个区域的 manifest 键(数据技能 miko-gis-data 的 REGIONS 里的 volga).
 CATALOG = catalog_for(config.DATA_GROUP)
 
 # 重合线剪枝: 国界与海岸线/湖岸重合的段落只留一种线, 见 docs/reference/overlap.md.
@@ -95,15 +95,15 @@ def _data() -> VolgaData:
 def _require(path: Path) -> Path:
     """检查数据文件存在, 缺失时按原始数据/派生数据给出对应的准备命令."""
     if not path.exists():
-        # build/ 下的 GeoJSON 由本仓 prepare 生成; 其余是数据仓 download 的原始数据,
+        # build/ 下的 GeoJSON 由本仓 prepare 生成; 其余是数据技能 download 的原始数据,
         # 见 docs/maps/volga.md 运行一节.
         if "build" in path.parts:
             raise FileNotFoundError(
                 f"未找到派生数据: {path}\n请先运行: python Volga/main.py prepare"
             )
         raise FileNotFoundError(
-            f"未找到原始数据: {path}\n请到数据项目 miko_gis_data 运行: "
-            "python main.py download --group volga"
+            f"未找到原始数据: {path}\n请先运行: "
+            "python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group volga"
         )
     return path
 

@@ -3,7 +3,7 @@
 """Shared code for the Cartopy_file project; see ``docs/overview.md``.
 
 本仓是应用侧: 读数据清单,按图种口径清洗/裁剪派生数据(prepare),实例规格,地形/晕渲,
-边界重合剪枝与纯几何 SVG 出图; 数据获取/下载/入库/解压在独立项目 miko_gis_data,
+边界重合剪枝与纯几何 SVG 出图; 数据获取/下载/入库/解压在独立数据技能 miko-gis-data,
 本包不下载任何东西.
 文字与版面由 miko_svg_editor 的前端排版接管, 所以这里不再导出字体/标签相关符号.
 

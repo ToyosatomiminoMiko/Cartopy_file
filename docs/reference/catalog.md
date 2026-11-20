@@ -5,18 +5,18 @@
 
 ## 是什么
 
-数据清单(`<数据根>/manifest.json`)的**只读视图**. 独立数据项目 `miko_gis_data` 把各区域的
+数据清单(`<数据根>/manifest.json`)的**只读视图**. 数据技能 `miko-gis-data` 把各区域的
 数据集事实写进这份 JSON, 本仓按它取路径,判断数据是否就位,并复算产物里的「数据来源」署名.
 
 - `catalog_for(group)`: 按区域名(manifest 的 group 键, 即子项目 `config.py` 的 `DATA_GROUP`)
   取一个 `Catalog`; 进程内缓存;
 - `Catalog`: 一个区域的清单集合. `get(id)` 取 `DatasetView`, `path(id)` 给主路径,
   `exists(id)` 判就位, **`raw_dir`** 给区域原始数据目录, `citation(ids)` 折署名;
-- `DatasetView`: 一份数据集的只读视图, 字段与数据项目的 `Dataset` 一一对应(少了下载参数);
+- `DatasetView`: 一份数据集的只读视图, 字段与技能 `REGIONS` 里的数据集声明一一对应(少了下载参数);
 - `SourceInfo`: 数据来源的静态事实, 用于复算署名.
 
-为什么用 JSON 而不是 import 数据项目: 数据项目要能单独移走, 两个仓库只靠这份文件格式耦合;
-渲染仓不安装数据项目的 Python 包, 数据项目也不依赖绘图栈. 字段与版本见
+为什么用 JSON 而不是 import 技能的代码: 技能可独立安装/升级, 渲染仓与数据技能只靠这份文件
+格式耦合; 渲染仓不 import 技能的模块, 技能也不依赖绘图栈. 字段与版本见
 [manifest.md](manifest.md).
 
 ## 关键行为
@@ -25,13 +25,14 @@
 
 - 第一次调用 `catalog_for()` 时才读 `<数据根>/manifest.json`(位置由
   [`data.manifest_path()`](data.md) 给出), 之后整个进程复用同一份解析结果;
-- 文件不存在: `FileNotFoundError`, 提示到数据项目运行 `python main.py all`, 或检查仓根 `config.toml` 的 `data_root` 是否指对;
-- `format` 必须是 `miko-gis-data/manifest`: 否则 `RuntimeError`, 提示用当前版本的数据项目重新
+- 文件不存在: `FileNotFoundError`, 提示运行 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py all`,
+  或检查仓根 `config.toml` 的 `data_root` 是否指对;
+- `format` 必须是 `miko-gis-data/manifest`: 否则 `RuntimeError`, 提示用当前版本的技能重新
   `publish`;
 - `version` 必须是 `1`(模块常量 `SUPPORTED_VERSION`): 否则 `RuntimeError`, 提示同步升级/降级
-  两边的仓库. 本模块只读它支持的版本, 不猜字段;
-- group 不存在: `KeyError`, 列出 manifest 里已发布的区域名. 常见原因是 `DATA_GROUP` 与数据
-  项目的 `regions/<region>/` 目录名不一致.
+  渲染仓与技能. 本模块只读它支持的版本, 不猜字段;
+- group 不存在: `KeyError`, 列出 manifest 里已发布的区域名. 常见原因是 `DATA_GROUP` 与技能
+  `REGIONS` 里的区域名不一致.
 
 ### `Catalog`
 
@@ -60,8 +61,8 @@
   - 一个数据源的版本集合恰好等于数据源版本(或没有版本)时用 `credit`, 否则写成
     `"<title> <v1>/<v2>"`;
   - 每条后面追加数据源 `homepage`(发布页 URL, 长期有效);
-  - 各条之间用 ` · ` 连接. 算法与数据项目的 `DatasetSet.citation` 一致, 产物字节因此可复现;
-    改这里要同步数据项目.
+  - 各条之间用 ` · ` 连接. 算法与技能写清单时的署名折法一致, 产物字节因此可复现;
+    改这里要同步技能.
 
 ## 用法
 
@@ -99,11 +100,11 @@ def run(*, stride=None, dpi=None, show=False) -> int:
   要求的署名;
 - **不要把区域数据路径写死**: 用 `CATALOG.raw_dir` / `CATALOG.path(id)`, 数据根换位置时
   不用改代码; 也不要拼 `../data/...` 这类相对脚本的路径;
-- **清单只由数据项目生成**: 本仓没有写清单的代码, 手改 `<数据根>/manifest.json` 会在下次
+- **清单只由技能生成**: 本仓没有写清单的代码, 手改 `<数据根>/manifest.json` 会在下次
   `publish` 时被覆盖;
-- **字段变更必须两仓同步**: 新增/改名字段要同时改数据项目的 `manifest.py` 与这里的
+- **字段变更必须两边同步**: 新增/改名字段要同时改技能 `gis_data.py` 的 manifest 一节与这里的
   `_parse_item`/`_parse_source`, 并把 `version` 加 1; 只改一边会在加载时被格式/版本校验拒绝;
-- **`exists()` 是就位判断, 不是内容校验**: 版本是否相符由数据项目的 `check` 负责; 本仓只保证
+- **`exists()` 是就位判断, 不是内容校验**: 版本是否相符由数据技能的 `check` 负责; 本仓只保证
   文件在;
 - **进程内缓存**: 同一进程里第一次 `catalog_for()` 后数据根就固定了; 测试里要切换数据根时要在创建
   `Catalog` 之前改 `config.toml`, 不要指望已缓存的 `Catalog` 跟着变.

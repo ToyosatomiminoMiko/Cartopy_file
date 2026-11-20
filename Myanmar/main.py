@@ -3,7 +3,7 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Myanmar subproject entry point: prepare derived data and render the three maps.
 
-是什么: 缅甸子项目的唯一可执行入口. ``prepare`` 读数据仓的原始数据, 按本图口径清洗/裁剪/
+是什么: 缅甸子项目的唯一可执行入口. ``prepare`` 读数据技能准备的原始数据, 按本图口径清洗/裁剪/
 拼装后写到 ``Myanmar/build/``; ``render`` 按 ``--sheet`` 出一到三张图, 地图进
 ``Myanmar/map/``, 文字信息进 ``Myanmar/text/``.
 为什么只有一个入口: 全项目约定「一个子项目一个可执行文件, 其余 .py 只导出 run()」;
@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "prepare",
-        help="读数据仓原始数据, 重建 Myanmar/build/ 下的派生 GeoJSON",
+        help="读数据技能准备的原始数据, 重建 Myanmar/build/ 下的派生 GeoJSON",
     )
 
     render = subparsers.add_parser("render", help="出图(地图 SVG + 同名 geo.json)")

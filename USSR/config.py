@@ -2,8 +2,8 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """USSR subproject: the render spec of the USSR topography map.
 
-是什么: 苏联图的规格(画框,投影,色带,经纬网,文案). 数据清单与下载范围已拆到数据项目
-miko_gis_data, 这里只留绘图需要的数值.
+是什么: 苏联图的规格(画框,投影,色带,经纬网,文案). 数据清单与下载范围已拆到数据技能
+miko-gis-data, 这里只留绘图需要的数值.
 完整说明见 ``docs/reference/spec.md``; 投影/范围/数据源的设计取舍见 ``docs/maps/ussr.md``.
 """
 
@@ -15,7 +15,7 @@ from cartopy_file.spec import Extent, Graticule, Projection, Relief, Sheet, shee
 
 ROOT = Path(__file__).resolve().parent
 
-# 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
+# 数据技能 miko-gis-data 里这个区域的 manifest 键(group).
 DATA_GROUP = "ussr"
 
 # ============================

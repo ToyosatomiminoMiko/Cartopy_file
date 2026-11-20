@@ -10,9 +10,10 @@ dataclass, **不 import matplotlib/cartopy**, 因此 `tools/` 可以不画图就
 产物路径与数据依赖.
 
 本模块只放**类型与校验**(spec = 规格模型); 具体数值写在子项目的 `config.py` 里(config = 该
-子项目的配置实例). `config.py` 声明 `DATA_GROUP`(数据项目 manifest 的区域键),
-`SHEETS`(出哪些图)与派生文件路径(`build_path(...)`). 数据集清单(从哪下,什么版本,放哪)在独立数据项目 `miko_gis_data` 的区域
-配置里, 不在本仓; 本仓的绘图范围(画框)是数据项目推导下载 `bbox` 的来源, 出图时 `runner` 会
+子项目的配置实例). `config.py` 声明 `DATA_GROUP`(技能 manifest 的区域键),
+`SHEETS`(出哪些图)与派生文件路径(`build_path(...)`). 数据集清单(从哪下,什么版本,放哪)在
+技能 `gis_data.py` 的 `REGIONS` 里, 不在本仓; 本仓的绘图范围(画框)是技能推导下载 `bbox` 的
+来源, 出图时 `runner` 会
 核对清单里的 `bbox` 是否盖住画框. 分开的理由: 类型不随图种变, 所以留在共享包; 配置每个
 子项目一份, 新增子项目只加 `config.py`, 不用改这里.
 
@@ -103,7 +104,7 @@ SHEET = Sheet(
 ```
 
 一个子项目出多张图时写 `SHEETS = (SHEET_A, SHEET_B)`; 工具(`tools/check_geo.py`,
-`tools/check_docs.py`)会把它们自动收进自检范围. 数据集本身仍由数据项目声明, 这里只写
+`tools/check_docs.py`)会把它们自动收进自检范围. 数据集本身仍由数据技能声明, 这里只写
 `DATA_GROUP` 与 `dataset_ids`.
 
 ## 注意事项
@@ -111,9 +112,9 @@ SHEET = Sheet(
 - **纯数据**: 这里不要 import matplotlib/cartopy, 也不要读数据文件; 需要投影几何计算
   (例如按投影包围盒定画布宽高比)就留在子项目的 `config.py` 里, 或把算好的数字写成常量
   并注释来源;
-- 画框在本仓 `config.py` 只有一处: 数据项目的下载 `bbox` 由它推导(写进 manifest), 出图时
-  `runner` 拿清单里的 `bbox` 核对该画框投影后的范围. 改画框要同时改数据项目的区域配置并
-  重新 `publish` + 出图, 不要只在一边改;
+- 画框在本仓 `config.py` 只有一处: 技能下载用的 `bbox` 由它推导(写进 manifest), 出图时
+  `runner` 拿清单里的 `bbox` 核对该画框投影后的范围. 改画框要同时改技能 `REGIONS` 里的
+  区域画框并重新 `publish` + 出图, 不要只在一边改;
 - `lon_ticks`/`lat_ticks` 是**产物级**的取值: 改它们会改变 SVG 字节. 只想要更密的刻度时,
   先确认这是设计变更而不是顺手重排;
 - `Sheet.out` 只写地图文件名,必须 `.svg` 结尾, 不能带目录; 一个 `SHEETS` 里 id 与产物名

@@ -3,7 +3,7 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Volga subproject entry point: prepare derived data and render the two maps.
 
-是什么: 伏尔加子项目唯一的可执行入口. ``prepare`` 读数据仓的原始数据, 按本图口径派生
+是什么: 伏尔加子项目唯一的可执行入口. ``prepare`` 读数据技能准备的原始数据, 按本图口径派生
 流域/行政区/国界三个 GeoJSON 到 ``Volga/build/``; ``render`` 出流域图与周边共和国图,
 地图进 ``Volga/map/``, 文字信息进 ``Volga/text/``.
 子命令用懒导入: prepare 只加载 shapely/geopandas, render 才加载 matplotlib/cartopy.
@@ -30,7 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     prepare = subparsers.add_parser(
         "prepare",
-        help="读数据仓原始数据, 重建 Volga/build/ 下的三个派生 GeoJSON",
+        help="读数据技能准备的原始数据, 重建 Volga/build/ 下的三个派生 GeoJSON",
     )
     prepare.add_argument(
         "--skip-basin",

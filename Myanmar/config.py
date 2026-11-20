@@ -4,7 +4,7 @@
 
 是什么: 缅甸子项目的唯一配置入口--每张图的规格(画框,投影,色带,经纬网,地名,图例,
 图面配色,文案), 以及 ``prepare`` 生成的三份派生数据在本子项目 ``build/`` 下的位置.
-原始数据清单与下载范围在数据项目 miko_gis_data; 清洗/裁剪口径在本子项目的 prepare.py.
+原始数据清单与下载范围在数据技能 miko-gis-data; 清洗/裁剪口径在本子项目的 prepare.py.
 完整说明(实例规格层怎么分工)见 ``docs/reference/spec.md``; 各图种的设计取舍见
 ``docs/maps/myanmar.md`` 等页面; 数据从哪来见 ``docs/data-preparation.md``.
 """
@@ -27,7 +27,7 @@ from cartopy_file.spec import (
 
 ROOT = Path(__file__).resolve().parent
 
-# 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
+# 数据技能 miko-gis-data 里这个区域的 manifest 键(group).
 DATA_GROUP = "myanmar"
 
 # ============================

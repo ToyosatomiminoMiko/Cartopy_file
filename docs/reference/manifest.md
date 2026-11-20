@@ -1,21 +1,23 @@
 # 数据清单契约 (manifest.json)
 
 - 源码: 读取侧 [`src/cartopy_file/catalog.py`](../../src/cartopy_file/catalog.py); 写出一侧在
-  数据项目 `src/miko_gis_data/manifest.py`(独立仓库, 本仓不链接)
+  技能 `gis_data.py` 的 manifest 一节(技能在 `~/.dsh/skills/miko-gis-data/`, 本仓不链接)
 - 导入: `from cartopy_file.catalog import catalog_for`
 
 ## 是什么
 
-`<数据根>/manifest.json` 是渲染仓与数据项目 `miko_gis_data` 之间**唯一的耦合面**: 数据项目把
+`<数据根>/manifest.json` 是渲染仓与数据技能 `miko-gis-data` 之间**唯一的耦合面**: 数据技能把
 各区域的数据集事实(来源,版本,本地路径,覆盖范围,采样步长,署名)写成这份 JSON, 渲染仓只读它,
-按数据集 id 取路径与署名. 两个仓库互不 import, 数据项目可以整体移走, 移走后改本仓 `config.toml` 的 `data_root` 即可.
+按数据集 id 取路径与署名. 渲染仓与技能互不 import; 数据根可以整体搬运, 换位置改本仓
+`config.toml` 的 `data_root` 即可.
 
 清单是**确定性**的: 键顺序由构造顺序固定, 路径全部相对数据根, 不含绝对路径与时间戳, 中文不
 转义, 结尾一个换行. 同一份配置重复 `publish` 得到逐字节相同的文件, 所以可以拿
 `publish --check` 判断它是否与配置一致.
 
-- 生成: 数据项目 `python main.py publish`(`all` 里也会写一次);
-- 位置: 数据根根目录, 由数据项目 `data_root()` 决定;
+- 生成: 数据技能 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py publish`(`all` 里也会写一次);
+- 位置: 数据根根目录(技能默认写它登记的数据根, 可用全局 `--data-root` 或环境变量
+  `MIKO_GIS_DATA_ROOT` 覆盖);
 - 读取: 渲染仓 `cartopy_file.catalog`, 契约的字段解析在 `_parse_item` / `_parse_source`.
 
 ## 关键行为
@@ -26,7 +28,7 @@
 | --- | --- | --- |
 | `format` | string | 固定为 `miko-gis-data/manifest`; 渲染仓按它识别清单, 不符直接拒绝 |
 | `version` | int | 契约版本, 当前为 `1`; 字段或语义变更时加 1, 渲染仓只读自己支持的版本 |
-| `groups` | object | 区域名 -> 一个区域的数据块; 区域名即数据项目 `regions/<region>/` 目录名, 也是渲染仓 `DATA_GROUP` 的取值 |
+| `groups` | object | 区域名 -> 一个区域的数据块; 区域名即技能 `REGIONS` 里的区域名, 也是渲染仓 `DATA_GROUP` 的取值 |
 
 ### 区域块(`groups.<region>`)
 
@@ -42,7 +44,7 @@
 | `id` | string | 数据集 id, 区域内唯一; 渲染仓按它引用(`Sheet.dataset_ids` / `Sheet.dem_id` / `Catalog.get`) |
 | `kind` | string | `file`(单文件) / `zip`(压缩包解压到 `dest` 目录) / `cartopy-ne`(Natural Earth 共享图层) / `script`(下载脚本自行抓取) / `local`(仓库自带) |
 | `note` | string | 人读说明; 渲染仓缺数据报错时也会带出它当提示 |
-| `optional` | bool | 可选缓存: 缺失不算数据项目 `check` 的失败项 |
+| `optional` | bool | 可选缓存: 缺失不算技能 `check` 的失败项 |
 | `dest` | string | 主路径, 相对 `<数据根>/<region>/`; `cartopy-ne` 为空(位置由 `resolution/category/name` 决定) |
 | `files` | array | 判定"已就位"的 glob, 相对 `<数据根>/<region>/`; 为空时用 `dest`. `dest` 是目录(kind=`zip`)时用 `["<dest>/*"]` 这类写法 |
 | `version` | string | 数据集级版本覆盖; 为空表示用数据源版本. 只在数据确实停在数据源的较早版本时写(如缅甸河流钉在 Natural Earth 5.0.0) |
@@ -69,15 +71,15 @@
   `<子项目>/build/`, 不写进数据根, 也没有 `kind=derived` 条目; 因此清单里不会出现派生文件
   的路径与版本;
 - `format` 或 `version` 不符时渲染仓**明确拒绝**并给出可执行提示: 格式不符 -> 用当前版本的
-  数据项目重新 `publish`; 版本不符 -> 同步升级/降级两边的仓库. 不猜字段, 不做兼容读取;
+  技能重新 `publish`; 版本不符 -> 同步升级/降级渲染仓与技能. 不猜字段, 不做兼容读取;
 - 所有路径相对 `<数据根>/<region>/`(清单里的 `dest`/`files`), 数据根因此可整体搬运;
 - 数据集 `id` 是渲染侧代码与产物的键: 改名等于改产物(已存的排版按 label id 回查, 数据集 id
   影响 `dataset_ids`/`dem_id` 与署名), 属于要单独评审的改动;
 - `version` 是"覆盖"而不是"追加": 数据源版本与数据集版本不一致时, `Catalog.citation` 用
   `"<title> <version>"` 改写署名, 保证产物写的是磁盘上实际的版本;
-- `bbox` 只用于覆盖核对, 不参与下载; 下载范围由数据项目区域配置里的 `padded(...)` 推出并写进
-  这里, 出图时 `runner` 比对投影后的画框四角;
-- `optional` 只影响数据项目 `check` 的失败计数, 渲染仓不据此放宽缺文件判断.
+- `bbox` 只用于覆盖核对, 不参与下载; 下载范围由技能 `REGIONS` 里的区域画框 `padded(...)` 推出,
+  并写进这里, 出图时 `runner` 比对投影后的画框四角;
+- `optional` 只影响数据技能 `check` 的失败计数, 渲染仓不据此放宽缺文件判断.
 
 ### 渲染仓一侧怎么读
 
@@ -90,23 +92,21 @@
    就位(缺了在画图前就报错), 用 `sheet.dem_id` 对应条目的 `bbox` 核对覆盖, 用
    `Catalog.citation` 写 geo.json 的 `suggestions.source`.
 
-### 数据项目一侧怎么生成
+### 数据技能一侧怎么生成
 
-- 每个 `src/miko_gis_data/regions/<region>/config.py` 导出
-  `DATASETS = dataset_set("<显示名>", ROOT, [...])`, 每条 `Dataset` 的来源事实来自
-  `sources.py`;
-- `manifest.build()` 按区域顺序汇总, `manifest.dump()` 用固定键顺序与 `indent=2` 序列化;
-- `manifest.write()` 写 `<数据根>/manifest.json`, `publish --check` 拿磁盘内容与 `dump()`
+- `REGIONS` 里每个区域一项, 声明区域显示名与该区域的数据集清单; 每条数据集的来源事实来自
+  `SOURCES`(按 `source_id` 引用);
+- manifest 一节按区域顺序汇总, 用固定键顺序与 `indent=2` 序列化;
+- `publish` 写 `<数据根>/manifest.json`, `publish --check` 拿磁盘内容与重新序列化的结果
   逐字节比较;
-- 新增区域 = 新建 `regions/<region>/` 目录(带 `config.py`) + `publish`; 渲染仓只要把
-  `DATA_GROUP` 设成同一个区域名就能读.
+- 新增区域 = 在 `REGIONS` 里加一项 + `publish`; 渲染仓只要把 `DATA_GROUP` 设成同一个区域名
+  就能读.
 
-### 改字段必须两仓同步
+### 改字段必须两边同步
 
-1. 定字段名与语义, 数据项目 `manifest.py` 的 `_item_payload`/`_source_payload` 与
-   `MANIFEST_VERSION` 加 1;
+1. 定字段名与语义, 技能 `gis_data.py` 的 manifest 一节的字段序列化与版本常量各加 1;
 2. 本仓 `catalog.py` 的 `SUPPORTED_VERSION` 与 `_parse_item`/`_parse_source` 同步;
-3. 数据项目重新 `publish`, 本仓重出图, 再用 `check_docs`/`check_geo`/`check_all` 验证;
+3. 技能重新 `publish`, 本仓重出图, 再用 `check_docs`/`check_geo`/`check_all` 验证;
 4. 只改一边会被格式/版本校验挡住, 不要试图在读取侧做兼容猜测.
 
 ## 用法
@@ -123,7 +123,7 @@ print(catalog.path(item))          # <数据根>/myanmar/raw/...
 print(catalog.exists(item))        # 本地是否有匹配文件, 不联网
 ```
 
-清单片段(数据项目生成):
+清单片段(数据技能生成):
 
 ```json
 {
@@ -162,15 +162,16 @@ print(catalog.exists(item))        # 本地是否有匹配文件, 不联网
 
 ## 注意事项
 
-- **不要手改** `<数据根>/manifest.json`: 它由数据项目 `publish` 从配置重新生成, 手改会在下次
-  发布时丢掉; 要改数据事实就改数据项目的区域配置;
+- **不要手改** `<数据根>/manifest.json`: 它由技能 `publish` 从 `REGIONS` 重新生成, 手改会在
+  下次发布时丢掉; 要改数据事实就改技能 `REGIONS`;
 - 清单里的路径**必须是相对路径**: 写绝对路径会让数据根不可搬运, 也会让产物的署名/结构随
   机器变化;
 - 换数据根位置只改本仓 `config.toml` 的 `data_root`, 不要改清单;
-- `json.dumps` 的键顺序是构造顺序, 修改 `build()` 时保序(用普通 dict, 不要用集合重排);
-- `version` 加 1 是**破坏性**变更: 版本校验严格, 渲染仓与数据项目只认彼此相同的 `version`;
-  两个仓库要在同一批改动里升级;
+- `json.dumps` 的键顺序是构造顺序, 修改 manifest 一节的汇总逻辑时保序(用普通 dict, 不要用
+  集合重排);
+- `version` 加 1 是**破坏性**变更: 版本校验严格, 渲染仓与技能只认彼此相同的 `version`;
+  两边要在同一批改动里升级;
 - 数据集的 `id` 已被文档与代码引用(`Sheet.dataset_ids`,`Sheet.dem_id`, 图种页的数据表),
   改名时全仓 `grep` 一遍, 并重出受影响的产物;
-- 不要把派生文件写进清单: 清单由数据项目生成,渲染仓只读, 派生只在本仓 `build/`; 想复用
-  派生结果就重跑 `prepare`, 而不是让数据项目登记它.
+- 不要把派生文件写进清单: 清单由技能生成,渲染仓只读, 派生只在本仓 `build/`; 想复用
+  派生结果就重跑 `prepare`, 而不是让技能登记它.

@@ -54,15 +54,15 @@ slug, `text` 才是图上显示的文案(中文), 两者分开是为了让前端
 
 ## 数据
 
-数据由独立数据项目 `miko_gis_data` 准备, 路径相对数据根(数据根定位见
+数据由数据技能 `miko-gis-data` 准备, 路径相对数据根(数据根定位见
 [data-preparation.md](../data-preparation.md)):
 
 | 文件 | 内容 | 准备方式 |
 | --- | --- | --- |
-| `<数据根>/myanmar/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集(stride 2 = 30 弧秒) | 数据项目 `python main.py download --group myanmar --region myanmar` |
-| `<数据根>/cartopy/shapefiles/natural_earth/...` | 共享缓存的 Natural Earth 10m 国界/国界线/海岸线 | 数据项目 `python main.py download` 统一预取 |
+| `<数据根>/myanmar/raw/ETOPO_2022_v1_15s_myanmar_stride2.nc` | NOAA ETOPO 2022 高程子集(stride 2 = 30 弧秒) | 数据技能 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar --region myanmar` |
+| `<数据根>/cartopy/shapefiles/natural_earth/...` | 共享缓存的 Natural Earth 10m 国界/国界线/海岸线 | 数据技能 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py download` 统一预取 |
 
-下载范围由数据项目 `regions/myanmar/config.py` 的画框推出来:
+下载范围由技能 `REGIONS` 里 myanmar 区域的画框推出来:
 `EXTENT_MYANMAR.padded(lon=1.7, lat=0.1)` = 85.3~107.7°E / 4.9~31.1°N, 比地图画框
 (87~106°E, 5~31°N)大. 为什么不按画框直接下: 兰勃特投影的矩形画框在北部向两侧张开, 只按
 经纬度画框下载会让四角露出没有高程数据的空白. 这个范围写进 manifest 的 `bbox`, 出图时
@@ -72,12 +72,12 @@ slug, `text` 才是图上显示的文案(中文), 两者分开是为了让前端
 ## 运行
 
 唯一入口是 `Myanmar/main.py`, 其余 `Myanmar/*.py` 都是模块(直接运行会报错并提示入口).
-原始数据在数据项目里下载, 派生与出图在本仓:
+原始数据在数据技能里下载, 派生与出图在本仓:
 
 ```bash
-# 数据项目根(与本仓平级时: ../miko_gis_data): 下载原始数据 + 发布清单(已就位则跳过)
-(cd ../miko_gis_data && python main.py download --group myanmar --region myanmar)
-(cd ../miko_gis_data && python main.py publish)
+# 数据技能: 下载原始数据 + 发布清单(已就位则跳过)
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar --region myanmar
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py publish
 
 # 渲染仓: 本图不需要派生数据; 若同一子项目的行政区图/掸邦图也要出, 先跑 prepare
 # python Myanmar/main.py prepare
@@ -90,7 +90,7 @@ python Myanmar/main.py render --sheet myanmar
 画框,投影,色带,经纬网,地名与文案都在 [`Myanmar/config.py`](../../Myanmar/config.py);
 渲染模块只画本图特有条图层(陆上国界,邻国国界,城市点), `geo.json` 由框架按 `Sheet` 收集.
 
-数据项目的 `download` 选项(本图相关):
+数据技能的 `download` 选项(本图相关):
 
 - `--group {all,america_army,myanmar,ukraine,ussr,volga}`: 区域, 本图用 `myanmar`;
 - `--region {all,myanmar,northern-shan}`: ETOPO 下载区域, 本图用 `myanmar`;
@@ -106,8 +106,8 @@ python Myanmar/main.py render --sheet myanmar
 - `--dpi`: 内嵌晕渲栅格的像素密度, 默认 300(矢量部分与 dpi 无关);
 - `--show`: 保存后弹出交互窗口(需要图形界面).
 
-高程文件也可用环境变量 `MYANMAR_ETOPO_PATH` 指定; 数据缺失时绘图报错并提示到数据项目运行
-`python main.py download --group myanmar`.
+高程文件也可用环境变量 `MYANMAR_ETOPO_PATH` 指定; 数据缺失时绘图报错并提示运行
+`python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group myanmar`.
 
 ## 注意事项
 

@@ -7,15 +7,15 @@
 
 ## 是什么
 
-**派生**(清洗/裁剪/补缝/拼装/属性整理)在本仓完成, 不在数据项目里做. 数据项目
-`miko_gis_data` 只负责下载/入库/解压: 它把外部数据原样写进数据根 `<region>/raw/`, 并
+**派生**(清洗/裁剪/补缝/拼装/属性整理)在本仓完成, 不在数据技能里做. 数据技能
+`miko-gis-data` 只负责下载/入库/解压: 它把外部数据原样写进数据根 `<region>/raw/`, 并
 `publish` 一份 `manifest.json`; 本仓的 `prepare` 子命令按图种口径读这些原始数据, 生成绘图
 模块直接读取的派生 GeoJSON.
 
 为什么这样分: 原始数据是通用资产, 洗法却是图种口径. 例如缅甸要把 GADM 与 OSM 内比都拼成
 15 个单元并补缝, 乌克兰要把 OCHA 分区裁成接触线, 伏尔加要按 HydroBASINS 主流域合并 -- 这些
-阈值与取舍只对某一张图有意义, 放在数据项目里会让数据仓背上一堆应用侧规则; 放在本仓,
-数据仓只回答"数据是不是原样下到了", 应用侧回答"这张图要什么形状".
+阈值与取舍只对某一张图有意义, 放进技能会让技能背上一堆应用侧规则; 放在本仓, 技能只回答
+"数据是不是原样下到了", 应用侧回答"这张图要什么形状".
 
 ## 关键行为
 
@@ -25,7 +25,7 @@
   [`spec.build_path()`](spec.md) 拼(`BUILD_DIR = "build"`), 不在数据根里;
 - `build/` 是**可丢弃的中间产物**: 删掉后重跑对应子项目的 `prepare` 即可重建, 不需要
   重新下载. `.gitignore` 已忽略 `**/build/`, 不入库;
-- 派生数据**不登记进 manifest**: 清单只描述数据项目提供的原始数据; 派生文件由本仓
+- 派生数据**不登记进 manifest**: 清单只描述数据技能提供的原始数据; 派生文件由本仓
   `config.py` 里的 `build_path(...)` 常量定位, 不经过 [`Catalog`](catalog.md);
 - 每次运行都**全量重建**: 不判断增量, 不做缓存; 同一份原始数据重复 `prepare` 得到逐字节
   相同的 GeoJSON(坐标精度与键序固定, 见 [geometry.md](geometry.md)).
@@ -43,12 +43,12 @@
 
 ### 运行时序
 
-1. 数据项目准备原始数据并发布清单(`download` -> `publish` -> `check`);
+1. 数据技能准备原始数据并发布清单(`download` -> `publish` -> `check`);
 2. 本仓跑一次 `<子项目>/main.py prepare`, 生成 `build/` 下的派生 GeoJSON;
 3. 本仓 `<子项目>/main.py render` 出图.
 
 `prepare` **不联网**: 数据路径只由 manifest 里的 `dest`/`files` 定位, 缺文件时直接报错并指向
-数据项目对应的 `download --group <region>`, 不会临时下载. `render` 同样只读本地文件.
+数据技能对应的 `download --group <region>`, 不会临时下载. `render` 同样只读本地文件.
 
 ### 懒加载与依赖
 
@@ -59,13 +59,13 @@
 
 ## 用法
 
-首次出图(数据项目与本仓平级时):
+首次出图:
 
 ```bash
-# 1) 数据项目: 下载原始数据 + 发布清单(不产生派生数据)
-(cd ../miko_gis_data && python main.py download)
-(cd ../miko_gis_data && python main.py publish)
-(cd ../miko_gis_data && python main.py check)
+# 1) 数据技能: 下载原始数据 + 发布清单(不产生派生数据; 任意目录可执行)
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py download
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py publish
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py check
 
 # 2) 本仓: 派生 + 出图
 python Myanmar/main.py prepare
@@ -92,16 +92,16 @@ python Myanmar/main.py render --sheet myanmar-admin
 ## 注意事项
 
 - **删掉 `build/` 不会丢数据**: 原始数据还在数据根, `prepare` 不联网, 重跑即可恢复; 反过来
-  只删 `build/` 而原始数据也没了就按报错提示回数据项目 `download`;
-- **`prepare` 不下载**: 缺原始数据(例如 OSM 快照,HydroBASINS 解压目录)时报错并给出数据项目
+  只删 `build/` 而原始数据也没了就按报错提示回数据技能 `download`;
+- **`prepare` 不下载**: 缺原始数据(例如 OSM 快照,HydroBASINS 解压目录)时报错并给出数据技能
   命令, 不要在本仓找下载脚本;
-- **派生文件不进清单**: 数据项目的 `publish` 只汇总原始数据; 本仓的 `Sheet.dataset_ids` 只
+- **派生文件不进清单**: 数据技能的 `publish` 只汇总原始数据; 本仓的 `Sheet.dataset_ids` 只
   登记原始数据集, 派生文件用 `config.py` 的 `build_path(...)` 取;
 - **改派生逻辑要重出图**: `build/` 里的几何变了, 对应图种的 `.svg` 与 `.geo.json` 必须重新
   生成, 否则 `geo.base.sha256` 与底图对不上;
 - **确定性**: 派生输出不能含时间戳,随机数或未排序的集合; 同一份原始数据两次 `prepare` 应
   逐字节一致(实现见 [geometry.md](geometry.md) 的 `write_geojson`);
-- **原始数据布局由数据项目决定**: 缅甸特区/国界存成 Overpass 原始响应
+- **原始数据布局由数据技能决定**: 缅甸特区/国界存成 Overpass 原始响应
   `raw/regions/osm_shan_relations/group_XX.json` 与 `raw/regions/osm_country_borders.json`,
-  拼装在 `Myanmar/prepare.py`; 伏尔加 HydroBASINS 由数据项目 `download` 解压到
+  拼装在 `Myanmar/prepare.py`; 伏尔加 HydroBASINS 由数据技能 `download` 解压到
   `raw/hybas_eu_lev05_v1c/`, manifest id 是 `hybas-eu-lev05`(`kind=zip`).

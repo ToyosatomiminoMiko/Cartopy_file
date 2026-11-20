@@ -4,7 +4,7 @@
 
 是什么: 伏尔加流域两张图的规格(画框,投影,色带,经纬网,版式,文案), 两图共用一套数值;
 以及 ``prepare`` 生成的三个派生 GeoJSON 在本子项目 ``build/`` 下的位置. 原始数据清单与
-下载范围在数据项目 miko_gis_data; 清洗/裁剪口径在本子项目的 prepare.py.
+下载范围在数据技能 miko-gis-data; 清洗/裁剪口径在本子项目的 prepare.py.
 完整说明见 ``docs/reference/spec.md``; 两个图种的设计取舍见 ``docs/maps/volga.md``.
 """
 
@@ -26,7 +26,7 @@ from cartopy_file.spec import (
 
 ROOT = Path(__file__).resolve().parent
 
-# 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
+# 数据技能 miko-gis-data 里这个区域的 manifest 键(group).
 DATA_GROUP = "volga"
 
 # ============================

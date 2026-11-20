@@ -1,8 +1,8 @@
 # 项目总览
 
 这个仓库是**渲染仓**: 把五组地图(缅甸,苏联,乌克兰,伏尔加河流域,美军基地演示)放在一起,
-共用一套可安装的 cartopy 绘图包 `src/cartopy_file/`. 数据**下载/入库/解压**由独立数据项目
-`miko_gis_data` 负责, 它把原始数据原样写进数据根并发布 `manifest.json`; 数据的**清洗/派生/
+共用一套可安装的 cartopy 绘图包 `src/cartopy_file/`. 数据**下载/入库/解压**由数据技能
+`miko-gis-data` 负责, 它把原始数据原样写进数据根并发布 `manifest.json`; 数据的**清洗/派生/
 裁剪**与出图都在本仓完成(派生走各子项目的 `prepare` 子命令), 全程不联网.
 
 ## 目录结构
@@ -22,11 +22,14 @@ Cartopy_file/                 渲染仓(本仓)
 ├── tools/                    仓库工具: check_docs.py / check_geo.py / check_all.py / autorun.py
 └── global.py                 一次性演示脚本
 
-miko_gis_data/                独立数据项目(不在本仓结构里; 可整体移走)
-├── main.py                   唯一入口: check / download / publish / all
-├── src/miko_gis_data/        data / sources / fetch / datasets / ne / manifest
-│   └── regions/<region>/     每个区域一份 config.py(数据集清单) + download_*.py(下载/解压)
-└── data/                     数据根(默认位置): manifest.json + cartopy/ + <region>/raw/
+~/.dsh/skills/miko-gis-data/  数据技能(DSH 技能, 不在本仓结构里)
+├── SKILL.md                  技能说明: 命令 / 选项 / 数据源 / 常见坑
+└── gis_data.py               唯一脚本: check / download / publish / all(仅标准库)
+
+<数据根>/                      数据根(默认位置, 可整体搬运)
+├── manifest.json             数据清单契约(渲染仓只读)
+├── cartopy/                  共享 Natural Earth 缓存
+└── <region>/raw/             各区域原始数据(下载原样与解压目录)
 ```
 
 每个子项目的可执行文件**只有一个** `main.py`: 有派生数据的子项目有 `prepare`(生成
@@ -35,12 +38,14 @@ miko_gis_data/                独立数据项目(不在本仓结构里; 可整�
 每个子项目下的 `map/` 放地图产物(SVG), `text/` 放文字信息产物(geo.json), `build/` 放派生
 GeoJSON; 三者都不入库, `build/` 删掉后重跑 `prepare` 即可重建.
 
-`miko_gis_data/` 是独立仓库: 它有自己的 `pyproject.toml`,`main.py`,`docs/` 与 `data/`, 不依赖
-绘图栈; 本仓的 `.gitignore` 忽略它, 文档里只以文字提到, 不建相对链接(整体移走后链接会断).
+数据技能装在 `~/.dsh/skills/miko-gis-data/`, 只有一个 `SKILL.md` 与一个只用标准库的
+`gis_data.py`, 不依赖绘图栈. 数据根不在技能目录里: 默认由技能脚本登记(本机默认值见技能 `SKILL.md`), 可用技能全局
+`--data-root` 或环境变量 `MIKO_GIS_DATA_ROOT` 覆盖. 技能不在本仓结构里, 文档里只以文字提到, 不建相对链接(技能目录在
+HOME 下, 链接会断).
 
 ## 四层结构
 
-1. **数据项目**(独立仓库 `miko_gis_data`): 下载/解压外部数据到 `<数据根>/<region>/raw/`,
+1. **数据技能**(`~/.dsh/skills/miko-gis-data`): 下载/解压外部数据到 `<数据根>/<region>/raw/`,
    预取共享 Natural Earth 缓存到 `<数据根>/cartopy/`, 最后 `publish` `<数据根>/manifest.json`.
    它**只做下载/入库/解压**, 不产生派生 GeoJSON,不裁剪,不改几何.
 2. **共享包**([`src/cartopy_file/`](../src/cartopy_file)): 可安装的包, 放所有子项目共用的
@@ -48,10 +53,10 @@ GeoJSON; 三者都不入库, `build/` 删掉后重跑 `prepare` 即可重建.
 3. **子项目层**([`docs/maps/`](maps)): 一个目录就是一个子项目, 内含 `config.py`(该子项目的
    `DATA_GROUP`,派生路径与实例规格),`main.py`(唯一可执行入口,`prepare`/`render`),
    `prepare.py`(清洗/派生,没有派生数据的子项目没有这个文件)和若干绘图模块.
-4. **配置**([`config.py`](../Myanmar/config.py)): `DATA_GROUP` 指向数据项目里的区域名
+4. **配置**([`config.py`](../Myanmar/config.py)): `DATA_GROUP` 指向数据技能里的区域名
    (manifest 的 group 键), `build_path(...)` 声明派生 GeoJSON 的位置, `SHEETS` 声明该子项目
-   要出的图. 原始数据集清单(从哪下,什么版本,放哪)在数据项目的
-   `regions/<region>/config.py`, 不在本仓.
+   要出的图. 原始数据集清单(从哪下,什么版本,放哪)在技能的 `gis_data.py` 的 `REGIONS`
+   表里, 不在本仓.
 
 `config.py` 只放**数值**; 这些值的类型与校验在 [`src/cartopy_file/spec.py`](../src/cartopy_file/spec.py)
 (参考页 [`reference/spec.md`](reference/spec.md)). 分开的理由: 类型不随图种变, 配置每个子项目
@@ -60,7 +65,7 @@ GeoJSON; 三者都不入库, `build/` 删掉后重跑 `prepare` 即可重建.
 ## 数据流
 
 ```
-数据项目 miko_gis_data/
+数据技能 miko-gis-data(gis_data.py)
   download ──► <数据根>/<region>/raw/ ─┐
   publish  ──► <数据根>/manifest.json ─┤
                                        ▼
@@ -70,34 +75,35 @@ GeoJSON; 三者都不入库, `build/` 删掉后重跑 `prepare` 即可重建.
                                                           └─► <子项目>/text/<stem>.geo.json
 ```
 
-- 数据项目把原始数据与清单准备好后, 渲染仓用 `catalog_for(DATA_GROUP)` 读 manifest, 得到
+- 数据技能把原始数据与清单准备好后, 渲染仓用 `catalog_for(DATA_GROUP)` 读 manifest, 得到
   [`Catalog`](reference/catalog.md); `prepare.py` 用 `Catalog.path(id)` / `Catalog.raw_dir`
   取原始数据路径, 按图种口径加工后写到本子项目的 `build/`;
 - 绘图模块只读 `build/` 与数据根的原始数据(高程,共享 Natural Earth 图层), 用
   `runner.render` 出图; `Catalog.citation(sheet.dataset_ids)` 生成 geo.json 的「数据来源」
   (只登记原始数据集; 派生文件不在清单里);
-- **不联网**: 原始数据在数据项目里下载一次, 派生与出图只读本地文件; 缺文件时直接报错并指向
-  数据项目/本仓对应的命令, 不会在运行时临时联网.
+- **不联网**: 原始数据在数据技能里下载一次, 派生与出图只读本地文件; 缺文件时直接报错并指向
+  技能/本仓对应的命令, 不会在运行时临时联网.
 - 产物是裁到地图框的纯几何 `.svg`(地图)与 `<stem>.geo.json`(文字信息), 同 stem 分目录, 由脚本
   按需生成,不提交; 文字与版面由 `miko_svg_editor` 的前端排版负责, geo.json 提供前端建默认排版
   所需的标注/刻度/色标/图例/文案.
 
-## 与数据项目的边界
+## 与数据技能的边界
 
-两个仓库**只靠 `manifest.json` 这一份 JSON 契约耦合**:
+渲染仓与数据技能**只靠 `manifest.json` 这一份 JSON 契约耦合**:
 
-- 本仓不安装数据项目的 Python 包, 不 import 它的模块; 数据项目也不依赖 cartopy/matplotlib;
+- 本仓不调用数据技能的代码, 不 import 它的模块; 数据技能也不依赖 cartopy/matplotlib;
 - 本仓只读数据根: `manifest.json`,`<数据根>/<region>/raw/` 下的文件, 以及 `<数据根>/cartopy/`
   这个 Natural Earth 共享缓存;
-- 数据根由渲染仓本机的 `config.toml` 指过去, 数据项目固定用自己的 `data/`, 谁都不猜对方的
-  绝对路径;
-- **职责边界**: 数据项目只写 `raw/` 与清单, 不产生派生数据; 本仓的派生文件只写
-  `<子项目>/build/`, 不回写数据根, 也不登记进清单. 数据项目的 `check` 不检查 `build/`,
+- 数据根由渲染仓本机的 `config.toml` 指过去, 技能默认写到它登记的数据根(可用 `--data-root`
+  或 `MIKO_GIS_DATA_ROOT` 覆盖), 任何一边都不猜对方的绝对路径;
+- **职责边界**: 数据技能只写 `raw/` 与清单, 不产生派生数据; 本仓的派生文件只写
+  `<子项目>/build/`, 不回写数据根, 也不登记进清单. 数据技能的 `check` 不检查 `build/`,
   本仓的 `prepare` 不修改 `raw/`;
 - 清单的字段与版本由 [reference/manifest.md](reference/manifest.md) 定义. 改字段/改版本必须
-  两个仓库同步: 数据项目 `manifest.py` 的写出一侧, 本仓 `catalog.py` 的读取一侧;
-- 数据源登记(URL,版本,许可,署名)的权威在数据项目的 `src/miko_gis_data/sources.py`; 本仓
-  产物里的「数据来源」由 manifest 里的 `source` 字段复算, 不手写.
+  渲染仓与数据技能同步: 技能 `gis_data.py` 的 manifest 一节(写出一侧), 本仓 `catalog.py` 的
+  读取一侧;
+- 数据源登记(URL,版本,许可,署名)的权威在技能 `gis_data.py` 的 `SOURCES` 表; 本仓产物里的
+  「数据来源」由 manifest 里的 `source` 字段复算, 不手写.
 
 ## 共享包模块
 

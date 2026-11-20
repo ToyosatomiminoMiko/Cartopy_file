@@ -12,12 +12,14 @@
 | 参考 | `docs/reference/<module>.md` | 共享模块的 API,关键行为,坑 | 一导入模块一页, 模板固定 |
 
 根 [README.md](../README.md) 只放安装与快速开始; 唯一全量索引是 [index.md](index.md).
-目录布局与两仓边界见 [overview.md](overview.md); 数据来源,数据根与准备命令见
+目录布局与数据技能的边界见 [overview.md](overview.md); 数据来源,数据根与准备命令见
 [data-preparation.md](data-preparation.md); `manifest.json` 契约见
 [reference/manifest.md](reference/manifest.md).
 
-`miko_gis_data/` 是独立数据项目, 它的文档在它自己的 `docs/` 下; 本仓文档只用文字提到它
-(例如"到数据项目跑 `python main.py download`"), **不建相对链接**: 整体移走后链接会成死链.
+`miko-gis-data` 是数据技能(装在 `~/.dsh/skills/miko-gis-data/`), 它的说明在技能自己的
+`SKILL.md` 里; 本仓文档只用文字提到它(例如"跑
+`python3 ~/.dsh/skills/miko-gis-data/gis_data.py download`"), **不建相对链接**: 技能目录在
+HOME 下, 链接会成死链.
 
 ## 图种页模板
 
@@ -42,8 +44,8 @@
 - 节序固定为 是什么 -> 设计要点 -> 数据 -> 运行 -> 注意事项, 整节可省略, 不可调换或自创;
 - 设计要点内部用 `### 1. 主题` 编号, 便于正文里互相引用;
 - "数据"写原始数据(`<数据根>/.../raw/...`)与本仓派生文件(`<子项目>/build/...`)的位置, 以及
-  数据项目的 `download` 命令; "运行"写 `<子项目>/main.py prepare`(有派生数据时)与 `render`;
-- 同一图种只写绘图模块与 `prepare.py` 两类源码小节; 数据项目侧的下载不在本仓文档里. 派生流程
+  数据技能的 `download` 命令; "运行"写 `<子项目>/main.py prepare`(有派生数据时)与 `render`;
+- 同一图种只写绘图模块与 `prepare.py` 两类源码小节; 数据技能侧的下载不在本仓文档里. 派生流程
   统一写 [reference/prepare.md](reference/prepare.md).
 
 ## 参考页模板
@@ -75,8 +77,9 @@
   `Volga/volga.py`.
 - 参考页用导入模块名: `cartopy_file.relief` -> `reference/relief.md`;
   `cartopy_file.catalog` -> `reference/catalog.md`.
-- 数据项目里一个区域一个目录, 目录名即 manifest 的 group 键, 也是本仓 `DATA_GROUP`: 小写
-  连字符或下划线(`america_army`,`northern_shan` 是区域内部名, group 用 `myanmar` 等).
+- 技能 `gis_data.py` 的 `REGIONS` 里一个区域一项, 区域名即 manifest 的 group 键, 也是本仓
+  `DATA_GROUP`: 小写连字符或下划线(`america_army`,`northern_shan` 是区域内部名, group 用
+  `myanmar` 等).
 - 一次性脚本,临时脚本,兼容 shim 一律不单独建页: 内容并入所属图种页或
   [data-preparation.md](data-preparation.md), 源码 docstring 指过去即可.
 - 不建"一源码文件一页"; 新脚本默认并进已有页面, 只有新图种或新共享模块才新增页面.
@@ -136,7 +139,8 @@
 - 改实现时如果理由变了, 文档页与注释一起改;
 - 绘图模块的指针指向图种页; 派生模块(`prepare.py`)与共享几何工具指向
   [reference/prepare.md](reference/prepare.md) / [reference/geometry.md](reference/geometry.md)
-  与图种页; 数据下载相关代码**不在本仓**, 要改数据源就改数据项目并同步两边的数据说明页.
+  与图种页; 数据下载相关代码**不在本仓**, 要改数据源就改技能 `gis_data.py`, 并同步本页与
+  技能的 `SKILL.md`.
 
 ## 文档指针
 
@@ -146,7 +150,7 @@
 - 绘图模块与子项目 `main.py` -> 对应的 `docs/maps/<slug>.md`;
 - `prepare.py` -> `docs/reference/prepare.md` + 对应图种页;
 - 共享模块 -> 对应的 `docs/reference/<module>.md`(几何工具见 `geometry.md`);
-- 数据下载/清单**写出侧**在数据项目, 相关代码指针指向数据项目自己的 `docs/`;
+- 数据下载/清单**写出侧**在数据技能, 相关代码指针指向技能的 `SKILL.md`;
 - 一个模块只留一处"完整说明: `docs/...`"式完整指针, 其余引用写短路径或只写文件名.
 
 ## 脚本入口
@@ -155,17 +159,18 @@
   `render` 两个子命令, 没有派生数据的(苏联/美军基地演示)只有 `render`; 文档里的派生/出图
   命令一律从这个入口写, 不写模块文件名;
 - 其余 `.py` 都是模块: 只导出 `run(...)`, 不写 argparse/main; 直接执行时报错并指向入口;
-- 数据下载/入库/解压与发布清单不在本仓: 统一走独立数据项目 `miko_gis_data/main.py` 的
-  `check` / `download` / `publish` / `all`; 清洗/派生/裁剪在本仓各子项目的 `prepare.py`;
+- 数据下载/入库/解压与发布清单不在本仓: 统一走数据技能的
+  `python3 ~/.dsh/skills/miko-gis-data/gis_data.py` 的 `check` / `download` / `publish` /
+  `all`; 清洗/派生/裁剪在本仓各子项目的 `prepare.py`;
 - 框架层脚本(`tools/*.py`,`global.py`)不受此约束, 仍可独立运行;
 - 新增子命令时同步本页与该图种页的"运行"节.
 
 ## 维护流程
 
 1. 改实现,参数或数据源 -> 同步改对应页, 同一个 commit 或紧邻 commit;
-2. 改原始数据源/版本/下载范围 -> 同时改数据项目的 `sources.py` / 区域 `config.py`, 重新
-   `publish`, 并同步两边的数据说明页(本仓 [data-preparation.md](data-preparation.md) 与数据
-   项目的 `docs/`); 改派生逻辑 -> 重跑本仓 `<子项目>/main.py prepare` 再重出图;
+2. 改原始数据源/版本/下载范围 -> 同时改技能 `gis_data.py` 的 `SOURCES` / `REGIONS`, 重新
+   `publish`, 并同步两边说明(本仓 [data-preparation.md](data-preparation.md) 与技能的
+   `SKILL.md`); 改派生逻辑 -> 重跑本仓 `<子项目>/main.py prepare` 再重出图;
 3. 新增图种或共享模块 -> 按 [add-map.md](add-map.md) 的清单逐项补;
 4. 提交前跑 `uv run python tools/check_all.py`(含 `check_docs`): 死链,元信息,节序,索引
    覆盖,源码指针五类全绿再提交.

@@ -3,12 +3,12 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Derive the Volga basin GeoJSON files from the downloaded raw data.
 
-是什么: 从数据仓的原始数据(GADM 4.1 俄罗斯一级行政区 JSON, HydroBASINS 5 级欧洲区
+是什么: 从数据技能准备的原始数据(GADM 4.1 俄罗斯一级行政区 JSON, HydroBASINS 5 级欧洲区
 解压目录)派生出 ``Volga/build/`` 下的三个 GeoJSON: ``volga_subjects``(一级行政区裁到
 画框), ``volga_basin``(伏尔加河流域面), ``russia_border``(GADM 口径俄罗斯国界),
 供渲染模块离线读取; 每次运行全量重建.
 本文件是模块, 只导出 ``run()``; 命令行入口是 ``python Volga/main.py prepare``.
-为什么放在渲染仓: 画框,流域识别口径,小孔阈值都是图种需求; 数据仓只提供原始数据
+为什么放在渲染仓: 画框,流域识别口径,小孔阈值都是图种需求; 数据技能只提供原始数据
 (分工见 ``docs/data-preparation.md`` 与 ``docs/reference/prepare.md``).
 完整说明(数据源/输出契约/运行方式)见 ``docs/maps/volga.md``;
 几何工具口径见 ``docs/reference/geometry.md``.
@@ -46,14 +46,14 @@ from cartopy_file.geometry import (
 # ============================
 CATALOG = catalog_for(config.DATA_GROUP)
 
-# 派生范围: 与数据仓 ETOPO 下载范围同一份数值(画框外扩 0.5°), 见数据仓
-# docs/data-preparation.md; 顺序是 shapely 的 min_lon, min_lat, max_lon, max_lat.
+# 派生范围: 与数据技能 ETOPO 下载范围同一份数值(画框外扩 0.5°), 见数据技能的
+# SKILL.md; 顺序是 shapely 的 min_lon, min_lat, max_lon, max_lat.
 # 注意: 这个范围只在派生时用来裁面, 不再从 manifest 读, 因为它是应用口径.
 BBOX = (29.8, 43.9, 62.8, 62.8)
 BBOX_POLYGON = box(*BBOX)
 
 GADM_JSON = CATALOG.path("gadm41-rus")
-# HydroBASINS 解压目录由数据仓 download 解压到 raw/(解压属于下载, 见 docs/data-preparation.md).
+# HydroBASINS 解压目录由数据技能 download 解压到 raw/(解压属于下载, 见 docs/data-preparation.md).
 HYBAS_SHAPES = Path(CATALOG.path("hybas-eu-lev05")) / "hybas_eu_lev05_v1c.shp"
 
 # 派生输出(绘图脚本直接读这三个文件, 字段契约不要随意改).
@@ -108,8 +108,8 @@ def build_subjects() -> None:
     print("\n派生 volga_subjects.geojson (GADM 一级行政区)")
     if not GADM_JSON.exists():
         raise RuntimeError(
-            f"缺少 {GADM_JSON}; 请到数据项目 miko_gis_data 运行: "
-            "python main.py download --group volga"
+            f"缺少 {GADM_JSON}; 请先运行: "
+            "python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group volga"
         )
     gdf = gpd.read_file(GADM_JSON, engine="pyogrio")
     if gdf.crs is None:
@@ -154,8 +154,8 @@ def build_border() -> None:
     print("\n派生 russia_border.geojson (GADM 口径俄罗斯国界)")
     if not GADM_JSON.exists():
         raise RuntimeError(
-            f"缺少 {GADM_JSON}; 请到数据项目 miko_gis_data 运行: "
-            "python main.py download --group volga"
+            f"缺少 {GADM_JSON}; 请先运行: "
+            "python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group volga"
         )
     gdf = gpd.read_file(GADM_JSON, engine="pyogrio")
     gdf = gdf.to_crs("EPSG:4326")
@@ -181,7 +181,7 @@ def _hybas_files() -> list[Path]:
     if not HYBAS_SHAPES.exists():
         raise RuntimeError(
             f"缺少 HydroBASINS shapefile: {HYBAS_SHAPES}; "
-            "请到数据项目 miko_gis_data 运行: python main.py download --group volga"
+            "请先运行: python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group volga"
         )
     return [HYBAS_SHAPES]
 
@@ -283,7 +283,7 @@ def run(*, skip_basin: bool = False) -> int:
     """派生入口: 重建三个派生 GeoJSON; 返回退出码(0 成功)."""
     SUBJECTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     print("\n" + "=" * 60)
-    print("派生伏尔加图种数据(每次运行都重建; 原始数据来自数据仓 miko_gis_data)")
+    print("派生伏尔加图种数据(每次运行都重建; 原始数据来自数据技能 miko-gis-data)")
     print("=" * 60)
     build_subjects()
     build_border()
@@ -298,7 +298,7 @@ def run(*, skip_basin: bool = False) -> int:
     ]
     if missing:
         print("\n缺少派生文件: " + ", ".join(path.name for path in missing))
-        print("       先到数据项目 miko_gis_data 检查原始数据, 再重跑本子命令")
+        print("       先用数据技能检查原始数据, 再重跑本子命令")
         return 1
     return 0
 

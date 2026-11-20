@@ -27,21 +27,22 @@
    当前代码生成的(否则 `geo.base.sha256` 会与底图不符).
 4. 改派生逻辑(`<子项目>/prepare.py`) -> 重跑该子项目的 `prepare` 再重出图; `build/` 下的
    派生 GeoJSON 不进 git, 但必须与当前代码一致.
-5. 绘图脚本**不联网**: 原始数据一律由独立数据项目 `miko_gis_data` 下载/解压; 新增/修改数据源
-   要改数据项目的 `src/miko_gis_data/sources.py`, 并同步两边的数据说明页
-   ([docs/data-preparation.md](docs/data-preparation.md) 与数据项目的 `docs/`).
+5. 绘图脚本**不联网**: 原始数据一律由独立数据技能 `miko-gis-data` 下载/解压; 新增/修改数据源
+   要改技能脚本 `~/.dsh/skills/miko-gis-data/gis_data.py` 的 `SOURCES`, 并同步两边的数据说明页
+   ([docs/data-preparation.md](docs/data-preparation.md) 与技能的 `SKILL.md`).
 
 ## 脚本入口
 
 1. 每个子项目**只有** `<子项目>/main.py` 可以执行: 有派生数据的子项目有 `prepare` 与
    `render` 两个子命令, 没有派生数据的(苏联/美军基地演示)只有 `render`; 其余 `.py` 是模块,
    只导出 `run()`, 直接运行会报错并指向入口. 数据**下载/入库/解压**不在本仓, 统一走独立
-   数据项目 `miko_gis_data/main.py`(`check` / `download` / `publish` / `all`); 清洗/派生/
+   数据技能 `miko-gis-data` 的 `python3 ~/.dsh/skills/miko-gis-data/gis_data.py`(`check` /
+   `download` / `publish` / `all`); 清洗/派生/
    裁剪在本仓各子项目的 `prepare.py`(流程见
    [docs/reference/prepare.md](docs/reference/prepare.md)).
 2. 框架层脚本(`tools/*.py`,`global.py`)不受此限, 仍可独立运行.
-3. 数据项目 `miko_gis_data` 在**本仓之外**(单独仓库): 本仓不跟踪它, 也不在代码/检查脚本
-   里为它留位置; 两者只靠 `manifest.json` 与本机 `config.toml` 的数据根耦合.
+3. 数据技能 `miko-gis-data` 在**本仓之外**(装在 `~/.dsh/skills/miko-gis-data`): 本仓不跟踪
+   它, 也不在代码/检查脚本里为它留位置; 两者只靠 `manifest.json` 与本机 `config.toml` 的数据根耦合.
 
 ## 标点
 

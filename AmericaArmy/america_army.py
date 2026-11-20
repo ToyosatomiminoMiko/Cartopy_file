@@ -39,7 +39,7 @@ from cartopy_file.catalog import catalog_for
 SHEET = config.SHEET_WORLD
 CATALOG = catalog_for(config.DATA_GROUP)
 
-# 数据项目只预取了 110m(见 docs/data-preparation.md), 这里钉死, 缩放也不换分辨率.
+# 数据技能只预取了 110m(见 docs/data-preparation.md), 这里钉死, 缩放也不换分辨率.
 SCALE = "110m"
 
 

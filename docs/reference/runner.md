@@ -19,8 +19,8 @@
 固定顺序(顺序本身就是契约):
 
 0. `_require_shared_layers(sheet, catalog)`: 核对 `sheet.dataset_ids` 里登记为 `cartopy-ne` 的
-   共享 Natural Earth 图层是否都在本地缓存. 缺层在画图前就抛 `FileNotFoundError` 并指向数据
-   项目的 `download`, 不会写出缺底图/国界的半成品;
+   共享 Natural Earth 图层是否都在本地缓存. 缺层在画图前就抛 `FileNotFoundError`, 提示跑技能
+   的 `download`, 不会写出缺底图/国界的半成品;
 1. `layers.figure_axes(sheet)` 建画布并 `set_extent`; 量出画框投影后的实际覆盖 `covered`;
 2. 若 `sheet.basemap`, 读共享 Natural Earth 国家多边形并铺海陆底色;
 3. 若 `sheet.dem_id`, 按 `catalog.get(dem_id)` 取数据集, 核对它的 `bbox` 是否盖住 `covered`
@@ -85,10 +85,12 @@ def run(*, stride=None, dpi=None, show=False) -> int:
 - 不要用 `constrained_layout`/`tight_layout` 去「顺手修版面」: cartopy 0.25 在非矩形投影上
   会让 gridliner 用未闭合顶点构造多边形而抛 `GEOSException`. 需要 `tight_layout` 的图(苏联)
   通过 `Sheet.tight_layout=True` 启用该行为;
-- 覆盖不足只打印警告不报错: 画框角落本来就有底图颜色兜底, 但看到警告应当回数据项目核对区域
-  配置的 `bbox`(它写进 manifest, 出图时与画框比对), 那说明下载范围和绘图范围又分叉了;
-- 共享图层缺失是**硬失败**: `_require_shared_layers` 在画图前抛错, 提示到数据项目跑
-  `python main.py download`; 不要改成静默跳过, 那会写出缺底图的产物;
+- 覆盖不足只打印警告不报错: 画框角落本来就有底图颜色兜底, 但看到警告应当回技能 `REGIONS`
+  核对区域画框的 `bbox`(它写进 manifest, 出图时与画框比对), 那说明下载范围和绘图范围又
+  分叉了;
+- 共享图层缺失是**硬失败**: `_require_shared_layers` 在画图前抛错, 提示跑
+  `python3 ~/.dsh/skills/miko-gis-data/gis_data.py download`; 不要改成静默跳过, 那会写出
+  缺底图的产物;
 - 一个进程出多张图时逐个 `render`(伏尔加的两张图), 每张都会独立建画布并在结束时关闭;
 - 回调里不要自己调 `save_map`/`figure_frame`: 那是 `render` 的职责, 两处都做会写出两份产物;
 - 需要在高程铺图**之前**预处理 z(例如按海岸线/湖泊把里海低地的负高程修正回陆地)时,

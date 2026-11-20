@@ -4,8 +4,8 @@
 
 是什么: 框架用法的最小示例--一份仓库自带的点位 GeoJSON,一个 ``Sheet``, 以及 ``main.py``
 里的一对 ``draw``/``collect`` 回调; 它走和正式图种完全相同的出图流水线(纯几何 SVG +
-同名 geo.json), 但不在图种目录体系内. Natural Earth 图层清单已拆到数据项目
-miko_gis_data, 这里只留绘图规格.
+同名 geo.json), 但不在图种目录体系内. Natural Earth 图层清单已拆到数据技能
+miko-gis-data, 这里只留绘图规格.
 完整说明(最小子项目要写什么,回调契约)见 ``docs/add-map.md`` 与
 ``docs/reference/spec.md``.
 """
@@ -19,7 +19,7 @@ from cartopy_file.spec import Extent, Graticule, Label, Projection, Sheet
 
 ROOT = Path(__file__).resolve().parent
 
-# 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
+# 数据技能 miko-gis-data 里这个区域的 manifest 键(group).
 DATA_GROUP = "america_army"
 
 # 仓库自带的点位数据(不入 data/raw, 也不下载), 见 docs/data-preparation.md.

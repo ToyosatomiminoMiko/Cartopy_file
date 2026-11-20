@@ -3,7 +3,7 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Ukraine subproject entry point: prepare derived data and render the borders map.
 
-是什么: 乌克兰子项目的唯一可执行入口. ``prepare`` 读数据仓的原始数据, 按本图口径派生出
+是什么: 乌克兰子项目的唯一可执行入口. ``prepare`` 读数据技能准备的原始数据, 按本图口径派生出
 12 份边界/河流 GeoJSON 写到 ``Ukraine/build/``; ``render`` 出图, 地图进 ``Ukraine/map/``,
 文字信息进 ``Ukraine/text/``.
 为什么只有一个入口: 全项目约定「一个子项目一个可执行文件, 其余 .py 只导出 run()」;
@@ -29,7 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "prepare",
-        help="读数据仓原始数据, 重建 Ukraine/build/ 下的 12 份派生 GeoJSON",
+        help="读数据技能准备的原始数据, 重建 Ukraine/build/ 下的 12 份派生 GeoJSON",
     )
 
     render = subparsers.add_parser("render", help="出图(地图 SVG + 同名 geo.json)")

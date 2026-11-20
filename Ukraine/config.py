@@ -3,8 +3,8 @@
 """Ukraine subproject: the render spec of the Ukraine overview map.
 
 是什么: 乌克兰全图的规格(画框,投影,双色带,经纬网,图例,文案), 以及 ``prepare`` 生成的
-12 份派生数据在本子项目 ``build/`` 下的位置. 原始数据清单与下载范围在数据项目
-miko_gis_data; 清洗/裁剪口径在本子项目的 prepare.py.
+12 份派生数据在本子项目 ``build/`` 下的位置. 原始数据清单与下载范围在数据技能
+miko-gis-data; 清洗/裁剪口径在本子项目的 prepare.py.
 完整说明见 ``docs/reference/spec.md``; 设计取舍(边界口径,河流补段,色带)见
 ``docs/maps/ukraine.md``.
 """
@@ -27,7 +27,7 @@ from cartopy_file.spec import (
 
 ROOT = Path(__file__).resolve().parent
 
-# 数据项目 miko_gis_data 里这个区域的 manifest 键(group).
+# 数据技能 miko-gis-data 里这个区域的 manifest 键(group).
 DATA_GROUP = "ukraine"
 
 # ============================

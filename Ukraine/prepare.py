@@ -3,11 +3,11 @@
 # (copyright) Kawaii Femboy Technology Co., Ltd.
 """Build the derived GeoJSON layers for the Ukraine overview map.
 
-是什么: 读数据仓的原始数据(GADM 乌克兰一级行政区, OCHA GCA/NGCA 压缩包, Natural Earth
+是什么: 读数据技能准备的原始数据(GADM 乌克兰一级行政区, OCHA GCA/NGCA 压缩包, Natural Earth
 10m 河网/湖泊, 6 份 OSM Overpass 快照), 按本图口径派生出 1991/2014/2022 边界, 德左参照面,
 河流/水库等 12 份 GeoJSON 到 ``Ukraine/build/``, 供渲染模块离线读取; 每次运行全量重建.
 本文件是模块, 只导出 ``run()``; 命令行入口是 ``python Ukraine/main.py prepare``.
-为什么放在渲染仓: 法理口径,裁剪边缘,简化阈值都是图种需求; 数据仓只提供原始数据
+为什么放在渲染仓: 法理口径,裁剪边缘,简化阈值都是图种需求; 数据技能只提供原始数据
 (分工见 ``docs/data-preparation.md`` 与 ``docs/reference/prepare.md``).
 完整说明(数据源选择,输出文件,运行方式)见 ``docs/maps/ukraine.md``;
 几何工具口径见 ``docs/reference/geometry.md``.
@@ -44,13 +44,13 @@ from cartopy_file.geometry import (
 )
 
 # ============================
-# 1. 路径与数据来源(原始数据仍由数据仓 manifest 定位)
+# 1. 路径与数据来源(原始数据仍由数据技能的 manifest 定位)
 # ============================
 CATALOG = catalog_for(config.DATA_GROUP)
 
-# 原始数据(raw/, 由数据仓 download 准备).
+# 原始数据(raw/, 由数据技能 download 准备).
 GADM_JSON = CATALOG.path("gadm41-ukr")
-# OCHA 解压目录(数据仓 download 解压, dest 是目录).
+# OCHA 解压目录(数据技能 download 解压, dest 是目录).
 OCHA_DIR = CATALOG.path("ocha-gca-ngca")
 DNIEPER_RIVER_CACHE = CATALOG.path("osm-dnieper-river")
 DNIEPER_WATER_CACHE = CATALOG.path("osm-dnieper-reservoirs")
@@ -72,7 +72,7 @@ DNIESTER_RIVER_PATH = config.DNIESTER_RIVER_GEOJSON
 # ---- 绘图所需参数 ----
 # 第聂伯河梯级水库(从上游到下游): OSM 里都是 natural=water 的 multipolygon relation.
 # 只取 outer 成员: 水库里的岛屿(inner)在 1:330 万图上不足 1 px.
-# 注意: 这组 id 也出现在数据仓的下载查询里, 改图时两边一起改.
+# 注意: 这组 id 也出现在数据技能的下载查询里, 改图时两边一起改.
 DNIEPER_RESERVOIRS: dict[int, str] = {
     1605938: "Київське водосховище",       # 基辅水库
     3173129: "Канівське водосховище",       # 卡尼夫水库
@@ -100,7 +100,7 @@ DNIESTER_BRIDGE_DEG = 0.02
 TRANSNISTRIA_MIN_AREA_KM2 = 2.0
 
 # ---- 南布格河/顿河: NE 10m 在河口前收笔, 用 OSM 补下游段 ----
-# cache 是数据仓的 OSM 原始响应数据集 id; name_zh/输出文件名只在本图用.
+# cache 是数据技能的 OSM 原始响应数据集 id; name_zh/输出文件名只在本图用.
 RIVER_EXTENSIONS: tuple[dict, ...] = (
     {
         "key": "southern_bug",
@@ -191,7 +191,7 @@ def _read_ne_layer(dataset_id: str):
 def _single_relation(payload: dict) -> dict:
     """从一份专用 Overpass 快照里取唯一的关系.
 
-    为什么不再按 id 找: 数据仓现在每个数据集对应一次查询,一份原始响应, 文件里只有
+    为什么不再按 id 找: 数据技能现在每个数据集对应一次查询,一份原始响应, 文件里只有
     该查询返回的关系; 若文件里没有或有多个, 说明缓存来源不对, 直接报错.
     """
     relations = [
@@ -756,8 +756,8 @@ def load_ne_rivers() -> gpd.GeoDataFrame:
     rivers = _read_ne_layer("ne-rivers-10m")
     if rivers is None:
         raise RuntimeError(
-            "缺少 Natural Earth 10m 河网缓存, 请到数据项目 miko_gis_data 运行: "
-            "python main.py download --group ukraine"
+            "缺少 Natural Earth 10m 河网缓存, 请先运行: "
+            "python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group ukraine"
         )
     return rivers
 
@@ -937,8 +937,8 @@ def check_raw_inputs() -> bool:
         return True
     for dataset_id in missing:
         print(f"  缺失: {dataset_id}")
-    print("\n原始数据不全, 请先到数据项目 miko_gis_data 运行(已存在的会自动跳过):")
-    print("  python main.py download --group ukraine")
+    print("\n原始数据不全, 请先运行(已存在的会自动跳过):")
+    print("  python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group ukraine")
     return False
 
 
@@ -980,7 +980,7 @@ def run() -> int:
         return 1
     OBLASTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     print("\n" + "=" * 60)
-    print("派生乌克兰图种数据(每次运行都全量重建; 原始数据来自数据仓 miko_gis_data)")
+    print("派生乌克兰图种数据(每次运行都全量重建; 原始数据来自数据技能 miko-gis-data)")
     print("=" * 60)
 
     print("\n加工行政区与 1991 年边界")

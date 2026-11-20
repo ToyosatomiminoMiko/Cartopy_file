@@ -1,37 +1,34 @@
 # 新增图种或共享模块
 
-照着这个清单做, 新图种就能接进数据清单,文档和出图约定. 工作分三段: **数据项目
-`miko_gis_data`** 下载/入库/解压原始数据并发布清单, **本仓 `prepare.py`** 按图种口径清洗/
-派生到 `<子项目>/build/`, **本仓绘图模块**只读本地文件出图; 两仓只靠 `manifest.json` 耦合
+照着这个清单做, 新图种就能接进数据清单,文档和出图约定. 工作分三段: **数据技能
+`miko-gis-data`** 下载/入库/解压原始数据并发布清单, **本仓 `prepare.py`** 按图种口径清洗/
+派生到 `<子项目>/build/`, **本仓绘图模块**只读本地文件出图; 两边只靠 `manifest.json` 耦合
 (契约见 [reference/manifest.md](reference/manifest.md)). 想看最小可运行例子, 读
 [`AmericaArmy/`](../AmericaArmy): `config.py`(`DATA_GROUP` + 规格) + `main.py`(唯一入口) +
 `america_army.py`(draw 回调), 数据只有共享 Natural Earth 图层, 没有派生步骤.
 
 ## 新增图种
 
-### 1. 数据项目: 声明数据集并发布清单
+### 1. 数据技能: 声明数据集并发布清单
 
-先在数据项目里把这个区域的**原始数据**准备好(不产生派生数据):
+先在技能 `gis_data.py` 里把这个区域的**原始数据**准备好(不产生派生数据):
 
-- 新建 `src/miko_gis_data/regions/<region>/config.py`, 导出
-  `DATASETS = dataset_set("<显示名>", ROOT, [...])`. 每条 `Dataset` 声明来源(`source_id`),
-  下载地址,本地路径(`dest`, 相对 `<数据根>/<region>/`),就位 glob(`files`),覆盖范围(`bbox`),
-  采样步长与版本;
-- 下载脚本放同一目录, 命名 `download_*.py`: 只写 `raw/`(下载/解压/入库, 不加工), 只导出
-  `run()`, 由数据项目入口的 `download` 子命令调用. 数据项目没有 `prepare` 子命令, 也不写
-  `derived` 数据集;
-- 需要新数据源时先在 `src/miko_gis_data/sources.py` 登记 URL 模板,版本,许可与进图署名, 再在
-  `Dataset.source_id` 里引用; 同时更新数据项目的 `docs/data-preparation.md` 与本仓
+- 在 `REGIONS` 里加一个区域项: 区域名(即 manifest 的 group 键, 也是渲染侧 `DATA_GROUP` 的
+  取值), 以及该区域的数据集清单. 每条数据集声明来源(`source_id`), 下载地址, 本地路径
+  (`dest`, 相对 `<数据根>/<region>/`), 就位 glob(`files`), 覆盖范围(`bbox`), 采样步长与版本;
+- 下载/解压逻辑也写在 `gis_data.py` 里, 由 `download` 子命令按 `REGIONS` 分派; 技能里没有
+  per-region 的 `config.py`/`download_*.py`, 也没有 `prepare` 子命令或 `derived` 数据集;
+- 需要新数据源时先在 `SOURCES` 里登记 URL 模板,版本,许可与进图署名, 再在数据集的
+  `source_id` 里引用; 同时更新技能的 `SKILL.md` 与本仓
   [data-preparation.md](data-preparation.md) 的"数据源与许可"表;
-- 区域名(目录名)就是 manifest 的 group 键, 也是渲染侧 `DATA_GROUP` 的取值;
 - 注意 `bbox` 要盖住投影后的画框四角(理由见 [data-preparation.md](data-preparation.md) 的
   ETOPO 一节), 出图时 `runner` 会核对;
-- 最后在数据项目根目录跑:
+- 最后跑:
 
 ```bash
-python main.py download --group <region>   # 原始数据进 <数据根>/<region>/raw/
-python main.py publish                     # 写 <数据根>/manifest.json
-python main.py check --group <region>      # 应全部"已存在"
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py download --group <region>   # 原始数据进 <数据根>/<region>/raw/
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py publish                     # 写 <数据根>/manifest.json
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py check --group <region>      # 应全部"已存在"
 ```
 
 ### 2. 渲染侧: 建目录与 `config.py`
@@ -47,7 +44,7 @@ from pathlib import Path
 from cartopy_file.spec import Extent, Graticule, Projection, Relief, Sheet, build_path
 
 ROOT = Path(__file__).resolve().parent
-# 数据项目里这个区域的 manifest 键(group).
+# 数据技能里这个区域的 manifest 键(group).
 DATA_GROUP = "myanmar"
 
 # 派生数据: 本仓 prepare.py 生成, 不属于数据根(见 docs/reference/prepare.md).
@@ -69,13 +66,13 @@ SHEET = Sheet(
 SHEETS = (SHEET,)
 ```
 
-- `DATA_GROUP` 必须与数据项目 `regions/<region>/` 的目录名一致, 否则 `catalog_for()` 报
+- `DATA_GROUP` 必须与技能 `REGIONS` 里的区域名一致, 否则 `catalog_for()` 报
   "manifest 里没有区域";
-- `dataset_ids` 写数据项目里登记过的**原始**数据集 id, 顺序就是产物「数据来源」里署名的顺序;
+- `dataset_ids` 写数据技能里登记过的**原始**数据集 id, 顺序就是产物「数据来源」里署名的顺序;
   派生文件不在清单里, 不进 `dataset_ids`;
 - 派生路径用 `spec.build_path(ROOT, "<文件名>")` 声明, 产物固定在本子项目 `build/` 下;
 - `dem_id` 指向其中的高程数据集, `runner` 用它核对面画框覆盖并读高程; 不铺高程的图留空;
-- 数据集从哪里下,什么版本,放哪,都由数据项目声明; 本仓 `config.py` 只写本子项目的规格与
+- 数据集从哪里下,什么版本,放哪,都由数据技能声明; 本仓 `config.py` 只写本子项目的规格与
   `DATA_GROUP`, 不重复数据集清单;
 - 产物目录约定: 地图写到 `<Name>/map/<stem>.svg`, 文字信息写到 `<Name>/text/<stem>.geo.json`,
   同一张图两个文件 stem 相同; `Sheet.out` 只写地图文件名, 不要带 `map/`, 目录由
@@ -110,7 +107,7 @@ if __name__ == "__main__":
 ```
 
 - 只读数据清单指向的 `raw/` 与共享 Natural Earth 图层, **不联网**; 缺数据时 `FileNotFoundError`
-  并给出数据项目 `download --group <region>` 命令;
+  并给出数据技能 `download --group <region>` 命令;
 - 只写 `<Name>/build/`, 不写数据根, 不手写数据来源;
 - 几何修复/拆面线/删小孔/写确定性 GeoJSON/量面积长度用
   [reference/geometry.md](reference/geometry.md), 不要各写一份;
@@ -129,7 +126,7 @@ import sys
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python Name/main.py")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("prepare", help="读数据仓原始数据, 重建 <Name>/build/ 下的派生 GeoJSON")
+    sub.add_parser("prepare", help="读数据根原始数据, 重建 <Name>/build/ 下的派生 GeoJSON")
     render = sub.add_parser("render", help="出图(地图 SVG + 同名 geo.json)")
     render.add_argument("--stride", type=int, default=None)
     render.add_argument("--dpi", type=int, default=None)
@@ -148,7 +145,7 @@ if __name__ == "__main__":
     raise SystemExit(run())
 ```
 
-- 没有 `download` / `all`: 下载/解压在数据项目, 本仓入口只做 `prepare` 与 `render`;
+- 没有 `download` / `all`: 下载/解压在数据技能, 本仓入口只做 `prepare` 与 `render`;
 - 所有选项在入口里定义, 模块只收关键字参数, 不自己解析命令行;
 - 入口 docstring 加 `完整说明: docs/...` 指针(`check_docs.py` 会校验每个 `.py` 都有文档指针).
 
@@ -208,19 +205,19 @@ if __name__ == "__main__":
 - 新建 `docs/maps/<slug>.md`, 按 [conventions.md](conventions.md) 的模板写, 元信息三行
   (`源码` / `入口` / `产物`)必填;
 - "数据"一节写**数据根相对**路径(`<数据根>/<region>/raw/...`, 共享图层写
-  `<数据根>/cartopy/...`)与派生文件(`<子项目>/build/...`), 准备方式写数据项目的
+  `<数据根>/cartopy/...`)与派生文件(`<子项目>/build/...`), 准备方式写数据技能的
   `download` 命令与本仓的 `prepare` 命令;
 - 在 [index.md](index.md) 的图种表加一行(入口列写出图命令);
 - 用到新数据源时更新 [data-preparation.md](data-preparation.md) 的"数据源与许可"表, 并同步
-  数据项目的对应文档;
+  技能的 `SKILL.md`;
 - 入口,`prepare.py` 与绘图模块 docstring 的 `完整说明:` 指向新页面(或
   [reference/prepare.md](reference/prepare.md)).
 
 ### 7. 自检
 
 ```bash
-(cd ../miko_gis_data && python main.py check --group <region>)      # 原始数据齐全/版本相符
-(cd ../miko_gis_data && python main.py publish --check)             # 清单与配置一致
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py check --group <region>      # 原始数据齐全/版本相符
+python3 ~/.dsh/skills/miko-gis-data/gis_data.py publish --check             # 清单与配置一致
 python <Name>/main.py prepare              # 有派生数据时: 生成 <Name>/build/
 python <Name>/main.py render               # 出图
 python <Name>/main.py render               # 再跑一次, 产物应字节级不变
@@ -248,6 +245,6 @@ uv run python tools/check_all.py           # 收尾: 上面两项 + 全仓语法
 
 ## 一次性脚本
 
-- 临时/一次性脚本不要建文档页, 也不要让数据项目把它声明成必需数据集(除非产物确实要长期保留);
+- 临时/一次性脚本不要建文档页, 也不要让数据技能把它声明成必需数据集(除非产物确实要长期保留);
 - 在脚本 docstring 里指向所属图种页, 在对应图种页或 [data-preparation.md](data-preparation.md)
   里用一段说明它的用途和是否还需要.
